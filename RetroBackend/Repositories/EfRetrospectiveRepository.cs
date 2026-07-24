@@ -37,18 +37,17 @@ public class EfRetrospectiveRepository : IRetrospectiveRepository
 
     public async Task<Retrospective?> UpdateAsync(Retrospective retrospective)
     {
+        var exists = await _context.Retrospectives.AnyAsync(r => r.Id == retrospective.Id);
+        if (!exists) return null;
 
-        // Explicitly track any columns that EF Core hasn't picked up via snapshot
-        // comparison (e.g. columns added in-memory after the entity was loaded).
         foreach (var column in retrospective.Columns)
         {
             var colExists = await _context.Columns.AnyAsync(c => c.Id == column.Id);
             if (!colExists)
                 _context.Columns.Add(column);
+            else
+                _context.Entry(column).State = EntityState.Modified;
         }
-
-        var exists = await _context.Retrospectives.AnyAsync(r => r.Id == retrospective.Id);
-        if (!exists) return null;
 
         await _context.SaveChangesAsync();
         return retrospective;

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useDroppable } from '@dnd-kit/core';
@@ -46,6 +46,11 @@ export function ColumnView({
     const [editingTitle, setEditingTitle] = useState(false);
     const [titleValue, setTitleValue] = useState(column.title);
     const [mergingFromId, setMergingFromId] = useState<string | null>(null);
+    const [localHeaderColor, setLocalHeaderColor] = useState(column.headerColor ?? '#4f46e5');
+
+    useEffect(() => {
+        setLocalHeaderColor(column.headerColor ?? '#4f46e5');
+    }, [column.headerColor]);
 
     // Column-level sortable (for column reordering)
     const {
@@ -141,7 +146,7 @@ export function ColumnView({
             {/* Column header */}
             <div
                 className="text-white rounded-t-lg px-2 py-2 flex items-center gap-1"
-                style={{ backgroundColor: column.headerColor ?? '#4f46e5' }}
+                style={{ backgroundColor: localHeaderColor }}
             >
                 {canManage && (
                     <div
@@ -197,8 +202,13 @@ export function ColumnView({
                         <input
                             type="color"
                             className="sr-only"
-                            value={column.headerColor ?? '#4f46e5'}
-                            onChange={(e) => onColorChange(e.target.value)}
+                            value={localHeaderColor}
+                            onChange={(e) => setLocalHeaderColor(e.target.value)}
+                            onBlur={(e) => {
+                                if (e.target.value !== (column.headerColor ?? '#4f46e5')) {
+                                    onColorChange(e.target.value);
+                                }
+                            }}
                         />
                     </label>
                 )}
