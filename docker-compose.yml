@@ -1,0 +1,56 @@
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: retrodb
+      POSTGRES_USER: retro
+      POSTGRES_PASSWORD: retro_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U retro -d retrodb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Backend (.NET) ──────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./RetroBackend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "5145:8080"   # exposes backend directly for dev/Swagger access
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=retrodb;Username=retro;Password=retro_password"
+      Jwt__Key: "CHANGE_THIS_SECRET_KEY_MIN_32_CHARS_LONG_!!"
+      Jwt__Issuer: RetroBackend
+      Jwt__Audience: RetroBackendClients
+      DefaultAdmin__Email: "admin@example.com"
+      DefaultAdmin__Password: "Admin123!"
+      # frontend container is on port 3000 – allow it as CORS origin
+      Cors__AllowedOrigins__0: "http://localhost:3000"
+      Cors__AllowedOrigins__1: "http://localhost:5173"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Frontend (nginx) ────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./RetroFrontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

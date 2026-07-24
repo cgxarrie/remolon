@@ -1,0 +1,135 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using RetroBackend.Dtos;
+using RetroBackend.Auth;
+using RetroBackend.Models;
+
+namespace RetroBackend.Controllers;
+
+[ApiController]
+[Route("api/auth")]
+[Produces("application/json")]
+public class AuthController : ControllerBase
+{
+    private readonly UserManager<AppUser> _userManager;
+    private readonly IConfiguration _configuration;
+
+    public AuthController(UserManager<AppUser> userManager, IConfiguration configuration)
+    {
+        _userManager = userManager;
+        _configuration = configuration;
+    }
+
+    /// <summary>Registers a new standard user.</summary>
+    /// <param name="request">Email and password for the new account.</param>
+    /// <returns>A JWT token for the newly created user.</returns>
+    [HttpPost("register")]
+    [ProducesResponseType(typeof(AuthTokenResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+    {
+        var nickname = !string.IsNullOrWhiteSpace(request.Nickname)
+            ? request.Nickname.Trim()
+            : request.Email.Split('@')[0];
+
+        var user = new AppUser(request.Email, nickname);
+        var result = await _userManager.CreateAsync(user, request.Password);
+        if (!result.Succeeded)
+            return BadRequest(result.Errors);
+
+        await _userManager.AddToRoleAsync(user, Roles.StandardUser);
+
+        var token = await GenerateJwtAsync(user);
+        return Ok(new AuthTokenResponse(token, user.Email!, Roles.StandardUser, user.Nickname));
+    }
+
+    /// <summary>Authenticates a user and returns a JWT token.</summary>
+    /// <param name="request">Email and password credentials.</param>
+    /// <returns>A JWT token with the user's role.</returns>
+    [HttpPost("login")]
+    [ProducesResponseType(typeof(AuthTokenResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> Login([FromBody] LoginRequest request)
+    {
+        var user = await _userManager.FindByEmailAsync(request.Email);
+        if (user is null || !await _userManager.CheckPasswordAsync(user, request.Password))
+            return Unauthorized(new { message = "Invalid credentials." });
+
+        var roles = await _userManager.GetRolesAsync(user);
+        var role = roles.FirstOrDefault() ?? Roles.StandardUser;
+        var token = await GenerateJwtAsync(user);
+        return Ok(new AuthTokenResponse(token, user.Email!, role, user.Nickname));
+    }
+
+    /// <summary>Registers a new super user. Requires an existing super user.</summary>
+    /// <param name="request">Email and password for the new super user account.</param>
+    /// <returns>Confirmation of the created super user.</returns>
+    [HttpPost("register-superuser")]
+    [Authorize(Roles = Roles.Admin)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> RegisterSuperUser([FromBody] RegisterRequest request)
+    {
+        var user = new AppUser(request.Email, request.Nickname);
+        var result = await _userManager.CreateAsync(user, request.Password);
+        if (!result.Succeeded)
+            return BadRequest(result.Errors);
+
+        await _userManager.AddToRoleAsync(user, Roles.Admin);
+        return Ok(new { message = $"SuperUser '{user.Email}' created." });
+    }
+
+    /// <summary>Registers a new manager. Requires an existing admin.</summary>
+    /// <param name="request">Email and password for the new manager account.</param>
+    /// <returns>Confirmation of the created manager.</returns>
+    [HttpPost("register-manager")]
+    [Authorize(Roles = Roles.Admin)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> RegisterManager([FromBody] RegisterRequest request)
+    {
+        var user = new AppUser(request.Email, request.Nickname);
+        var result = await _userManager.CreateAsync(user, request.Password);
+        if (!result.Succeeded)
+            return BadRequest(result.Errors);
+
+        await _userManager.AddToRoleAsync(user, Roles.Manager);
+        return Ok(new { message = $"Manager '{user.Email}' created." });
+    }
+
+    private async Task<string> GenerateJwtAsync(AppUser user)
+    {
+        var roles = await _userManager.GetRolesAsync(user);
+
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, user.Id),
+            new(ClaimTypes.Email, user.Email!),
+            new(ClaimTypes.GivenName, user.Nickname),
+            new(JwtRegisteredClaimNames.Sub, user.Id),
+            new(JwtRegisteredClaimNames.Email, user.Email!),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+        };
+
+        foreach (var role in roles)
+            claims.Add(new Claim(ClaimTypes.Role, role));
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var token = new JwtSecurityToken(
+            issuer: _configuration["Jwt:Issuer"],
+            audience: _configuration["Jwt:Audience"],
+            claims: claims,
+            expires: DateTime.UtcNow.AddHours(8),
+            signingCredentials: creds
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+}

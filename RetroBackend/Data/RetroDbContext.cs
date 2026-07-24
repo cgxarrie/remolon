@@ -1,0 +1,112 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using RetroBackend.Models;
+
+namespace RetroBackend.Data;
+
+public class RetroDbContext : IdentityDbContext<AppUser>
+{
+      public RetroDbContext(DbContextOptions<RetroDbContext> options) : base(options) { }
+
+      public DbSet<Retrospective> Retrospectives => Set<Retrospective>();
+      public DbSet<Item> Items => Set<Item>();
+      public DbSet<Column> Columns => Set<Column>();
+      public DbSet<UserRetrospective> UserRetrospectives => Set<UserRetrospective>();
+
+      protected override void OnModelCreating(ModelBuilder modelBuilder)
+      {
+            base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<Item>(entity =>
+            {
+                  entity.HasKey(i => i.Id);
+                  entity.Property(i => i.Description)
+                    .HasField("_description")
+                    .UsePropertyAccessMode(PropertyAccessMode.Field);
+                  entity.Property(i => i.Position)
+                    .HasField("_position")
+                    .UsePropertyAccessMode(PropertyAccessMode.Field);
+                  entity.Property(i => i.GroupId)
+                    .HasField("_groupId")
+                    .UsePropertyAccessMode(PropertyAccessMode.Field);
+                  entity.Property(i => i.CreatedByNickname)
+                    .HasField("_createdByNickname")
+                    .UsePropertyAccessMode(PropertyAccessMode.Field);
+                  entity.HasDiscriminator<string>("ItemType")
+                    .HasValue<Item>("Item")
+                    .HasValue<ActionItem>("ActionItem");
+            });
+
+            modelBuilder.Entity<ActionItem>(entity =>
+            {
+                  entity.Property(a => a.IsCompleted)
+                    .HasField("_isCompleted")
+                    .UsePropertyAccessMode(PropertyAccessMode.Field);
+                  entity.Property(a => a.Assignee)
+                    .HasField("_asseignee")
+                    .UsePropertyAccessMode(PropertyAccessMode.Field);
+                  entity.Property(a => a.Iterations)
+                    .HasField("_iterations")
+                    .UsePropertyAccessMode(PropertyAccessMode.Field);
+                  entity.Property(a => a.ClosedBy)
+                    .HasField("_closedBy")
+                    .UsePropertyAccessMode(PropertyAccessMode.Field);
+                  entity.Property(a => a.ClosedAt)
+                    .HasField("_closedAt")
+                    .UsePropertyAccessMode(PropertyAccessMode.Field);
+            });
+
+            modelBuilder.Entity<Retrospective>(entity =>
+            {
+                  entity.HasKey(r => r.Id);
+                  entity.Property(r => r.Title)
+                    .HasField("_title")
+                    .UsePropertyAccessMode(PropertyAccessMode.Field);
+                  entity.Property(r => r.IsClosed)
+                    .HasField("_isClosed")
+                    .UsePropertyAccessMode(PropertyAccessMode.Field);
+                  entity.Property(r => r.RetrospectiveDate)
+                    .HasField("_retrospectiveDate")
+                    .UsePropertyAccessMode(PropertyAccessMode.Field);
+                  entity.HasMany(r => r.Columns)
+                    .WithOne()
+                    .HasForeignKey(c => c.RetrospectiveId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<Column>(entity =>
+            {
+                  entity.HasKey(c => c.Id);
+                  entity.Property(c => c.Title)
+                    .HasField("_title")
+                    .UsePropertyAccessMode(PropertyAccessMode.Field);
+                  entity.Property(c => c.Position)
+                    .HasField("_position")
+                    .UsePropertyAccessMode(PropertyAccessMode.Field);
+                  entity.Property(c => c.HeaderColor)
+                    .HasField("_headerColor")
+                    .UsePropertyAccessMode(PropertyAccessMode.Field);
+                  entity.Ignore(c => c.IsEditable);
+                  entity.HasDiscriminator<string>("ColumnType")
+                    .HasValue<ActionColumn>("Action")
+                    .HasValue<Column>("Column");
+                  entity.HasMany(c => c.Items)
+                    .WithOne()
+                    .HasForeignKey(i => i.ColumnId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<UserRetrospective>(entity =>
+            {
+                  entity.HasKey(ur => new { ur.UserId, ur.RetrospectiveId });
+                  entity.HasOne(ur => ur.User)
+                    .WithMany()
+                    .HasForeignKey(ur => ur.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                  entity.HasOne(ur => ur.Retrospective)
+                    .WithMany()
+                    .HasForeignKey(ur => ur.RetrospectiveId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+      }
+}

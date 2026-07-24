@@ -1,0 +1,86 @@
+# ───────────────────────────────────────────
+# .NET / C#
+# ───────────────────────────────────────────
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+*.swp
+*.DS_Store
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Test results
+TestResults/
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+*.coveragexml
+coverage*/
+
+# Publish output
+publish/
+PublishProfiles/
+
+# Rider / JetBrains
+.idea/
+*.sln.iml
+
+# ───────────────────────────────────────────
+# Frontend (Node / Vite / React)
+# ───────────────────────────────────────────
+node_modules/
+dist/
+dist-ssr/
+*.local
+.env
+.env.*
+!.env.example
+
+# Vite cache
+.vite/
+.cache/
+
+# TypeScript
+*.tsbuildinfo
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Misc
+.parcel-cache/
+.next/
+.nuxt/
+.svelte-kit/
+.turbo/
+
+# Docker
+.docker/

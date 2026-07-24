@@ -1,0 +1,115 @@
+using RetroBackend.Models;
+using RetroBackend.Repositories;
+
+namespace RetroBackend.Services;
+
+public class ItemService : IItemService
+{
+    private readonly IItemRepository _repository;
+
+    public ItemService(IItemRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public Task<Item> CreateItemAsync(CreateItemRequest request)
+    {
+        var item = new Item(request.CreatedBy, request.CreatedByNickname, request.ColumnId, request.Description, request.Position);
+        return _repository.AddAsync(item);
+    }
+
+    public Task<IEnumerable<Item>> GetItemsByColumnAsync(Guid columnId) =>
+        _repository.GetByColumnAsync(columnId);
+
+    public async Task<Item?> UpdateItemAsync(Guid id, UpdateItemRequest request)
+    {
+        var item = await _repository.GetByIdAsync(id);
+        if (item is null || item is ActionItem) return null;
+
+        if (request.Description is not null)
+            item.Description = request.Description;
+
+        if (request.Position is not null)
+            item.Position = request.Position.Value;
+
+        return await _repository.UpdateAsync(item);
+    }
+
+    public async Task<ActionItem> CreateActionItemAsync(CreateActionItemRequest request)
+    {
+        var item = new ActionItem(request.CreatedBy, request.CreatedByNickname, request.Assignee, request.ColumnId, request.Description, request.Position);
+        return (ActionItem)await _repository.AddAsync(item);
+    }
+
+    public Task<IEnumerable<ActionItem>> GetActionItemsByColumnAsync(Guid columnId) =>
+        _repository.GetActionItemsByColumnAsync(columnId);
+
+    public async Task<ActionItem?> UpdateActionItemAsync(Guid id, UpdateActionItemRequest request)
+    {
+        var item = await _repository.GetByIdAsync(id);
+        if (item is not ActionItem actionItem) return null;
+
+        if (request.Description is not null)
+            actionItem.Description = request.Description;
+
+        if (request.Position is not null)
+            actionItem.Position = request.Position.Value;
+
+        if (request.Assignee is not null)
+            actionItem.Assign(request.Assignee);
+
+        if (request.IsCompleted is true)
+            actionItem.Complete(string.Empty);
+
+        await _repository.UpdateAsync(actionItem);
+        return actionItem;
+    }
+
+    public async Task<ActionItem?> CloseActionItemAsync(Guid id, string closedBy)
+    {
+        var item = await _repository.GetByIdAsync(id);
+        if (item is not ActionItem actionItem) return null;
+
+        actionItem.Complete(closedBy);
+        return await _repository.UpdateAsync(actionItem) as ActionItem;
+    }
+
+    public async Task<IEnumerable<Item>?> MergeItemsAsync(Guid itemId, Guid targetItemId)
+    {
+        var item = await _repository.GetByIdAsync(itemId);
+        var target = await _repository.GetByIdAsync(targetItemId);
+        if (item is null || target is null) return null;
+
+        // Determine the shared group ID
+        var groupId = item.GroupId ?? target.GroupId ?? Guid.NewGuid();
+
+        // If both already belong to different groups, collect all items from the source group
+        IEnumerable<Item> sourceGroup = item.GroupId.HasValue && item.GroupId != groupId
+            ? await _repository.GetByGroupIdAsync(item.GroupId.Value)
+            : [item];
+
+        IEnumerable<Item> targetGroup = target.GroupId.HasValue && target.GroupId != groupId
+            ? await _repository.GetByGroupIdAsync(target.GroupId.Value)
+            : [target];
+
+        var toUpdate = sourceGroup.Concat(targetGroup)
+            .Where(i => i.GroupId != groupId)
+            .ToList();
+
+        toUpdate.ForEach(i => i.JoinGroup(groupId));
+        await _repository.UpdateRangeAsync(toUpdate);
+
+        return await _repository.GetByGroupIdAsync(groupId);
+    }
+
+    public async Task<Item?> UnlinkFromGroupAsync(Guid itemId)
+    {
+        var item = await _repository.GetByIdAsync(itemId);
+        if (item is null) return null;
+
+        item.LeaveGroup();
+        return await _repository.UpdateAsync(item);
+    }
+
+    public Task<bool> DeleteAsync(Guid id) => _repository.DeleteAsync(id);
+}
