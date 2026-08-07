@@ -13,7 +13,7 @@ namespace RetroBackend.Controllers;
 
 [ApiController]
 [Route("api/user-assignments")]
-[Authorize(Roles = Roles.Admin + "," + Roles.Manager)]
+[Authorize]
 [Produces("application/json")]
 public class UserAssignmentsController : ControllerBase
 {
@@ -32,6 +32,7 @@ public class UserAssignmentsController : ControllerBase
     /// <param name="request">The user email and retrospective ID.</param>
     /// <returns>Confirmation message.</returns>
     [HttpPost]
+    [Authorize(Roles = Roles.Admin + "," + Roles.Manager)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -77,6 +78,7 @@ public class UserAssignmentsController : ControllerBase
     /// <param name="request">The user email and retrospective ID.</param>
     /// <returns>No content if removed.</returns>
     [HttpDelete]
+    [Authorize(Roles = Roles.Admin + "," + Roles.Manager)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -120,5 +122,49 @@ public class UserAssignmentsController : ControllerBase
             .ToListAsync();
 
         return Ok(assignments);
+    }
+
+    /// <summary>Lists users assigned to a specific retrospective.</summary>
+    /// <param name="retrospectiveId">The retrospective's unique identifier.</param>
+    /// <returns>List of assigned participants.</returns>
+    [HttpGet("retrospective/{retrospectiveId:guid}/participants")]
+    [ProducesResponseType(typeof(IEnumerable<UserSummaryDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetRetrospectiveParticipants(Guid retrospectiveId)
+    {
+        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var isAdmin = User.IsInRole(Roles.Admin);
+
+        if (!isAdmin)
+        {
+            var isOwner = await _authzService.IsRetrospectiveOwnerAsync(currentUserId, retrospectiveId);
+            var isAssigned = await _context.UserRetrospectives
+                .AnyAsync(ur => ur.UserId == currentUserId && ur.RetrospectiveId == retrospectiveId);
+
+            if (!isOwner && !isAssigned)
+                return Forbid();
+        }
+
+        var users = await _context.UserRetrospectives
+            .Where(ur => ur.RetrospectiveId == retrospectiveId)
+            .Select(ur => ur.User)
+            .Distinct()
+            .ToListAsync();
+
+        var result = new List<UserSummaryDto>(users.Count);
+
+        foreach (var user in users)
+        {
+            var roles = await _userManager.GetRolesAsync(user);
+            var role = roles.FirstOrDefault() ?? Roles.StandardUser;
+            result.Add(new UserSummaryDto(
+                user.Id,
+                user.Email ?? string.Empty,
+                user.Nickname,
+                role
+            ));
+        }
+
+        return Ok(result.OrderBy(u => u.Nickname));
     }
 }

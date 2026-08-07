@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { assignmentsApi } from '../api/assignments';
 
 interface Props {
@@ -8,6 +8,7 @@ interface Props {
 }
 
 export function AssignUserModal({ retroId, onClose }: Props) {
+    const queryClient = useQueryClient();
     const [email, setEmail] = useState('');
     const [message, setMessage] = useState('');
 
@@ -16,6 +17,7 @@ export function AssignUserModal({ retroId, onClose }: Props) {
         onSuccess: () => {
             setMessage(`User ${email} assigned successfully.`);
             setEmail('');
+            queryClient.invalidateQueries({ queryKey: ['retrospectiveParticipants', retroId] });
         },
         onError: (err: unknown) => {
             const axiosError = err as { response?: { data?: { message?: string } } };
@@ -28,6 +30,7 @@ export function AssignUserModal({ retroId, onClose }: Props) {
         onSuccess: () => {
             setMessage(`User ${email} removed.`);
             setEmail('');
+            queryClient.invalidateQueries({ queryKey: ['retrospectiveParticipants', retroId] });
         },
         onError: (err: unknown) => {
             const axiosError = err as { response?: { data?: { message?: string } } };
