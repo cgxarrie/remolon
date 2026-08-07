@@ -27,7 +27,7 @@ Goal: protect yourself from accidental Azure charges before creating resources.
 4. Create a budget:
    - Go to Cost Management -> Budgets.
    - Click Add.
-   - Name: `retromolon-budget`.
+   - Name: `remolon-budget`.
    - Reset period: Monthly.
    - Budget amount: `1` USD.
    - Click Next.
@@ -45,7 +45,7 @@ Goal: protect yourself from accidental Azure charges before creating resources.
 
 ## Verification checklist
 
-1. You can see `retromolon-budget` in Budgets.
+1. You can see `remolon-budget` in Budgets.
 2. You can see 3 thresholds (50, 80, 100).
 3. Notification email is correctly configured.
 

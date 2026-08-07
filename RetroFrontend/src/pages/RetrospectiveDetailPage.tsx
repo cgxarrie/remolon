@@ -211,6 +211,17 @@ export function RetrospectiveDetailPage() {
         return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
     }, [assignedParticipants, userId, email, nickname]);
 
+    const assigneeOptions = useMemo(() => {
+        const uniqueNames = new Set<string>();
+
+        assignedParticipants.forEach((participant) => {
+            const name = participant.nickname?.trim() || participant.email?.trim() || '';
+            if (name) uniqueNames.add(name);
+        });
+
+        return Array.from(uniqueNames).sort((a, b) => a.localeCompare(b));
+    }, [assignedParticipants]);
+
     useEffect(() => {
         return () => {
             clearFlightTimeoutRefs.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
@@ -438,7 +449,7 @@ export function RetrospectiveDetailPage() {
                         </div>
                     )}
 
-                    <RetroBoard retro={retro} />
+                    <RetroBoard retro={retro} assigneeOptions={assigneeOptions} />
                 </section>
 
                 <aside className="order-3 xl:sticky xl:top-24">

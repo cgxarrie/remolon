@@ -102,7 +102,7 @@ export interface CreateActionItemRequest {
     columnId: string;
     description: string;
     position: number;
-    assignee: string;
+    assignee?: string;
 }
 
 export interface UpdateActionItemRequest {

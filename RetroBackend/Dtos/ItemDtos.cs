@@ -45,7 +45,6 @@ public class CreateActionItemRequest
     [Required]
     public int Position { get; set; }
 
-    [Required]
     public string Assignee { get; set; } = string.Empty;
 }
 

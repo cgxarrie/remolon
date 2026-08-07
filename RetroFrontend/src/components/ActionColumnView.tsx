@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { actionItemsApi } from '../api/actionItems';
 import { ActionItemCard } from './ActionItemCard';
@@ -9,6 +9,7 @@ interface Props {
     retroId: string;
     isClosed: boolean;
     canAddItems: boolean;
+    assigneeOptions: string[];
     currentUserId: string;
     isAdmin: boolean;
     isManager: boolean;
@@ -19,6 +20,7 @@ export function ActionColumnView({
     retroId,
     isClosed,
     canAddItems,
+    assigneeOptions,
     currentUserId,
     isAdmin,
     isManager,
@@ -27,6 +29,22 @@ export function ActionColumnView({
     const [addingItem, setAddingItem] = useState(false);
     const [description, setDescription] = useState('');
     const [assignee, setAssignee] = useState('');
+
+    const availableAssignees = useMemo(() => {
+        const unique = new Set(assigneeOptions.map((name) => name.trim()).filter(Boolean));
+        return Array.from(unique).sort((a, b) => a.localeCompare(b));
+    }, [assigneeOptions]);
+
+    useEffect(() => {
+        if (!availableAssignees.length) {
+            if (assignee !== '') setAssignee('');
+            return;
+        }
+
+        if (!assignee || !availableAssignees.includes(assignee)) {
+            setAssignee(availableAssignees[0]);
+        }
+    }, [availableAssignees, assignee]);
 
     const addItemMutation = useMutation({
         mutationFn: () =>
@@ -46,6 +64,7 @@ export function ActionColumnView({
 
     const sortedItems = [...column.items].sort((a, b) => a.position - b.position);
     const isActionItemsColumn = column.title === 'Action Items';
+    const isPendingActionItemsColumn = column.title.toLowerCase().includes('pending');
     const headerColor = column.title.toLowerCase().includes('pending')
         ? 'bg-amber-600'
         : 'bg-emerald-600';
@@ -62,6 +81,7 @@ export function ActionColumnView({
                         key={item.id}
                         item={item}
                         retroId={retroId}
+                        assigneeOptions={availableAssignees}
                         isClosed={isClosed}
                         canEdit={isAdmin || isManager || item.createdBy === currentUserId}
                         canDelete={isAdmin || isManager || item.createdBy === currentUserId}
@@ -69,7 +89,7 @@ export function ActionColumnView({
                     />
                 ))}
 
-                {!isClosed && canAddItems && (
+                {!isClosed && canAddItems && !isPendingActionItemsColumn && (
                     <>
                         {addingItem ? (
                             <div className="space-y-2">
@@ -81,17 +101,24 @@ export function ActionColumnView({
                                     placeholder="Action item description…"
                                     className="w-full text-sm border border-slate-300 rounded-md px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                                 />
-                                <input
-                                    type="text"
+                                <select
                                     value={assignee}
                                     onChange={(e) => setAssignee(e.target.value)}
-                                    placeholder="Assignee name or email"
+                                    disabled={availableAssignees.length === 0}
                                     className="w-full text-sm border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                                />
+                                >
+                                    {availableAssignees.length === 0 ? (
+                                        <option value="">No participants available</option>
+                                    ) : (
+                                        availableAssignees.map((name) => (
+                                            <option key={name} value={name}>{name}</option>
+                                        ))
+                                    )}
+                                </select>
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => addItemMutation.mutate()}
-                                        disabled={addItemMutation.isPending || !description.trim()}
+                                        disabled={addItemMutation.isPending || !description.trim() || !assignee}
                                         className="px-3 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
                                     >
                                         Add
