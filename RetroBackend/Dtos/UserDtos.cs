@@ -5,6 +5,14 @@ namespace RetroBackend.Dtos;
 
 public record UserSummaryDto(string Id, string Email, string Nickname, string Role);
 
+public record CreateUserRequest(
+    [Required, EmailAddress] string Email,
+    string? Nickname,
+    string? Role
+);
+
+public record CreateUserResponse(string Id, string Email, string Nickname, string Role, string TemporaryPassword);
+
 public record UpdateUserRoleRequest(
     [Required]
     [RegularExpression($"^({Roles.Admin}|{Roles.Manager}|{Roles.StandardUser})$",

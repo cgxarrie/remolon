@@ -14,3 +14,11 @@ public record LoginRequest(
 );
 
 public record AuthTokenResponse(string Token, string Email, string Role, string Nickname);
+
+public record InitialPasswordChangeRequest(
+    [Required, EmailAddress] string Email,
+    [Required] string CurrentPassword,
+    [Required, MinLength(8)] string NewPassword
+);
+
+public record PasswordChangeRequiredResponse(string Message, bool RequiresPasswordChange);

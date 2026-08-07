@@ -60,6 +60,53 @@ public class AuthController : ControllerBase
         if (user is null || !await _userManager.CheckPasswordAsync(user, request.Password))
             return Unauthorized(new { message = "Invalid credentials." });
 
+        var claims = await _userManager.GetClaimsAsync(user);
+        var mustChangePassword = claims.Any(c =>
+            c.Type == AuthClaims.MustChangePassword &&
+            c.Value.Equals("true", StringComparison.OrdinalIgnoreCase));
+
+        if (mustChangePassword)
+            return StatusCode(StatusCodes.Status403Forbidden,
+                new PasswordChangeRequiredResponse("Password change required before first login.", true));
+
+        var roles = await _userManager.GetRolesAsync(user);
+        var role = roles.FirstOrDefault() ?? Roles.StandardUser;
+        var token = await GenerateJwtAsync(user);
+        return Ok(new AuthTokenResponse(token, user.Email!, role, user.Nickname));
+    }
+
+    /// <summary>Changes an initial temporary password and signs in the user.</summary>
+    [HttpPost("change-initial-password")]
+    [ProducesResponseType(typeof(AuthTokenResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ChangeInitialPassword([FromBody] InitialPasswordChangeRequest request)
+    {
+        var user = await _userManager.FindByEmailAsync(request.Email);
+        if (user is null)
+            return Unauthorized(new { message = "Invalid credentials." });
+
+        var claims = await _userManager.GetClaimsAsync(user);
+        var mustChangePasswordClaims = claims
+            .Where(c => c.Type == AuthClaims.MustChangePassword)
+            .ToList();
+
+        var mustChangePassword = mustChangePasswordClaims.Any(c =>
+            c.Value.Equals("true", StringComparison.OrdinalIgnoreCase));
+
+        if (!mustChangePassword)
+            return BadRequest(new { message = "Initial password change is not required for this user." });
+
+        if (!await _userManager.CheckPasswordAsync(user, request.CurrentPassword))
+            return Unauthorized(new { message = "Invalid credentials." });
+
+        var changeResult = await _userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
+        if (!changeResult.Succeeded)
+            return BadRequest(changeResult.Errors);
+
+        if (mustChangePasswordClaims.Count > 0)
+            await _userManager.RemoveClaimsAsync(user, mustChangePasswordClaims);
+
         var roles = await _userManager.GetRolesAsync(user);
         var role = roles.FirstOrDefault() ?? Roles.StandardUser;
         var token = await GenerateJwtAsync(user);

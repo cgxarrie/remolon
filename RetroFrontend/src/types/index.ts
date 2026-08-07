@@ -17,6 +17,17 @@ export interface LoginRequest {
     password: string;
 }
 
+export interface InitialPasswordChangeRequest {
+    email: string;
+    currentPassword: string;
+    newPassword: string;
+}
+
+export interface PasswordChangeRequiredResponse {
+    message: string;
+    requiresPasswordChange: boolean;
+}
+
 // Retrospectives
 export interface GetRetrospectiveSummaryDto {
     id: string;
@@ -124,4 +135,18 @@ export interface UserSummaryDto {
     email: string;
     nickname: string;
     role: Role;
+}
+
+export interface CreateUserRequest {
+    email: string;
+    nickname?: string;
+    role?: Role;
+}
+
+export interface CreateUserResponse {
+    id: string;
+    email: string;
+    nickname: string;
+    role: Role;
+    temporaryPassword: string;
 }
