@@ -28,7 +28,7 @@ public class UserAssignmentsController : ControllerBase
         _authzService = authzService;
     }
 
-    /// <summary>Assigns a standard user to a retrospective. Admin always; Manager only for own retrospectives.</summary>
+    /// <summary>Assigns a user to a retrospective. Admin and Manager.</summary>
     /// <param name="request">The user email and retrospective ID.</param>
     /// <returns>Confirmation message.</returns>
     [HttpPost]
@@ -39,22 +39,8 @@ public class UserAssignmentsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> AssignUser([FromBody] AssignUserRequest request)
     {
-        if (User.IsInRole(Roles.Manager) && !User.IsInRole(Roles.Admin))
-        {
-            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-            if (!await _authzService.IsRetrospectiveOwnerAsync(currentUserId, request.RetrospectiveId))
-                return Forbid();
-        }
-
         var user = await _userManager.FindByEmailAsync(request.UserEmail);
         if (user is null) return NotFound(new { message = "User not found." });
-
-        // Managers can only assign StandardUsers, not other Managers or Admins
-        if (User.IsInRole(Roles.Manager) && !User.IsInRole(Roles.Admin))
-        {
-            if (!await _userManager.IsInRoleAsync(user, Roles.StandardUser))
-                return Forbid();
-        }
 
         var retroExists = await _context.Retrospectives.AnyAsync(r => r.Id == request.RetrospectiveId);
         if (!retroExists) return NotFound(new { message = "Retrospective not found." });
@@ -74,7 +60,7 @@ public class UserAssignmentsController : ControllerBase
         return Ok(new { message = $"User '{user.Email}' assigned to retrospective {request.RetrospectiveId}." });
     }
 
-    /// <summary>Removes a user's assignment from a retrospective. Admin always; Manager only for own retrospectives.</summary>
+    /// <summary>Removes a user's assignment from a retrospective. Admin and Manager.</summary>
     /// <param name="request">The user email and retrospective ID.</param>
     /// <returns>No content if removed.</returns>
     [HttpDelete]
@@ -84,13 +70,6 @@ public class UserAssignmentsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UnassignUser([FromBody] AssignUserRequest request)
     {
-        if (User.IsInRole(Roles.Manager) && !User.IsInRole(Roles.Admin))
-        {
-            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-            if (!await _authzService.IsRetrospectiveOwnerAsync(currentUserId, request.RetrospectiveId))
-                return Forbid();
-        }
-
         var user = await _userManager.FindByEmailAsync(request.UserEmail);
         if (user is null) return NotFound(new { message = "User not found." });
 
@@ -128,14 +107,16 @@ public class UserAssignmentsController : ControllerBase
     /// <param name="retrospectiveId">The retrospective's unique identifier.</param>
     /// <returns>List of assigned participants.</returns>
     [HttpGet("retrospective/{retrospectiveId:guid}/participants")]
+    [Authorize(Roles = Roles.Admin + "," + Roles.Manager + "," + Roles.StandardUser)]
     [ProducesResponseType(typeof(IEnumerable<UserSummaryDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetRetrospectiveParticipants(Guid retrospectiveId)
     {
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var isAdmin = User.IsInRole(Roles.Admin);
+        var isManager = User.IsInRole(Roles.Manager);
 
-        if (!isAdmin)
+        if (!isAdmin && !isManager)
         {
             var isOwner = await _authzService.IsRetrospectiveOwnerAsync(currentUserId, retrospectiveId);
             var isAssigned = await _context.UserRetrospectives

@@ -10,4 +10,7 @@ export const usersApi = {
 
     updateRole: (id: string, role: string) =>
         client.patch<UserSummaryDto>(`/users/${id}/role`, { role }).then((r) => r.data),
+
+    delete: (id: string) =>
+        client.delete(`/users/${id}`),
 };

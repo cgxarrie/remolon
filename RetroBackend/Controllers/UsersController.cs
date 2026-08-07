@@ -66,9 +66,9 @@ public class UsersController : ControllerBase
             new CreateUserResponse(user.Id, user.Email!, user.Nickname, role, temporaryPassword));
     }
 
-    /// <summary>Returns all users with their assigned role. Admin only.</summary>
+    /// <summary>Returns all users with their assigned role. Admin and Manager.</summary>
     [HttpGet]
-    [Authorize(Roles = Roles.Admin)]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.Manager}")]
     [ProducesResponseType(typeof(IEnumerable<UserSummaryDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll()
     {
@@ -107,6 +107,28 @@ public class UsersController : ControllerBase
             return BadRequest(addResult.Errors);
 
         return Ok(new UserSummaryDto(user.Id, user.Email!, user.Nickname, request.Role));
+    }
+
+    /// <summary>Deletes a user. Admin and Manager. Cannot delete self.</summary>
+    [HttpDelete("{id}")]
+    [Authorize(Roles = $"{Roles.Admin},{Roles.Manager}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete(string id)
+    {
+        var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (id == currentUserId)
+            return Forbid();
+
+        var user = await _userManager.FindByIdAsync(id);
+        if (user is null) return NotFound();
+
+        var result = await _userManager.DeleteAsync(user);
+        if (!result.Succeeded)
+            return BadRequest(result.Errors);
+
+        return NoContent();
     }
 
     private static string GenerateTemporaryPassword(int length = 12)

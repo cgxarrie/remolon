@@ -17,6 +17,21 @@ export interface LoginRequest {
     password: string;
 }
 
+export interface ForgotPasswordRequest {
+    email: string;
+}
+
+export interface ForgotPasswordResponse {
+    message: string;
+    resetToken: string | null;
+}
+
+export interface ResetPasswordRequest {
+    email: string;
+    token: string;
+    newPassword: string;
+}
+
 export interface InitialPasswordChangeRequest {
     email: string;
     currentPassword: string;
