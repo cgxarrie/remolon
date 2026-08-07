@@ -30,19 +30,19 @@ export function ActionColumnView({
     const [description, setDescription] = useState('');
     const [assignee, setAssignee] = useState('');
 
-    const availableAssignees = useMemo(() => {
+    const participantAssignees = useMemo(() => {
         const unique = new Set(assigneeOptions.map((name) => name.trim()).filter(Boolean));
         return Array.from(unique).sort((a, b) => a.localeCompare(b));
     }, [assigneeOptions]);
 
-    useEffect(() => {
-        if (!availableAssignees.length) {
-            if (assignee !== '') setAssignee('');
-            return;
-        }
+    const availableAssignees = useMemo(
+        () => ['', 'all', ...participantAssignees],
+        [participantAssignees]
+    );
 
-        if (!assignee || !availableAssignees.includes(assignee)) {
-            setAssignee(availableAssignees[0]);
+    useEffect(() => {
+        if (!availableAssignees.includes(assignee)) {
+            setAssignee('');
         }
     }, [availableAssignees, assignee]);
 
@@ -81,7 +81,7 @@ export function ActionColumnView({
                         key={item.id}
                         item={item}
                         retroId={retroId}
-                        assigneeOptions={availableAssignees}
+                        assigneeOptions={participantAssignees}
                         isClosed={isClosed}
                         canEdit={isAdmin || isManager || item.createdBy === currentUserId}
                         canDelete={isAdmin || isManager || item.createdBy === currentUserId}
@@ -104,21 +104,18 @@ export function ActionColumnView({
                                 <select
                                     value={assignee}
                                     onChange={(e) => setAssignee(e.target.value)}
-                                    disabled={availableAssignees.length === 0}
                                     className="w-full text-sm border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                                 >
-                                    {availableAssignees.length === 0 ? (
-                                        <option value="">No participants available</option>
-                                    ) : (
-                                        availableAssignees.map((name) => (
-                                            <option key={name} value={name}>{name}</option>
-                                        ))
-                                    )}
+                                    <option value="">--</option>
+                                    <option value="all">all</option>
+                                    {participantAssignees.map((name) => (
+                                        <option key={name} value={name}>{name}</option>
+                                    ))}
                                 </select>
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => addItemMutation.mutate()}
-                                        disabled={addItemMutation.isPending || !description.trim() || !assignee}
+                                        disabled={addItemMutation.isPending || !description.trim()}
                                         className="px-3 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
                                     >
                                         Add

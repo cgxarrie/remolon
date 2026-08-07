@@ -19,16 +19,21 @@ export function ActionItemCard({ item, retroId, assigneeOptions, isClosed, canEd
     const [description, setDescription] = useState(item.description);
     const [assignee, setAssignee] = useState(item.assignee);
 
-    const availableAssignees = useMemo(() => {
+    const participantAssignees = useMemo(() => {
         const unique = new Set(assigneeOptions.map((name) => name.trim()).filter(Boolean));
         if (item.assignee.trim()) unique.add(item.assignee.trim());
         return Array.from(unique).sort((a, b) => a.localeCompare(b));
     }, [assigneeOptions, item.assignee]);
 
+    const availableAssignees = useMemo(
+        () => ['', 'all', ...participantAssignees],
+        [participantAssignees]
+    );
+
     useEffect(() => {
         if (!editing) return;
-        if (!assignee || !availableAssignees.includes(assignee)) {
-            setAssignee(availableAssignees[0] ?? '');
+        if (!availableAssignees.includes(assignee)) {
+            setAssignee('');
         }
     }, [editing, assignee, availableAssignees]);
 
@@ -40,7 +45,7 @@ export function ActionItemCard({ item, retroId, assigneeOptions, isClosed, canEd
         mutationFn: () =>
             actionItemsApi.update(item.id, {
                 description: description.trim() || undefined,
-                assignee: assignee.trim() || undefined,
+                assignee: assignee.trim(),
             }),
         onSuccess: () => { invalidate(); setEditing(false); },
     });
@@ -76,16 +81,13 @@ export function ActionItemCard({ item, retroId, assigneeOptions, isClosed, canEd
                     <select
                         value={assignee}
                         onChange={(e) => setAssignee(e.target.value)}
-                        disabled={availableAssignees.length === 0}
                         className="w-full text-sm border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
-                        {availableAssignees.length === 0 ? (
-                            <option value="">No participants available</option>
-                        ) : (
-                            availableAssignees.map((name) => (
-                                <option key={name} value={name}>{name}</option>
-                            ))
-                        )}
+                        <option value="">--</option>
+                        <option value="all">all</option>
+                        {participantAssignees.map((name) => (
+                            <option key={name} value={name}>{name}</option>
+                        ))}
                     </select>
                     <div className="flex gap-2">
                         <button
