@@ -17,6 +17,7 @@ interface AvatarEntry {
 interface AxeFlightState {
     id: number;
     targetId: string;
+    objectId: ThrowableObject['id'];
     startX: number;
     startY: number;
     endX: number;
@@ -24,7 +25,26 @@ interface AxeFlightState {
     flying: boolean;
 }
 
-const AXE_FLIGHT_DURATION_MS = 1800;
+interface ThrowableObject {
+    id: 'axe' | 'hammer' | 'sword' | 'brick' | 'tomato' | 'shit';
+    label: string;
+    emoji: string;
+    imageUrl?: string;
+}
+
+const AXE_FLIGHT_DURATION_MS = 2700;
+const THROWABLE_OBJECTS: ThrowableObject[] = [
+    { id: 'axe', label: 'axe', emoji: '🪓' },
+    { id: 'hammer', label: 'hammer', emoji: '🔨' },
+    { id: 'sword', label: 'sword', emoji: '🗡️' },
+    { id: 'brick', label: 'brick', emoji: '🧱' },
+    { id: 'tomato', label: 'tomato', emoji: '🍅' },
+    { id: 'shit', label: 'shit', emoji: '💩' },
+];
+
+function getThrowableObject(id: ThrowableObject['id']): ThrowableObject {
+    return THROWABLE_OBJECTS.find((obj) => obj.id === id) ?? THROWABLE_OBJECTS[0];
+}
 
 function initialsFrom(name: string): string {
     const parts = name
@@ -112,11 +132,18 @@ export function RetrospectiveDetailPage() {
     const email = useAuthStore((s) => s.email);
     const nickname = useAuthStore((s) => s.nickname);
     const canManage = role === 'Admin' || role === 'Manager';
+    const throwablePreferenceKey = `retro-throwable:${userId ?? email ?? 'anonymous'}`;
 
     const [editingTitle, setEditingTitle] = useState(false);
     const [titleValue, setTitleValue] = useState('');
     const [showAssign, setShowAssign] = useState(false);
     const [axeFlights, setAxeFlights] = useState<AxeFlightState[]>([]);
+    const [selectedThrowable, setSelectedThrowable] = useState<ThrowableObject>(THROWABLE_OBJECTS[0]);
+    const [throwableMenu, setThrowableMenu] = useState<{ x: number; y: number; open: boolean }>({
+        x: 0,
+        y: 0,
+        open: false,
+    });
 
     const arenaRef = useRef<HTMLDivElement | null>(null);
     const currentAvatarRef = useRef<HTMLDivElement | null>(null);
@@ -229,6 +256,68 @@ export function RetrospectiveDetailPage() {
         };
     }, []);
 
+    useEffect(() => {
+        try {
+            const stored = window.localStorage.getItem(throwablePreferenceKey) as ThrowableObject['id'] | null;
+            if (!stored) {
+                setSelectedThrowable(THROWABLE_OBJECTS[0]);
+                return;
+            }
+
+            const restored = THROWABLE_OBJECTS.find((obj) => obj.id === stored) ?? THROWABLE_OBJECTS[0];
+            setSelectedThrowable(restored);
+        } catch {
+            setSelectedThrowable(THROWABLE_OBJECTS[0]);
+        }
+    }, [throwablePreferenceKey]);
+
+    useEffect(() => {
+        try {
+            window.localStorage.setItem(throwablePreferenceKey, selectedThrowable.id);
+        } catch {
+            // Ignore persistence errors (private mode, blocked storage, etc.)
+        }
+    }, [throwablePreferenceKey, selectedThrowable.id]);
+
+    useEffect(() => {
+        if (!throwableMenu.open) return;
+
+        function handleWindowClick() {
+            setThrowableMenu((prev) => ({ ...prev, open: false }));
+        }
+
+        function handleEscape(event: KeyboardEvent) {
+            if (event.key === 'Escape') {
+                setThrowableMenu((prev) => ({ ...prev, open: false }));
+            }
+        }
+
+        window.addEventListener('click', handleWindowClick);
+        window.addEventListener('keydown', handleEscape);
+
+        return () => {
+            window.removeEventListener('click', handleWindowClick);
+            window.removeEventListener('keydown', handleEscape);
+        };
+    }, [throwableMenu.open]);
+
+    function handleCurrentThrowableIconClick(event: React.MouseEvent<HTMLButtonElement>) {
+        event.stopPropagation();
+
+        const iconRect = event.currentTarget.getBoundingClientRect();
+
+        if (throwableMenu.open) {
+            setThrowableMenu((prev) => ({ ...prev, open: false }));
+            return;
+        }
+
+        setThrowableMenu({
+            x: iconRect.left + iconRect.width / 2,
+            y: iconRect.bottom + 8,
+            open: true,
+        });
+    }
+
     function launchAxeToParticipant(targetId: string) {
         const arena = arenaRef.current;
         const source = currentAvatarRef.current;
@@ -251,6 +340,7 @@ export function RetrospectiveDetailPage() {
         setAxeFlights((prev) => ([...prev, {
             id: flightId,
             targetId,
+            objectId: selectedThrowable.id,
             startX,
             startY,
             endX,
@@ -293,21 +383,72 @@ export function RetrospectiveDetailPage() {
             <div ref={arenaRef} className="relative grid grid-cols-1 xl:grid-cols-[5rem_minmax(0,1fr)_5rem] gap-5 xl:gap-8 items-start">
                 {axeFlights.map((axeFlight) => (
                     <div key={axeFlight.id} className="pointer-events-none absolute inset-0 z-30">
-                        <div
-                            className="absolute select-none"
-                            style={{
-                                left: axeFlight.flying ? axeFlight.endX : axeFlight.startX,
-                                top: axeFlight.flying ? axeFlight.endY : axeFlight.startY,
-                                transform: 'translate(-50%, -50%)',
-                                transition: `left ${AXE_FLIGHT_DURATION_MS}ms cubic-bezier(0.22, 0.7, 0.2, 1), top ${AXE_FLIGHT_DURATION_MS}ms cubic-bezier(0.22, 0.7, 0.2, 1)`,
-                            }}
-                        >
-                            <span className="inline-block text-2xl animate-spin drop-shadow" style={{ animationDuration: '180ms' }}>
-                                🪓
-                            </span>
-                        </div>
+                        {(() => {
+                            const throwable = getThrowableObject(axeFlight.objectId);
+                            return (
+                                <div
+                                    className="absolute select-none"
+                                    style={{
+                                        left: axeFlight.flying ? axeFlight.endX : axeFlight.startX,
+                                        top: axeFlight.flying ? axeFlight.endY : axeFlight.startY,
+                                        transform: 'translate(-50%, -50%)',
+                                        transition: `left ${AXE_FLIGHT_DURATION_MS}ms cubic-bezier(0.22, 0.7, 0.2, 1), top ${AXE_FLIGHT_DURATION_MS}ms cubic-bezier(0.22, 0.7, 0.2, 1)`,
+                                    }}
+                                >
+                                    <span className="inline-flex items-center justify-center h-8 w-8 animate-spin drop-shadow" style={{ animationDuration: '360ms' }}>
+                                        {throwable.imageUrl ? (
+                                            <img
+                                                src={throwable.imageUrl}
+                                                alt={throwable.label}
+                                                className="h-7 w-7 object-contain"
+                                            />
+                                        ) : (
+                                            <span className="text-2xl">{throwable.emoji}</span>
+                                        )}
+                                    </span>
+                                </div>
+                            );
+                        })()}
                     </div>
                 ))}
+
+                {throwableMenu.open && (
+                    <div
+                        className="fixed z-50 bg-white border border-slate-200 rounded-lg shadow-lg p-1"
+                        style={{ left: throwableMenu.x, top: throwableMenu.y, transform: 'translateX(-50%)' }}
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <div className="flex items-center gap-1">
+                            {THROWABLE_OBJECTS.map((item) => (
+                                <button
+                                    key={item.id}
+                                    onClick={() => {
+                                        setSelectedThrowable(item);
+                                        setThrowableMenu((prev) => ({ ...prev, open: false }));
+                                    }}
+                                    className={[
+                                        'h-9 w-9 rounded-md text-xl flex items-center justify-center',
+                                        selectedThrowable.id === item.id
+                                            ? 'bg-indigo-50 text-indigo-700'
+                                            : 'text-slate-700 hover:bg-slate-50',
+                                    ].join(' ')}
+                                    aria-label={item.label}
+                                    title={item.label}
+                                >
+                                    {item.imageUrl ? (
+                                        <img
+                                            src={item.imageUrl}
+                                            alt={item.label}
+                                            className="h-6 w-6 object-contain"
+                                        />
+                                    ) : (
+                                        <span>{item.emoji}</span>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 <aside className="order-2 xl:order-1 xl:sticky xl:top-24">
                     <div className="bg-white/75 backdrop-blur border border-slate-200 rounded-2xl p-3 flex xl:flex-col items-center gap-3">
@@ -319,6 +460,22 @@ export function RetrospectiveDetailPage() {
                                 currentAvatarRef.current = element;
                             }}
                         />
+                        <button
+                            onClick={handleCurrentThrowableIconClick}
+                            className="text-lg leading-none rounded hover:bg-slate-100 p-1"
+                            aria-label={`Selected throwable ${selectedThrowable.label}`}
+                            title={selectedThrowable.label}
+                        >
+                            {selectedThrowable.imageUrl ? (
+                                <img
+                                    src={selectedThrowable.imageUrl}
+                                    alt={selectedThrowable.label}
+                                    className="h-6 w-6 object-contain"
+                                />
+                            ) : (
+                                selectedThrowable.emoji
+                            )}
+                        </button>
                     </div>
                 </aside>
 
