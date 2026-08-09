@@ -47,8 +47,8 @@ docker compose up --build
 | Swagger  | http://localhost:5145/swagger|
 
 A default admin account is created on first run:
-- **Email:** `admin@example.com`
-- **Password:** `Admin123!`
+- **Email:** `sa@remolon.com`
+- **Password:** `Passw0rd!`
 
 > Change these defaults in `docker-compose.yml` before deploying to production.
 

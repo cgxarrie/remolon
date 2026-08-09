@@ -120,9 +120,9 @@ using (var scope = app.Services.CreateScope())
             await roleManager.CreateAsync(new IdentityRole(role));
     }
 
-    var adminEmail = builder.Configuration["DefaultAdmin:Email"] ?? "admin@example.com";
-    var adminPassword = builder.Configuration["DefaultAdmin:Password"] ?? "Admin123!";
-    var adminNickname = builder.Configuration["DefaultAdmin:Nickname"] ?? "Admin";
+    var adminEmail = builder.Configuration["DefaultAdmin:Email"] ?? "sa@remolon.com";
+    var adminPassword = builder.Configuration["DefaultAdmin:Password"] ?? "Passw0rd!";
+    var adminNickname = builder.Configuration["DefaultAdmin:Nickname"] ?? "sa";
 
     if (await userManager.FindByEmailAsync(adminEmail) is null)
     {

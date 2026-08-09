@@ -96,8 +96,9 @@ Edit `appsettings.Development.json` (or set environment variables):
     "Audience": "RetroBackendClients"
   },
   "DefaultAdmin": {
-    "Email": "admin@example.com",
-    "Password": "Admin123!"
+    "Email": "sa@remolon.com",
+    "Password": "Passw0rd!",
+    "Nickname": "sa"
   }
 }
 ```
