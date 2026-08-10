@@ -35,9 +35,9 @@ public class ItemsController : ControllerBase
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
-        if (!User.IsInRole(Roles.Admin))
+        if (!User.HasRole(Roles.Admin))
         {
-            var allowed = User.IsInRole(Roles.Manager)
+            var allowed = User.HasRole(Roles.Manager)
                 ? await _authzService.IsRetrospectiveOwnerByColumnAsync(userId, request.ColumnId)
                 : await _authzService.IsAssignedToRetrospectiveByColumnAsync(userId, request.ColumnId);
 
@@ -63,9 +63,9 @@ public class ItemsController : ControllerBase
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
-        if (!User.IsInRole(Roles.Admin))
+        if (!User.HasRole(Roles.Admin))
         {
-            var allowed = User.IsInRole(Roles.Manager)
+            var allowed = User.HasRole(Roles.Manager)
                 ? await _authzService.IsRetrospectiveOwnerByItemAsync(userId, id)
                 : await _authzService.IsItemOwnerAsync(userId, id);
 
@@ -87,9 +87,9 @@ public class ItemsController : ControllerBase
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
-        if (!User.IsInRole(Roles.Admin))
+        if (!User.HasRole(Roles.Admin))
         {
-            var allowed = User.IsInRole(Roles.Manager)
+            var allowed = User.HasRole(Roles.Manager)
                 ? await _authzService.IsRetrospectiveOwnerByItemAsync(userId, id)
                 : await _authzService.IsItemOwnerAsync(userId, id);
 
@@ -109,10 +109,10 @@ public class ItemsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UnlinkFromGroup(Guid id)
     {
-        if (!User.IsInRole(Roles.Admin))
+        if (!User.HasRole(Roles.Admin))
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-            var allowed = User.IsInRole(Roles.Manager)
+            var allowed = User.HasRole(Roles.Manager)
                 ? await _authzService.IsRetrospectiveOwnerByItemAsync(userId, id)
                 : await _authzService.IsAssignedToRetrospectiveByItemAsync(userId, id);
             if (!allowed) return Forbid();
@@ -136,10 +136,10 @@ public class ItemsController : ControllerBase
         if (id == request.TargetItemId)
             return BadRequest(new { message = "An item cannot be merged with itself." });
 
-        if (!User.IsInRole(Roles.Admin))
+        if (!User.HasRole(Roles.Admin))
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-            var allowed = User.IsInRole(Roles.Manager)
+            var allowed = User.HasRole(Roles.Manager)
                 ? await _authzService.IsRetrospectiveOwnerByItemAsync(userId, id)
                 : await _authzService.IsAssignedToRetrospectiveByItemAsync(userId, id);
             if (!allowed) return Forbid();

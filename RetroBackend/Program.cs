@@ -1,4 +1,5 @@
 using System.Text;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -89,10 +90,41 @@ builder.Services
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
+            NameClaimType = ClaimTypes.NameIdentifier,
+            RoleClaimType = ClaimTypes.Role,
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)),
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = context =>
+            {
+                if (context.Principal?.Identity is not ClaimsIdentity identity)
+                    return Task.CompletedTask;
+
+                var roleValues = identity.Claims
+                    .Where(c =>
+                        string.Equals(c.Type, ClaimTypes.Role, StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(c.Type, "role", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(c.Type, "roles", StringComparison.OrdinalIgnoreCase))
+                    .Select(c => c.Value)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                foreach (var roleValue in roleValues)
+                {
+                    if (!identity.HasClaim(ClaimTypes.Role, roleValue))
+                        identity.AddClaim(new Claim(ClaimTypes.Role, roleValue));
+
+                    if (!identity.HasClaim("role", roleValue))
+                        identity.AddClaim(new Claim("role", roleValue));
+                }
+
+                return Task.CompletedTask;
+            }
         };
     });
 

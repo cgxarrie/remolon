@@ -24,19 +24,48 @@ public static class GetRetrospectiveMappings
         Id = retro.Id,
         Title = retro.Title,
         IsClosed = retro.IsClosed,
+        IsRevealed = retro.IsRevealed,
         RetrospectiveDate = retro.RetrospectiveDate,
         CreatedAt = retro.CreatedAt,
         UpdatedAt = retro.UpdatedAt,
     };
 
-    public static Dtos.GetRetrospectiveDto ToGetDto(this Models.Retrospective retro) => new()
+    public static Dtos.GetRetrospectiveDto ToGetDto(this Models.Retrospective retro, string currentUserId) => new()
     {
         Id = retro.Id,
         Title = retro.Title,
         IsClosed = retro.IsClosed,
+        IsRevealed = retro.IsRevealed,
         RetrospectiveDate = retro.RetrospectiveDate,
-        Columns = retro.Columns.Where(c => c is not Models.ActionColumn).Select(c => c.ToDto()).ToList(),
-        ActionColumns = retro.Columns.OfType<Models.ActionColumn>().Select(c => c.ToDto()).ToList(),
+        Columns = retro.Columns
+            .Where(c => c is not Models.ActionColumn)
+            .Select(c => new Dtos.GetColumnDto
+            {
+                Id = c.Id,
+                Title = c.Title,
+                Position = c.Position,
+                HeaderColor = c.HeaderColor,
+                Items = c.Items
+                    .Where(i => i is not Models.ActionItem)
+                    .Where(i => retro.IsRevealed || i.CreatedBy == currentUserId)
+                    .Select(i => i.ToDto())
+                    .ToList(),
+            })
+            .ToList(),
+        ActionColumns = retro.Columns
+            .OfType<Models.ActionColumn>()
+            .Select(c => new Dtos.GetActionColumnDto
+            {
+                Id = c.Id,
+                Title = c.Title,
+                Position = c.Position,
+                Items = c.Items
+                    .OfType<Models.ActionItem>()
+                    .Where(i => retro.IsRevealed || c.Title == "Pending Action Items" || i.CreatedBy == currentUserId)
+                    .Select(i => i.ToDto())
+                    .ToList(),
+            })
+            .ToList(),
         CreatedAt = retro.CreatedAt,
         UpdatedAt = retro.UpdatedAt,
     };

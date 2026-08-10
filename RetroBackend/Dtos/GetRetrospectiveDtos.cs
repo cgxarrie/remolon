@@ -22,6 +22,7 @@ public class GetRetrospectiveSummaryDto
     public Guid Id { get; set; }
     public string Title { get; set; } = string.Empty;
     public bool IsClosed { get; set; }
+    public bool IsRevealed { get; set; }
     public DateTime? RetrospectiveDate { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
@@ -32,6 +33,7 @@ public class GetRetrospectiveDto
     public Guid Id { get; set; }
     public string Title { get; set; } = string.Empty;
     public bool IsClosed { get; set; }
+    public bool IsRevealed { get; set; }
     public DateTime? RetrospectiveDate { get; set; }
     public List<GetColumnDto> Columns { get; set; } = [];
     public List<GetActionColumnDto> ActionColumns { get; set; } = [];

@@ -43,6 +43,16 @@ public class RetrospectiveService : IRetrospectiveService
         return await _repository.UpdateAsync(existing);
     }
 
+    public async Task<Retrospective?> RevealAsync(Guid id)
+    {
+        var existing = await _repository.GetByIdAsync(id);
+        if (existing is null) return null;
+        if (existing.IsRevealed) return existing;
+
+        existing.Reveal();
+        return await _repository.UpdateAsync(existing);
+    }
+
     public Task<bool> DeleteAsync(Guid id)
     {
         return _repository.DeleteAsync(id);
@@ -53,14 +63,18 @@ public class RetrospectiveService : IRetrospectiveService
         var existing = await _repository.GetByIdAsync(id);
         if (existing is null || existing.IsClosed) return null;
 
+        var actingUser = string.IsNullOrWhiteSpace(request.CurrentUser)
+            ? existing.CreatedBy
+            : request.CurrentUser;
+
         existing.Close();
         await _repository.UpdateAsync(existing);
 
-        var newRetroDraft = Retrospective.CreateNew(request.CurrentUser, existing.Title);
+        var newRetroDraft = Retrospective.CreateNew(actingUser, existing.Title);
 
         // Copy regular (non-action) columns
         foreach (var col in existing.Columns.Where(c => c is not ActionColumn))
-            newRetroDraft.AddColumn(request.CurrentUser, col.Title, col.Position);
+            newRetroDraft.AddColumn(actingUser, col.Title, col.Position);
 
         // Carry over action items to the new retro's Pending Action Items column
         var pendingColumn = newRetroDraft.Columns
@@ -79,7 +93,7 @@ public class RetrospectiveService : IRetrospectiveService
             foreach (var item in existingPendingColumn.Items.OfType<ActionItem>().Where(i => !i.IsCompleted))
             {
                 pendingColumn.Items.Add(new ActionItem(
-                    request.CurrentUser,
+                    actingUser,
                     item.CreatedByNickname,
                     item.Assignee,
                     pendingColumn.Id,
@@ -99,7 +113,7 @@ public class RetrospectiveService : IRetrospectiveService
             foreach (var item in actionColumn.Items.OfType<ActionItem>().Where(i => !i.IsCompleted))
             {
                 pendingColumn.Items.Add(new ActionItem(
-                    request.CurrentUser,
+                    actingUser,
                     item.CreatedByNickname,
                     item.Assignee,
                     pendingColumn.Id,

@@ -178,6 +178,24 @@ export function RetrospectiveDetailPage() {
         },
     });
 
+    const revealMutation = useMutation({
+        mutationFn: () => retrospectivesApi.reveal(id!),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['retrospective', id] });
+            queryClient.invalidateQueries({ queryKey: ['retrospectives'] });
+            queryClient.refetchQueries({ queryKey: ['retrospective', id] });
+        },
+        onError: (err: unknown) => {
+            const axiosError = err as { response?: { status?: number; data?: { message?: string } } };
+            if (axiosError.response?.status === 403) {
+                alert('You are not allowed to reveal this retrospective.');
+                return;
+            }
+
+            alert(axiosError.response?.data?.message ?? 'Could not reveal retrospective.');
+        },
+    });
+
     const deleteMutation = useMutation({
         mutationFn: () => retrospectivesApi.delete(id!),
         onSuccess: () => {
@@ -562,6 +580,15 @@ export function RetrospectiveDetailPage() {
                                 >
                                     Manage Participants
                                 </button>
+                                {!retro.isRevealed && (
+                                    <button
+                                        onClick={() => revealMutation.mutate()}
+                                        disabled={revealMutation.isPending}
+                                        className="px-3 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+                                    >
+                                        {revealMutation.isPending ? 'Revealing…' : 'Reveal'}
+                                    </button>
+                                )}
                                 {!retro.isClosed && (
                                     <>
                                         <button

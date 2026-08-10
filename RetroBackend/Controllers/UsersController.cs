@@ -30,7 +30,7 @@ public class UsersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Create([FromBody] CreateUserRequest request)
     {
-        var isManager = User.IsInRole(Roles.Manager) && !User.IsInRole(Roles.Admin);
+        var isManager = User.HasRole(Roles.Manager) && !User.HasRole(Roles.Admin);
         var role = string.IsNullOrWhiteSpace(request.Role) ? Roles.StandardUser : request.Role.Trim();
 
         if (isManager && role != Roles.StandardUser)

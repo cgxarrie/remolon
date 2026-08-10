@@ -113,8 +113,8 @@ public class UserAssignmentsController : ControllerBase
     public async Task<IActionResult> GetRetrospectiveParticipants(Guid retrospectiveId)
     {
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-        var isAdmin = User.IsInRole(Roles.Admin);
-        var isManager = User.IsInRole(Roles.Manager);
+        var isAdmin = User.HasRole(Roles.Admin);
+        var isManager = User.HasRole(Roles.Manager);
 
         if (!isAdmin && !isManager)
         {

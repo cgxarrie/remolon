@@ -48,6 +48,7 @@ export interface GetRetrospectiveSummaryDto {
     id: string;
     title: string;
     isClosed: boolean;
+    isRevealed: boolean;
     retrospectiveDate: string | null;
     createdAt: string;
     updatedAt: string;
@@ -93,6 +94,7 @@ export interface GetRetrospectiveDto {
     id: string;
     title: string;
     isClosed: boolean;
+    isRevealed: boolean;
     retrospectiveDate: string | null;
     columns: GetColumnDto[];
     actionColumns: GetActionColumnDto[];
