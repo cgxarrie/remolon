@@ -65,6 +65,9 @@ public class RetroDbContext : IdentityDbContext<AppUser>
                   entity.Property(r => r.IsClosed)
                     .HasField("_isClosed")
                     .UsePropertyAccessMode(PropertyAccessMode.Field);
+                  entity.Property(r => r.IsRevealed)
+                    .HasField("_isRevealed")
+                    .UsePropertyAccessMode(PropertyAccessMode.Field);
                   entity.Property(r => r.RetrospectiveDate)
                     .HasField("_retrospectiveDate")
                     .UsePropertyAccessMode(PropertyAccessMode.Field);

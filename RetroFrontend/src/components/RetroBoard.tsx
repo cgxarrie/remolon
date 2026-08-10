@@ -21,9 +21,10 @@ import { useAuthStore } from '../store/authStore';
 
 interface Props {
     retro: GetRetrospectiveDto;
+    assigneeOptions: string[];
 }
 
-export function RetroBoard({ retro }: Props) {
+export function RetroBoard({ retro, assigneeOptions }: Props) {
     const queryClient = useQueryClient();
     const { userId, role } = useAuthStore();
     const isAdmin = role === 'Admin';
@@ -283,6 +284,7 @@ export function RetroBoard({ retro }: Props) {
                                         retroId={retro.id}
                                         isClosed={retro.isClosed}
                                         canAddItems={true}
+                                        assigneeOptions={assigneeOptions}
                                         currentUserId={currentUserId}
                                         isAdmin={isAdmin}
                                         isManager={isManager}

@@ -6,6 +6,7 @@ public class Retrospective : BaseEntity
 {
     private string _title = string.Empty;
     private bool _isClosed = false;
+    private bool _isRevealed = false;
     private DateTime? _retrospectiveDate;
 
     public string Title
@@ -15,6 +16,7 @@ public class Retrospective : BaseEntity
     }
 
     public bool IsClosed => _isClosed;
+    public bool IsRevealed => _isRevealed;
 
     public DateTime? RetrospectiveDate
     {
@@ -81,6 +83,11 @@ public class Retrospective : BaseEntity
     public void Close()
     {
         SetField(ref _isClosed, true);
+    }
+
+    public void Reveal()
+    {
+        SetField(ref _isRevealed, true);
     }
 }
 

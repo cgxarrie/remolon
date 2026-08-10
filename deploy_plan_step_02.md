@@ -17,7 +17,7 @@ Goal: create all required Azure services in one clean resource group.
 2. Search for Resource groups.
 3. Click Create.
 4. Subscription: choose your active subscription.
-5. Resource group name: `rg-retromolon-free`.
+5. Resource group name: `rg-remolon-free`.
 6. Region: choose one close to you.
 7. Click Review + create, then Create.
 
@@ -26,8 +26,8 @@ Goal: create all required Azure services in one clean resource group.
 1. Search for Azure Cosmos DB.
 2. Click Create.
 3. Select API: NoSQL.
-4. Choose existing resource group: `rg-retromolon-free`.
-5. Account name: unique name (example `retromolon-cosmos-1234`).
+4. Choose existing resource group: `rg-remolon-free`.
+5. Account name: unique name (example `remolon-cosmos-1234`).
 6. Region: same as resource group.
 7. Enable Free Tier: Yes.
 8. Click Review + create, then Create.
@@ -37,7 +37,7 @@ Goal: create all required Azure services in one clean resource group.
 1. Open your Cosmos account.
 2. Go to Data Explorer.
 3. Click New Database.
-4. Database id: `retromolon`.
+4. Database id: `remolon`.
 5. Shared throughput: keep default free-friendly option if shown.
 6. Create containers (one by one):
    - `users`
@@ -52,8 +52,8 @@ Note: Better partition strategy can be optimized later. `/id` is simple for firs
 
 1. Search for App Service plans.
 2. Click Create.
-3. Resource group: `rg-retromolon-free`.
-4. Name: `asp-retromolon-free`.
+3. Resource group: `rg-remolon-free`.
+4. Name: `asp-remolon-free`.
 5. Operating system: choose the one available with Free tier in your region.
 6. Pricing tier: Free F1.
 7. Create.
@@ -62,19 +62,19 @@ Note: Better partition strategy can be optimized later. `/id` is simple for firs
 
 1. Search for App Services.
 2. Click Create -> Web App.
-3. Resource group: `rg-retromolon-free`.
-4. Name: unique app name (example `retromolon-api-1234`).
+3. Resource group: `rg-remolon-free`.
+4. Name: unique app name (example `remolon-api-1234`).
 5. Publish: Code or Container based on your deployment method.
 6. Runtime stack if Code: .NET (latest supported).
-7. App Service plan: `asp-retromolon-free`.
+7. App Service plan: `asp-remolon-free`.
 8. Create.
 
 ## Part F - Create Static Web App (frontend)
 
 1. Search for Static Web Apps.
 2. Click Create.
-3. Resource group: `rg-retromolon-free`.
-4. Name: `retromolon-frontend`.
+3. Resource group: `rg-remolon-free`.
+4. Name: `remolon-frontend`.
 5. Plan type: Free.
 6. Deployment source: GitHub.
 7. Select repo and branch.
@@ -85,7 +85,7 @@ Note: Better partition strategy can be optimized later. `/id` is simple for firs
 
 ## Verification checklist
 
-1. All resources are visible in `rg-retromolon-free`.
+1. All resources are visible in `rg-remolon-free`.
 2. Cosmos account shows Free Tier enabled.
 3. Web App is created on Free F1 plan.
 4. Static Web App deployment starts from GitHub.

@@ -14,7 +14,7 @@ Add each key/value exactly:
 
 1. `CosmosDb__AccountEndpoint` = your Cosmos endpoint URL
 2. `CosmosDb__AccountKey` = your Cosmos primary key
-3. `CosmosDb__DatabaseName` = `retromolon`
+3. `CosmosDb__DatabaseName` = `remolon`
 4. `CosmosDb__UsersContainer` = `users`
 5. `CosmosDb__RetrospectivesContainer` = `retrospectives`
 6. `CosmosDb__ItemsContainer` = `items`

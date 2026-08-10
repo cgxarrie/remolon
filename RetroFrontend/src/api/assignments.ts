@@ -1,5 +1,5 @@
 import client from './client';
-import type { AssignUserRequest } from '../types';
+import type { AssignUserRequest, UserSummaryDto } from '../types';
 
 export const assignmentsApi = {
     assign: (data: AssignUserRequest) =>
@@ -11,5 +11,10 @@ export const assignmentsApi = {
     getUserAssignments: (userEmail: string) =>
         client
             .get<string[]>(`/user-assignments/${encodeURIComponent(userEmail)}`)
+            .then((r) => r.data),
+
+    getRetrospectiveParticipants: (retrospectiveId: string) =>
+        client
+            .get<UserSummaryDto[]>(`/user-assignments/retrospective/${retrospectiveId}/participants`)
             .then((r) => r.data),
 };

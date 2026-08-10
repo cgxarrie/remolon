@@ -332,6 +332,9 @@ namespace RetroBackend.Migrations
                     b.Property<bool>("IsClosed")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsRevealed")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime?>("RetrospectiveDate")
                         .HasColumnType("timestamp with time zone");
 

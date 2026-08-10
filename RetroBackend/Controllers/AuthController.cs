@@ -4,6 +4,7 @@ using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.IdentityModel.Tokens;
 using RetroBackend.Dtos;
 using RetroBackend.Auth;
@@ -59,6 +60,109 @@ public class AuthController : ControllerBase
         var user = await _userManager.FindByEmailAsync(request.Email);
         if (user is null || !await _userManager.CheckPasswordAsync(user, request.Password))
             return Unauthorized(new { message = "Invalid credentials." });
+
+        var claims = await _userManager.GetClaimsAsync(user);
+        var mustChangePassword = claims.Any(c =>
+            c.Type == AuthClaims.MustChangePassword &&
+            c.Value.Equals("true", StringComparison.OrdinalIgnoreCase));
+
+        if (mustChangePassword)
+            return StatusCode(StatusCodes.Status403Forbidden,
+                new PasswordChangeRequiredResponse("Password change required before first login.", true));
+
+        var roles = await _userManager.GetRolesAsync(user);
+        var role = roles.FirstOrDefault() ?? Roles.StandardUser;
+        var token = await GenerateJwtAsync(user);
+        return Ok(new AuthTokenResponse(token, user.Email!, role, user.Nickname));
+    }
+
+    /// <summary>Starts forgot password flow and returns a reset token for the provided email.</summary>
+    [HttpPost("forgot-password")]
+    [ProducesResponseType(typeof(ForgotPasswordResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+    {
+        var user = await _userManager.FindByEmailAsync(request.Email);
+        if (user is null)
+            return Ok(new ForgotPasswordResponse("If the account exists, reset instructions were generated.", null));
+
+        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+        var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+
+        return Ok(new ForgotPasswordResponse(
+            "Reset token generated. Use it to set a new password.",
+            encodedToken
+        ));
+    }
+
+    /// <summary>Completes forgot password flow by setting a new password using a reset token.</summary>
+    [HttpPost("reset-password")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        var user = await _userManager.FindByEmailAsync(request.Email);
+        if (user is null)
+            return BadRequest(new { message = "Invalid reset request." });
+
+        var tokenInput = request.Token?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(tokenInput))
+            return BadRequest(new { message = "Reset token is required." });
+
+        string decodedToken;
+        try
+        {
+            decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(tokenInput));
+        }
+        catch
+        {
+            // Backward compatibility: allow clients that submit the raw token directly.
+            decodedToken = tokenInput;
+        }
+
+        var result = await _userManager.ResetPasswordAsync(user, decodedToken, request.NewPassword);
+        if (!result.Succeeded)
+            return BadRequest(result.Errors);
+
+        var mustChangePasswordClaims = (await _userManager.GetClaimsAsync(user))
+            .Where(c => c.Type == AuthClaims.MustChangePassword)
+            .ToList();
+        if (mustChangePasswordClaims.Count > 0)
+            await _userManager.RemoveClaimsAsync(user, mustChangePasswordClaims);
+
+        return Ok(new { message = "Password has been reset." });
+    }
+
+    /// <summary>Changes an initial temporary password and signs in the user.</summary>
+    [HttpPost("change-initial-password")]
+    [ProducesResponseType(typeof(AuthTokenResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ChangeInitialPassword([FromBody] InitialPasswordChangeRequest request)
+    {
+        var user = await _userManager.FindByEmailAsync(request.Email);
+        if (user is null)
+            return Unauthorized(new { message = "Invalid credentials." });
+
+        var claims = await _userManager.GetClaimsAsync(user);
+        var mustChangePasswordClaims = claims
+            .Where(c => c.Type == AuthClaims.MustChangePassword)
+            .ToList();
+
+        var mustChangePassword = mustChangePasswordClaims.Any(c =>
+            c.Value.Equals("true", StringComparison.OrdinalIgnoreCase));
+
+        if (!mustChangePassword)
+            return BadRequest(new { message = "Initial password change is not required for this user." });
+
+        if (!await _userManager.CheckPasswordAsync(user, request.CurrentPassword))
+            return Unauthorized(new { message = "Invalid credentials." });
+
+        var changeResult = await _userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
+        if (!changeResult.Succeeded)
+            return BadRequest(changeResult.Errors);
+
+        if (mustChangePasswordClaims.Count > 0)
+            await _userManager.RemoveClaimsAsync(user, mustChangePasswordClaims);
 
         var roles = await _userManager.GetRolesAsync(user);
         var role = roles.FirstOrDefault() ?? Roles.StandardUser;

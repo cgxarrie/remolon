@@ -30,7 +30,7 @@ Goal: stay inside free-tier limits and avoid accidental costs.
    - Stop app activity.
    - Delete non-essential resources in the resource group.
 2. If needed, delete whole resource group:
-   - `rg-retromolon-free`
+   - `rg-remolon-free`
 
 ## Verification checklist
 

@@ -1,4 +1,4 @@
-# Retromolon Free-First Azure Deployment Plan (Option 2)
+# remolon Free-First Azure Deployment Plan (Option 2)
 
 This plan is designed for **Azure-only** with a **free-first mindset**.
 
@@ -50,13 +50,13 @@ Why this is needed:
 
 Detailed guide: [deploy_plan_step_02.md](deploy_plan_step_02.md)
 
-1. Create one resource group (example: `rg-retromolon-free`).
+1. Create one resource group (example: `rg-remolon-free`).
 2. Create Cosmos DB account:
    - API: NoSQL
    - Enable Free Tier
    - Choose the same region as backend
 3. In Cosmos DB, create:
-   - Database: `retromolon`
+   - Database: `remolon`
    - Containers: `users`, `retrospectives`, `items`, `assignments`
 4. Create App Service Plan:
    - SKU: Free F1
@@ -91,7 +91,7 @@ Set these environment variables in the backend Web App:
 
 1. `CosmosDb__AccountEndpoint` = your cosmos endpoint
 2. `CosmosDb__AccountKey` = your cosmos key
-3. `CosmosDb__DatabaseName` = `retromolon`
+3. `CosmosDb__DatabaseName` = `remolon`
 4. `CosmosDb__UsersContainer` = `users`
 5. `CosmosDb__RetrospectivesContainer` = `retrospectives`
 6. `CosmosDb__ItemsContainer` = `items`

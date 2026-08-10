@@ -17,11 +17,38 @@ export interface LoginRequest {
     password: string;
 }
 
+export interface ForgotPasswordRequest {
+    email: string;
+}
+
+export interface ForgotPasswordResponse {
+    message: string;
+    resetToken: string | null;
+}
+
+export interface ResetPasswordRequest {
+    email: string;
+    token: string;
+    newPassword: string;
+}
+
+export interface InitialPasswordChangeRequest {
+    email: string;
+    currentPassword: string;
+    newPassword: string;
+}
+
+export interface PasswordChangeRequiredResponse {
+    message: string;
+    requiresPasswordChange: boolean;
+}
+
 // Retrospectives
 export interface GetRetrospectiveSummaryDto {
     id: string;
     title: string;
     isClosed: boolean;
+    isRevealed: boolean;
     retrospectiveDate: string | null;
     createdAt: string;
     updatedAt: string;
@@ -67,6 +94,7 @@ export interface GetRetrospectiveDto {
     id: string;
     title: string;
     isClosed: boolean;
+    isRevealed: boolean;
     retrospectiveDate: string | null;
     columns: GetColumnDto[];
     actionColumns: GetActionColumnDto[];
@@ -102,7 +130,7 @@ export interface CreateActionItemRequest {
     columnId: string;
     description: string;
     position: number;
-    assignee: string;
+    assignee?: string;
 }
 
 export interface UpdateActionItemRequest {
@@ -124,4 +152,18 @@ export interface UserSummaryDto {
     email: string;
     nickname: string;
     role: Role;
+}
+
+export interface CreateUserRequest {
+    email: string;
+    nickname?: string;
+    role?: Role;
+}
+
+export interface CreateUserResponse {
+    id: string;
+    email: string;
+    nickname: string;
+    role: Role;
+    temporaryPassword: string;
 }

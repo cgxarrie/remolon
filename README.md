@@ -35,8 +35,8 @@ The entire stack (frontend, backend, database) runs with a single command.
 **Prerequisites:** Docker and Docker Compose installed.
 
 ```bash
-git clone https://github.com/cgxarrie/retromolon.git
-cd retromolon
+git clone https://github.com/cgxarrie/remolon.git
+cd remolon
 docker compose up --build
 ```
 
@@ -47,8 +47,8 @@ docker compose up --build
 | Swagger  | http://localhost:5145/swagger|
 
 A default admin account is created on first run:
-- **Email:** `admin@example.com`
-- **Password:** `Admin123!`
+- **Email:** `sa@remolon.com`
+- **Password:** `Passw0rd!`
 
 > Change these defaults in `docker-compose.yml` before deploying to production.
 
@@ -57,7 +57,7 @@ A default admin account is created on first run:
 ## Project Structure
 
 ```
-retromolon/
+remolon/
 ├── RetroBackend/       # .NET 10 REST API
 ├── RetroFrontend/      # React 19 SPA
 └── docker-compose.yml  # Full-stack orchestration

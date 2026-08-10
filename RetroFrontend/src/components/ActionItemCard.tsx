@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { actionItemsApi } from '../api/actionItems';
 import type { GetActionItemDto } from '../types';
@@ -6,17 +6,36 @@ import type { GetActionItemDto } from '../types';
 interface Props {
     item: GetActionItemDto;
     retroId: string;
+    assigneeOptions: string[];
     isClosed: boolean;
     canEdit: boolean;
     canDelete: boolean;
     canComplete: boolean;
 }
 
-export function ActionItemCard({ item, retroId, isClosed, canEdit, canDelete, canComplete }: Props) {
+export function ActionItemCard({ item, retroId, assigneeOptions, isClosed, canEdit, canDelete, canComplete }: Props) {
     const queryClient = useQueryClient();
     const [editing, setEditing] = useState(false);
     const [description, setDescription] = useState(item.description);
     const [assignee, setAssignee] = useState(item.assignee);
+
+    const participantAssignees = useMemo(() => {
+        const unique = new Set(assigneeOptions.map((name) => name.trim()).filter(Boolean));
+        if (item.assignee.trim()) unique.add(item.assignee.trim());
+        return Array.from(unique).sort((a, b) => a.localeCompare(b));
+    }, [assigneeOptions, item.assignee]);
+
+    const availableAssignees = useMemo(
+        () => ['', 'all', ...participantAssignees],
+        [participantAssignees]
+    );
+
+    useEffect(() => {
+        if (!editing) return;
+        if (!availableAssignees.includes(assignee)) {
+            setAssignee('');
+        }
+    }, [editing, assignee, availableAssignees]);
 
     function invalidate() {
         queryClient.invalidateQueries({ queryKey: ['retrospective', retroId] });
@@ -26,7 +45,7 @@ export function ActionItemCard({ item, retroId, isClosed, canEdit, canDelete, ca
         mutationFn: () =>
             actionItemsApi.update(item.id, {
                 description: description.trim() || undefined,
-                assignee: assignee.trim() || undefined,
+                assignee: assignee.trim(),
             }),
         onSuccess: () => { invalidate(); setEditing(false); },
     });
@@ -59,13 +78,17 @@ export function ActionItemCard({ item, retroId, isClosed, canEdit, canDelete, ca
                         rows={2}
                         className="w-full text-sm border border-slate-300 rounded px-2 py-1 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
-                    <input
-                        type="text"
+                    <select
                         value={assignee}
                         onChange={(e) => setAssignee(e.target.value)}
-                        placeholder="Assignee"
                         className="w-full text-sm border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
+                    >
+                        <option value="">--</option>
+                        <option value="all">all</option>
+                        {participantAssignees.map((name) => (
+                            <option key={name} value={name}>{name}</option>
+                        ))}
+                    </select>
                     <div className="flex gap-2">
                         <button
                             onClick={() => updateMutation.mutate()}

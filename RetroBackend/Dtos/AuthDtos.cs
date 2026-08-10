@@ -13,4 +13,24 @@ public record LoginRequest(
     [Required] string Password
 );
 
+public record ForgotPasswordRequest(
+    [Required, EmailAddress] string Email
+);
+
+public record ForgotPasswordResponse(string Message, string? ResetToken);
+
+public record ResetPasswordRequest(
+    [Required, EmailAddress] string Email,
+    [Required] string Token,
+    [Required, MinLength(8)] string NewPassword
+);
+
 public record AuthTokenResponse(string Token, string Email, string Role, string Nickname);
+
+public record InitialPasswordChangeRequest(
+    [Required, EmailAddress] string Email,
+    [Required] string CurrentPassword,
+    [Required, MinLength(8)] string NewPassword
+);
+
+public record PasswordChangeRequiredResponse(string Message, bool RequiresPasswordChange);

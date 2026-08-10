@@ -34,9 +34,9 @@ public class ActionItemsController : ControllerBase
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
-        if (!User.IsInRole(Roles.Admin))
+        if (!User.HasRole(Roles.Admin))
         {
-            var allowed = User.IsInRole(Roles.Manager)
+            var allowed = User.HasRole(Roles.Manager)
                 ? await _authzService.IsRetrospectiveOwnerByColumnAsync(userId, request.ColumnId)
                 : await _authzService.IsAssignedToRetrospectiveByColumnAsync(userId, request.ColumnId);
 
@@ -62,9 +62,9 @@ public class ActionItemsController : ControllerBase
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
-        if (!User.IsInRole(Roles.Admin))
+        if (!User.HasRole(Roles.Admin))
         {
-            var allowed = User.IsInRole(Roles.Manager)
+            var allowed = User.HasRole(Roles.Manager)
                 ? await _authzService.IsRetrospectiveOwnerByItemAsync(userId, id)
                 : await _authzService.IsItemOwnerAsync(userId, id);
 
@@ -99,9 +99,9 @@ public class ActionItemsController : ControllerBase
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
-        if (!User.IsInRole(Roles.Admin))
+        if (!User.HasRole(Roles.Admin))
         {
-            var allowed = User.IsInRole(Roles.Manager)
+            var allowed = User.HasRole(Roles.Manager)
                 ? await _authzService.IsRetrospectiveOwnerByItemAsync(userId, id)
                 : await _authzService.IsItemOwnerAsync(userId, id);
 
