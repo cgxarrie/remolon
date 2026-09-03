@@ -18,9 +18,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         Retro Molon
                     </Link>
                     <div className="flex items-center gap-4 text-sm">
-                        {role === 'Admin' && (
+                        {(role === 'Admin' || role === 'Manager') && (
                             <Link to="/users" className="hover:opacity-80 transition-opacity">
                                 Users
+                            </Link>
+                        )}
+                        {role === 'Admin' && (
+                            <Link to="/organizations" className="hover:opacity-80 transition-opacity">
+                                Organizations
                             </Link>
                         )}
                         <span className="opacity-80">

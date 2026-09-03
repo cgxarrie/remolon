@@ -4,12 +4,14 @@ export interface AuthTokenResponse {
     email: string;
     role: string;
     nickname: string;
+    organizationId?: string;
 }
 
 export interface RegisterRequest {
     email: string;
     password: string;
     nickname?: string;
+    organizationId: string;
 }
 
 export interface LoginRequest {
@@ -46,6 +48,8 @@ export interface PasswordChangeRequiredResponse {
 // Retrospectives
 export interface GetRetrospectiveSummaryDto {
     id: string;
+    organizationId: string;
+    organizationName: string;
     title: string;
     isClosed: boolean;
     isRevealed: boolean;
@@ -92,6 +96,8 @@ export interface GetActionColumnDto {
 
 export interface GetRetrospectiveDto {
     id: string;
+    organizationId: string;
+    organizationName: string;
     title: string;
     isClosed: boolean;
     isRevealed: boolean;
@@ -104,6 +110,8 @@ export interface GetRetrospectiveDto {
 
 export interface CreateRetrospectiveRequest {
     title: string;
+    organizationId?: string;
+    managerUserIds: string[];
     columns: { title: string; position: number }[];
 }
 
@@ -145,6 +153,16 @@ export interface AssignUserRequest {
     retrospectiveId: string;
 }
 
+export interface BatchAssignUsersRequest {
+    retrospectiveId: string;
+    userIds: string[];
+}
+
+export interface BatchAssignUsersResponse {
+    assignedCount: number;
+    removedCount: number;
+}
+
 export type Role = 'Admin' | 'Manager' | 'StandardUser';
 
 export interface UserSummaryDto {
@@ -152,12 +170,27 @@ export interface UserSummaryDto {
     email: string;
     nickname: string;
     role: Role;
+    organizationId: string | null;
+    organizationName: string | null;
 }
 
 export interface CreateUserRequest {
     email: string;
     nickname?: string;
     role?: Role;
+    organizationId?: string;
+}
+
+export interface Organization {
+    id: string;
+    name: string;
+}
+
+export interface PagedResponse<T> {
+    items: T[];
+    page: number;
+    pageSize: number;
+    totalCount: number;
 }
 
 export interface CreateUserResponse {

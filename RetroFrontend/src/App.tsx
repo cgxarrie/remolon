@@ -6,6 +6,7 @@ import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { RetrospectivesPage } from './pages/RetrospectivesPage';
 import { RetrospectiveDetailPage } from './pages/RetrospectiveDetailPage';
 import { UsersPage } from './pages/UsersPage';
+import { OrganizationsPage } from './pages/OrganizationsPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 const queryClient = new QueryClient({
@@ -46,6 +47,14 @@ export default function App() {
                         element={
                             <ProtectedRoute>
                                 <UsersPage />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/organizations"
+                        element={
+                            <ProtectedRoute>
+                                <OrganizationsPage />
                             </ProtectedRoute>
                         }
                     />
