@@ -10,6 +10,7 @@ public class RetroDbContext : IdentityDbContext<AppUser>
       public RetroDbContext(DbContextOptions<RetroDbContext> options) : base(options) { }
 
       public DbSet<Retrospective> Retrospectives => Set<Retrospective>();
+      public DbSet<Organization> Organizations => Set<Organization>();
       public DbSet<Item> Items => Set<Item>();
       public DbSet<Column> Columns => Set<Column>();
       public DbSet<UserRetrospective> UserRetrospectives => Set<UserRetrospective>();
@@ -17,6 +18,25 @@ public class RetroDbContext : IdentityDbContext<AppUser>
       protected override void OnModelCreating(ModelBuilder modelBuilder)
       {
             base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<Organization>(entity =>
+            {
+                  entity.HasKey(o => o.Id);
+                  entity.Property(o => o.Name).IsRequired().HasMaxLength(200);
+                  entity.HasIndex(o => o.Name)
+                    .HasDatabaseName("IX_Organizations_Name_CaseInsensitive")
+                    .IsUnique();
+            });
+
+            modelBuilder.Entity<AppUser>(entity =>
+            {
+                  entity.HasIndex(u => u.Nickname)
+                    .HasDatabaseName("IX_AspNetUsers_Nickname_CaseInsensitive")
+                    .IsUnique();
+                  entity.HasOne(u => u.Organization)
+                    .WithMany(o => o.Users)
+                    .HasForeignKey(u => u.OrganizationId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
             modelBuilder.Entity<Item>(entity =>
             {
                   entity.HasKey(i => i.Id);
@@ -74,6 +94,10 @@ public class RetroDbContext : IdentityDbContext<AppUser>
                   entity.HasMany(r => r.Columns)
                     .WithOne()
                     .HasForeignKey(c => c.RetrospectiveId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                  entity.HasOne(r => r.Organization)
+                    .WithMany(o => o.Retrospectives)
+                    .HasForeignKey(r => r.OrganizationId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
 

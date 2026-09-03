@@ -14,11 +14,13 @@ public class RetrospectiveServiceTests
     {
         var dbName = $"retro-service-tests-{Guid.NewGuid()}";
         var ownerUserId = "manager-1";
+        var organizationId = Guid.NewGuid();
         Guid originalRetroId;
 
         await using (var seedContext = CreateContext(dbName))
         {
-            var original = Retrospective.CreateNew(ownerUserId, "Sprint 11");
+            seedContext.Organizations.Add(new Organization { Id = organizationId, Name = "Acme" });
+            var original = Retrospective.CreateNew(ownerUserId, "Sprint 11", organizationId);
             seedContext.Retrospectives.Add(original);
             await seedContext.SaveChangesAsync();
             originalRetroId = original.Id;
@@ -38,6 +40,7 @@ public class RetrospectiveServiceTests
             Assert.NotNull(created);
             newRetroId = created.Id;
             Assert.Equal(ownerUserId, created.CreatedBy);
+            Assert.Equal(organizationId, created.OrganizationId);
         }
 
         await using (var assertContext = CreateContext(dbName))
@@ -51,7 +54,28 @@ public class RetrospectiveServiceTests
             Assert.True(oldRetro.IsClosed);
             Assert.Equal(ownerUserId, nextRetro.CreatedBy);
             Assert.False(nextRetro.IsClosed);
+            Assert.Equal(organizationId, nextRetro.OrganizationId);
         }
+    }
+
+    [Fact]
+    public async Task CreateAsync_StampsOrganizationId()
+    {
+        var dbName = $"retro-service-create-tests-{Guid.NewGuid()}";
+        var organizationId = Guid.NewGuid();
+        await using var context = CreateContext(dbName);
+        context.Organizations.Add(new Organization { Id = organizationId, Name = "Globex" });
+        await context.SaveChangesAsync();
+        var service = new RetrospectiveService(new EfRetrospectiveRepository(context));
+
+        var created = await service.CreateAsync(new CreateRetrospectiveRequest
+        {
+            CurrentUser = "manager-2",
+            OrganizationId = organizationId,
+            Title = "Sprint 12",
+        });
+
+        Assert.Equal(organizationId, created.OrganizationId);
     }
 
     private static RetroDbContext CreateContext(string dbName)

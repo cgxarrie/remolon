@@ -20,6 +20,8 @@ public class GetActionColumnDto
 public class GetRetrospectiveSummaryDto
 {
     public Guid Id { get; set; }
+    public Guid OrganizationId { get; set; }
+    public string OrganizationName { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public bool IsClosed { get; set; }
     public bool IsRevealed { get; set; }
@@ -31,6 +33,8 @@ public class GetRetrospectiveSummaryDto
 public class GetRetrospectiveDto
 {
     public Guid Id { get; set; }
+    public Guid OrganizationId { get; set; }
+    public string OrganizationName { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public bool IsClosed { get; set; }
     public bool IsRevealed { get; set; }

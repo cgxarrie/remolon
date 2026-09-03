@@ -12,12 +12,15 @@ public class EfRetrospectiveRepositoryTests
     public async Task UpdateAsync_PersistsCloseState_ForTrackedRetrospectiveEntity()
     {
         var dbName = $"retro-tests-{Guid.NewGuid()}";
+        var organizationId = Guid.NewGuid();
 
         await using (var context = CreateContext(dbName))
         {
             var repository = new EfRetrospectiveRepository(context);
+            context.Organizations.Add(new Organization { Id = organizationId, Name = "Acme" });
+            await context.SaveChangesAsync();
 
-            var retro = Retrospective.CreateNew("manager-1", "Sprint 42");
+            var retro = Retrospective.CreateNew("manager-1", "Sprint 42", organizationId);
             await repository.AddAsync(retro);
 
             var tracked = await repository.GetByIdAsync(retro.Id);

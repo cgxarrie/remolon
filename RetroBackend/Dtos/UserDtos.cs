@@ -3,12 +3,20 @@ using RetroBackend.Auth;
 
 namespace RetroBackend.Dtos;
 
-public record UserSummaryDto(string Id, string Email, string Nickname, string Role);
+public record UserSummaryDto(
+    string Id,
+    string Email,
+    string Nickname,
+    string Role,
+    Guid? OrganizationId,
+    string? OrganizationName
+);
 
 public record CreateUserRequest(
     [Required, EmailAddress] string Email,
     string? Nickname,
-    string? Role
+    string? Role,
+    Guid? OrganizationId
 );
 
 public record CreateUserResponse(string Id, string Email, string Nickname, string Role, string TemporaryPassword);

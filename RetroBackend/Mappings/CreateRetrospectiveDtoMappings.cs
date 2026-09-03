@@ -7,6 +7,7 @@ public static class CreateRetrospectiveDtoMappings
         var serviceRequest = new Models.CreateRetrospectiveRequest
         {
             Title = request.Title,
+            OrganizationId = request.OrganizationId ?? Guid.Empty,
         };
 
         foreach (var column in request.Columns)

@@ -7,6 +7,7 @@ public class CreateRetrospectiveRequest
 
     [Required]
     public string CurrentUser { get; set; } = string.Empty;
+    public Guid OrganizationId { get; set; }
 
     [Required]
     [MaxLength(200)]
