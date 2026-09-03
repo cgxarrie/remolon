@@ -1,6 +1,6 @@
 # RetroFrontend
 
-> React 19 single-page application for Retro Molon.
+> React 19 single-page application for ReMolon.
 
 ---
 

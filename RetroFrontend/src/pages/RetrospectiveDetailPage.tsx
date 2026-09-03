@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { retrospectivesApi } from '../api/retrospectives';
 import { assignmentsApi } from '../api/assignments';
@@ -128,10 +128,13 @@ export function RetrospectiveDetailPage() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const role = useAuthStore((s) => s.role);
+    const organizationId = useAuthStore((s) => s.organizationId);
+    const selectedOrganizationId = useAuthStore((s) => s.selectedOrganizationId);
     const userId = useAuthStore((s) => s.userId);
     const email = useAuthStore((s) => s.email);
     const nickname = useAuthStore((s) => s.nickname);
     const canManage = role === 'Admin' || role === 'Manager';
+    const activeOrganizationId = role === 'Admin' ? selectedOrganizationId : organizationId;
     const throwablePreferenceKey = `retro-throwable:${userId ?? email ?? 'anonymous'}`;
 
     const [editingTitle, setEditingTitle] = useState(false);
@@ -152,9 +155,9 @@ export function RetrospectiveDetailPage() {
     const nextFlightIdRef = useRef(0);
 
     const { data: retro, isLoading, isError } = useQuery({
-        queryKey: ['retrospective', id],
+        queryKey: ['retrospective', activeOrganizationId, id],
         queryFn: () => retrospectivesApi.getById(id!),
-        enabled: !!id,
+        enabled: Boolean(id && activeOrganizationId),
     });
 
     const { data: assignedParticipants = [] } = useQuery({
@@ -167,7 +170,7 @@ export function RetrospectiveDetailPage() {
         mutationFn: () => retrospectivesApi.close(id!),
         onSuccess: (newRetroId) => {
             queryClient.invalidateQueries({ queryKey: ['retrospectives'] });
-            queryClient.invalidateQueries({ queryKey: ['retrospective', id] });
+            queryClient.invalidateQueries({ queryKey: ['retrospective', activeOrganizationId, id] });
             navigate(`/retrospectives/${newRetroId}`);
         },
         onError: (err: unknown) => {
@@ -181,9 +184,9 @@ export function RetrospectiveDetailPage() {
     const revealMutation = useMutation({
         mutationFn: () => retrospectivesApi.reveal(id!),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['retrospective', id] });
+            queryClient.invalidateQueries({ queryKey: ['retrospective', activeOrganizationId, id] });
             queryClient.invalidateQueries({ queryKey: ['retrospectives'] });
-            queryClient.refetchQueries({ queryKey: ['retrospective', id] });
+            queryClient.refetchQueries({ queryKey: ['retrospective', activeOrganizationId, id] });
         },
         onError: (err: unknown) => {
             const axiosError = err as { response?: { status?: number; data?: { message?: string } } };
@@ -200,7 +203,7 @@ export function RetrospectiveDetailPage() {
         mutationFn: () => retrospectivesApi.delete(id!),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['retrospectives'] });
-            navigate('/');
+            navigate('/retrospectives');
         },
     });
 
@@ -208,7 +211,7 @@ export function RetrospectiveDetailPage() {
         mutationFn: () =>
             retrospectivesApi.update(id!, { retrospectiveDate: new Date().toISOString() }),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['retrospective', id] });
+            queryClient.invalidateQueries({ queryKey: ['retrospective', activeOrganizationId, id] });
             queryClient.invalidateQueries({ queryKey: ['retrospectives'] });
         },
     });
@@ -216,7 +219,7 @@ export function RetrospectiveDetailPage() {
     const renameMutation = useMutation({
         mutationFn: (title: string) => retrospectivesApi.update(id!, { title }),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['retrospective', id] });
+            queryClient.invalidateQueries({ queryKey: ['retrospective', activeOrganizationId, id] });
             queryClient.invalidateQueries({ queryKey: ['retrospectives'] });
             setEditingTitle(false);
         },
@@ -396,6 +399,10 @@ export function RetrospectiveDetailPage() {
         );
     }
 
+    if (retro.organizationId !== activeOrganizationId) {
+        return <Navigate to="/retrospectives" replace />;
+    }
+
     return (
         <Layout>
             <div ref={arenaRef} className="relative grid grid-cols-1 xl:grid-cols-[5rem_minmax(0,1fr)_5rem] gap-5 xl:gap-8 items-start">
@@ -502,7 +509,7 @@ export function RetrospectiveDetailPage() {
                     <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
                         <div>
                             <button
-                                onClick={() => navigate('/')}
+                                onClick={() => navigate('/retrospectives')}
                                 className="text-sm text-indigo-600 hover:underline mb-1 inline-block"
                             >
                                 ← Retrospectives

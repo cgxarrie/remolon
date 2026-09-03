@@ -22,6 +22,12 @@ public class RetroDbContext : IdentityDbContext<AppUser>
             {
                   entity.HasKey(o => o.Id);
                   entity.Property(o => o.Name).IsRequired().HasMaxLength(200);
+                  entity.Property(o => o.ThemeKey).IsRequired().HasMaxLength(20).HasDefaultValue("default");
+                  entity.Property(o => o.ThemeHeaderColor).HasMaxLength(7);
+                  entity.Property(o => o.ThemeHeaderHoverColor).HasMaxLength(7);
+                  entity.Property(o => o.ThemeAccentColor).HasMaxLength(7);
+                  entity.Property(o => o.ThemeAccentHoverColor).HasMaxLength(7);
+                  entity.Property(o => o.ThemeFocusColor).HasMaxLength(7);
                   entity.HasIndex(o => o.Name)
                     .HasDatabaseName("IX_Organizations_Name_CaseInsensitive")
                     .IsUnique();

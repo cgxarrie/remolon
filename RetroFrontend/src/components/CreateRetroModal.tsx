@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { retrospectivesApi } from '../api/retrospectives';
-import { organizationsApi } from '../api/organizations';
 import { usersApi } from '../api/users';
 import { useAuthStore } from '../store/authStore';
-import { useQuery } from '@tanstack/react-query';
 
 const DEFAULT_COLUMNS = ['What went well', 'What could be improved', 'What confused me'];
 
@@ -17,17 +15,13 @@ export function CreateRetroModal({ onClose }: Props) {
     const [title, setTitle] = useState('');
     const [columns, setColumns] = useState<string[]>(DEFAULT_COLUMNS);
     const [newCol, setNewCol] = useState('');
-    const [organizationId, setOrganizationId] = useState('');
     const [managerUserIds, setManagerUserIds] = useState<Set<string>>(new Set());
     const role = useAuthStore((s) => s.role);
     const ownOrganizationId = useAuthStore((s) => s.organizationId);
+    const adminOrganizationId = useAuthStore((s) => s.selectedOrganizationId);
+    const adminOrganizationName = useAuthStore((s) => s.selectedOrganizationName);
     const currentUserId = useAuthStore((s) => s.userId);
-    const selectedOrganizationId = role === 'Admin' ? organizationId : ownOrganizationId ?? '';
-    const { data: organizations } = useQuery({
-        queryKey: ['organizations', 'create-retro'],
-        queryFn: () => organizationsApi.getAll(1, 100),
-        enabled: role === 'Admin',
-    });
+    const selectedOrganizationId = role === 'Admin' ? adminOrganizationId ?? '' : ownOrganizationId ?? '';
     const managersQuery = useQuery({
         queryKey: ['organizationManagers', selectedOrganizationId],
         queryFn: () => usersApi.getAll(selectedOrganizationId, 1, 100),
@@ -49,7 +43,7 @@ export function CreateRetroModal({ onClose }: Props) {
         mutationFn: () =>
             retrospectivesApi.create({
                 title,
-                organizationId: role === 'Admin' ? organizationId : undefined,
+                organizationId: role === 'Admin' ? selectedOrganizationId : undefined,
                 managerUserIds: [...managerUserIds],
                 columns: columns.map((c, i) => ({ title: c, position: i })),
             }),
@@ -100,20 +94,14 @@ export function CreateRetroModal({ onClose }: Props) {
                             className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                     </div>
-                    {role === 'Admin' && <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Organization</label>
-                        <select
-                            className="w-full border rounded-md px-3 py-2"
-                            value={organizationId}
-                            onChange={(e) => {
-                                setOrganizationId(e.target.value);
-                                setManagerUserIds(new Set());
-                            }}
-                        >
-                            <option value="">Select organization</option>
-                            {organizations?.items.map((organization) => <option key={organization.id} value={organization.id}>{organization.name}</option>)}
-                        </select>
-                    </div>}
+                    {role === 'Admin' && adminOrganizationName && (
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Organization</label>
+                            <p className="w-full bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700">
+                                {adminOrganizationName}
+                            </p>
+                        </div>
+                    )}
                     {selectedOrganizationId && (
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -199,8 +187,8 @@ export function CreateRetroModal({ onClose }: Props) {
                     </button>
                     <button
                         onClick={() => mutation.mutate()}
-                        disabled={!title.trim() || managerUserIds.size === 0 || mutation.isPending || managersQuery.isPending || (role === 'Admin' && !organizationId)}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium rounded-md transition-colors"
+                        disabled={!title.trim() || managerUserIds.size === 0 || mutation.isPending || managersQuery.isPending || !selectedOrganizationId}
+                        className="px-4 py-2 theme-primary disabled:opacity-50 text-white text-sm font-medium rounded-md transition-colors"
                     >
                         {mutation.isPending ? 'Creating…' : 'Create'}
                     </button>

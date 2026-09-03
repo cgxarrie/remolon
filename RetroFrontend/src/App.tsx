@@ -7,7 +7,9 @@ import { RetrospectivesPage } from './pages/RetrospectivesPage';
 import { RetrospectiveDetailPage } from './pages/RetrospectiveDetailPage';
 import { UsersPage } from './pages/UsersPage';
 import { OrganizationsPage } from './pages/OrganizationsPage';
+import { OrganizationSelectorPage } from './pages/OrganizationSelectorPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { OrganizationThemeProvider } from './theme';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -21,13 +23,22 @@ const queryClient = new QueryClient({
 export default function App() {
     return (
         <QueryClientProvider client={queryClient}>
-            <BrowserRouter>
-                <Routes>
+            <OrganizationThemeProvider>
+                <BrowserRouter>
+                    <Routes>
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/register" element={<RegisterPage />} />
                     <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                     <Route
                         path="/"
+                        element={
+                            <ProtectedRoute allowAdminWithoutOrganization>
+                                <OrganizationSelectorPage />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/retrospectives"
                         element={
                             <ProtectedRoute>
                                 <RetrospectivesPage />
@@ -53,14 +64,15 @@ export default function App() {
                     <Route
                         path="/organizations"
                         element={
-                            <ProtectedRoute>
+                            <ProtectedRoute allowAdminWithoutOrganization>
                                 <OrganizationsPage />
                             </ProtectedRoute>
                         }
                     />
                     <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-            </BrowserRouter>
+                    </Routes>
+                </BrowserRouter>
+            </OrganizationThemeProvider>
         </QueryClientProvider>
     );
 }

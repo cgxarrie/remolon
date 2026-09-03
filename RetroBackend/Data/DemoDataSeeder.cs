@@ -19,7 +19,7 @@ public static class DemoDataSeeder
                 await roleManager.CreateAsync(new IdentityRole(role));
         }
 
-        var adminEmail = configuration["DefaultAdmin:Email"] ?? "sa@remolon.com";
+        var adminEmail = configuration["DefaultAdmin:Email"] ?? "sa@ReMolon.com";
         var adminPassword = configuration["DefaultAdmin:Password"] ?? "Passw0rd!";
         var adminNickname = configuration["DefaultAdmin:Nickname"] ?? "sa";
 
@@ -33,9 +33,9 @@ public static class DemoDataSeeder
 
         var demoOrganizations = new[]
         {
-            new { Name = "Acme", Slug = "acme" },
-            new { Name = "Globex", Slug = "globex" },
-            new { Name = "Initech", Slug = "initech" },
+            new { Name = "Acme", Slug = "acme", ThemeKey = "default" },
+            new { Name = "Globex", Slug = "globex", ThemeKey = "ocean" },
+            new { Name = "Initech", Slug = "initech", ThemeKey = "forest" },
         };
         const string demoPassword = "Passw0rd!";
 
@@ -45,7 +45,7 @@ public static class DemoDataSeeder
                 .FirstOrDefaultAsync(o => o.Name.ToLower() == demo.Name.ToLower());
             if (organization is null)
             {
-                organization = new Organization { Name = demo.Name };
+                organization = new Organization { Name = demo.Name, ThemeKey = demo.ThemeKey };
                 db.Organizations.Add(organization);
                 await db.SaveChangesAsync();
             }
@@ -58,7 +58,7 @@ public static class DemoDataSeeder
             };
             foreach (var demoUser in demoUsers)
             {
-                var email = $"{demoUser.Prefix}.{demo.Slug}@remolon.com";
+                var email = $"{demoUser.Prefix}.{demo.Slug}@ReMolon.com";
                 if (await userManager.FindByEmailAsync(email) is not null) continue;
                 var user = new AppUser(email, $"{demoUser.Prefix}.{demo.Slug}")
                 {
