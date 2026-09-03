@@ -6,7 +6,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using RetroBackend.Data;
-using RetroBackend.Auth;
 using RetroBackend.Models;
 using RetroBackend.Repositories;
 using RetroBackend.Services;
@@ -142,27 +141,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<RetroDbContext>();
     await db.Database.MigrateAsync();
-
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
-
-    foreach (var role in new[] { Roles.Admin, Roles.Manager, Roles.StandardUser })
-    {
-        if (!await roleManager.RoleExistsAsync(role))
-            await roleManager.CreateAsync(new IdentityRole(role));
-    }
-
-    var adminEmail = builder.Configuration["DefaultAdmin:Email"] ?? "sa@remolon.com";
-    var adminPassword = builder.Configuration["DefaultAdmin:Password"] ?? "Passw0rd!";
-    var adminNickname = builder.Configuration["DefaultAdmin:Nickname"] ?? "sa";
-
-    if (await userManager.FindByEmailAsync(adminEmail) is null)
-    {
-        var admin = new AppUser(adminEmail, adminNickname);
-        var result = await userManager.CreateAsync(admin, adminPassword);
-        if (result.Succeeded)
-            await userManager.AddToRoleAsync(admin, Roles.Admin);
-    }
+    await DemoDataSeeder.SeedAsync(scope.ServiceProvider, app.Configuration);
 }
 
 if (app.Environment.IsDevelopment())

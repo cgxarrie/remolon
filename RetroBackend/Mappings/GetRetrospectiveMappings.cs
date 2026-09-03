@@ -22,6 +22,8 @@ public static class GetRetrospectiveMappings
     public static Dtos.GetRetrospectiveSummaryDto ToSummaryDto(this Models.Retrospective retro) => new()
     {
         Id = retro.Id,
+        OrganizationId = retro.OrganizationId,
+        OrganizationName = retro.Organization?.Name ?? string.Empty,
         Title = retro.Title,
         IsClosed = retro.IsClosed,
         IsRevealed = retro.IsRevealed,
@@ -33,6 +35,8 @@ public static class GetRetrospectiveMappings
     public static Dtos.GetRetrospectiveDto ToGetDto(this Models.Retrospective retro, string currentUserId) => new()
     {
         Id = retro.Id,
+        OrganizationId = retro.OrganizationId,
+        OrganizationName = retro.Organization?.Name ?? string.Empty,
         Title = retro.Title,
         IsClosed = retro.IsClosed,
         IsRevealed = retro.IsRevealed,

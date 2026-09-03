@@ -14,16 +14,18 @@ public class EfRetrospectiveRepository : IRetrospectiveRepository
     }
 
     public async Task<IEnumerable<Retrospective>> GetAllAsync() =>
-        await _context.Retrospectives.Include(r => r.Columns).ToListAsync();
+        await _context.Retrospectives.Include(r => r.Organization).Include(r => r.Columns).ToListAsync();
 
     public async Task<IEnumerable<Retrospective>> GetAllForUserAsync(string userId) =>
         await _context.Retrospectives
+            .Include(r => r.Organization)
             .Include(r => r.Columns)
             .Where(r => _context.UserRetrospectives.Any(ur => ur.RetrospectiveId == r.Id && ur.UserId == userId))
             .ToListAsync();
 
     public async Task<Retrospective?> GetByIdAsync(Guid id) =>
         await _context.Retrospectives
+            .Include(r => r.Organization)
             .Include(r => r.Columns)
             .ThenInclude(c => c.Items)
             .FirstOrDefaultAsync(r => r.Id == id);

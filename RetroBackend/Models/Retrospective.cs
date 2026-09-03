@@ -17,6 +17,8 @@ public class Retrospective : BaseEntity
 
     public bool IsClosed => _isClosed;
     public bool IsRevealed => _isRevealed;
+    public Guid OrganizationId { get; private set; }
+    public Organization? Organization { get; private set; }
 
     public DateTime? RetrospectiveDate
     {
@@ -34,17 +36,18 @@ public class Retrospective : BaseEntity
 
     // Safe for EF Core to use when materialising from the database.
     // Does NOT create ActionColumns; direct field assignment avoids SetField side-effects.
-    public Retrospective(string createdBy, string title) : base(createdBy)
+    public Retrospective(string createdBy, string title, Guid organizationId = default) : base(createdBy)
     {
         _title = title;
+        OrganizationId = organizationId;
         Columns = [];
     }
 
     // Use this factory method when creating a brand-new retrospective so that the
     // default ActionColumns are added after the entity has a stable Id.
-    public static Retrospective CreateNew(string createdBy, string title)
+    public static Retrospective CreateNew(string createdBy, string title, Guid organizationId = default)
     {
-        var retro = new Retrospective(createdBy, title);
+        var retro = new Retrospective(createdBy, title, organizationId);
         retro.Columns.Add(ActionColumn.NewPendingActionItemsColumn("system", retro.Id));
         retro.Columns.Add(ActionColumn.NewActionItemsColumn("system", retro.Id));
         return retro;

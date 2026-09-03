@@ -9,6 +9,8 @@ using Microsoft.IdentityModel.Tokens;
 using RetroBackend.Dtos;
 using RetroBackend.Auth;
 using RetroBackend.Models;
+using RetroBackend.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace RetroBackend.Controllers;
 
@@ -19,11 +21,13 @@ public class AuthController : ControllerBase
 {
     private readonly UserManager<AppUser> _userManager;
     private readonly IConfiguration _configuration;
+    private readonly RetroDbContext _context;
 
-    public AuthController(UserManager<AppUser> userManager, IConfiguration configuration)
+    public AuthController(UserManager<AppUser> userManager, IConfiguration configuration, RetroDbContext context)
     {
         _userManager = userManager;
         _configuration = configuration;
+        _context = context;
     }
 
     /// <summary>Registers a new standard user.</summary>
@@ -37,8 +41,13 @@ public class AuthController : ControllerBase
         var nickname = !string.IsNullOrWhiteSpace(request.Nickname)
             ? request.Nickname.Trim()
             : request.Email.Split('@')[0];
+        if (!request.OrganizationId.HasValue
+            || !await _context.Organizations.AnyAsync(o => o.Id == request.OrganizationId))
+            return BadRequest(new { message = "A valid organizationId is required." });
+        if (await _userManager.Users.AnyAsync(u => u.Nickname.ToLower() == nickname.ToLower()))
+            return BadRequest(new { message = "A user with this nickname already exists." });
 
-        var user = new AppUser(request.Email, nickname);
+        var user = new AppUser(request.Email, nickname) { OrganizationId = request.OrganizationId };
         var result = await _userManager.CreateAsync(user, request.Password);
         if (!result.Succeeded)
             return BadRequest(result.Errors);
@@ -197,7 +206,13 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> RegisterManager([FromBody] RegisterRequest request)
     {
-        var user = new AppUser(request.Email, request.Nickname);
+        if (!request.OrganizationId.HasValue
+            || !await _context.Organizations.AnyAsync(o => o.Id == request.OrganizationId))
+            return BadRequest(new { message = "A valid organizationId is required." });
+        if (await _userManager.Users.AnyAsync(u => u.Nickname.ToLower() == request.Nickname.ToLower()))
+            return BadRequest(new { message = "A user with this nickname already exists." });
+
+        var user = new AppUser(request.Email, request.Nickname) { OrganizationId = request.OrganizationId };
         var result = await _userManager.CreateAsync(user, request.Password);
         if (!result.Succeeded)
             return BadRequest(result.Errors);
@@ -222,6 +237,8 @@ public class AuthController : ControllerBase
 
         foreach (var role in roles)
             claims.Add(new Claim(ClaimTypes.Role, role));
+        if (user.OrganizationId.HasValue)
+            claims.Add(new Claim(AuthClaims.OrganizationId, user.OrganizationId.Value.ToString()));
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

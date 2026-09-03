@@ -23,7 +23,7 @@ public class RetrospectiveService : IRetrospectiveService
 
     public async Task<Retrospective> CreateAsync(CreateRetrospectiveRequest request)
     {
-        var retro = Retrospective.CreateNew(request.CurrentUser, request.Title);
+        var retro = Retrospective.CreateNew(request.CurrentUser, request.Title, request.OrganizationId);
         request.Columns.ForEach(c => retro.AddColumn(request.CurrentUser, c.Title, c.Position));
         return await _repository.AddAsync(retro);
     }
@@ -70,7 +70,7 @@ public class RetrospectiveService : IRetrospectiveService
         existing.Close();
         await _repository.UpdateAsync(existing);
 
-        var newRetroDraft = Retrospective.CreateNew(actingUser, existing.Title);
+        var newRetroDraft = Retrospective.CreateNew(actingUser, existing.Title, existing.OrganizationId);
 
         // Copy regular (non-action) columns
         foreach (var col in existing.Columns.Where(c => c is not ActionColumn))
