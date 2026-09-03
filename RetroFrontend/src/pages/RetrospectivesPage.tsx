@@ -1,165 +1,83 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { retrospectivesApi } from '../api/retrospectives';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Layout } from '../components/Layout';
 import { CreateRetroModal } from '../components/CreateRetroModal';
+import { organizationsApi } from '../api/organizations';
+import { retrospectivesApi } from '../api/retrospectives';
 import { useAuthStore } from '../store/authStore';
-import type { GetRetrospectiveSummaryDto } from '../types';
+import type { GetRetrospectiveSummaryDto, Organization } from '../types';
 
-export function RetrospectivesPage() {
+function OrganizationRetrospectives({ organization }: { organization: Organization }) {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const role = useAuthStore((s) => s.role);
+    const [page, setPage] = useState(1);
+    const [expanded, setExpanded] = useState<Set<string>>(new Set());
+    const { data, isLoading } = useQuery({
+        queryKey: ['retrospectives', organization.id, page],
+        queryFn: () => retrospectivesApi.getAll(organization.id, page),
+    });
+    const remove = useMutation({
+        mutationFn: retrospectivesApi.delete,
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['retrospectives', organization.id] }),
+    });
+    const grouped = (data?.items ?? []).reduce<Record<string, GetRetrospectiveSummaryDto[]>>((result, retro) => {
+        (result[retro.title] ??= []).push(retro);
+        return result;
+    }, {});
+    const titles = Object.keys(grouped).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    Object.values(grouped).forEach((items) => items.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)));
+
+    return <section className="space-y-3">
+        <div className="flex justify-between"><h2 className="text-xl font-semibold">{organization.name}</h2><span>{data?.totalCount ?? 0} boards</span></div>
+        {isLoading && <p>Loading…</p>}
+        {titles.map((title) => {
+            const items = grouped[title];
+            const open = expanded.has(title);
+            return <div key={title} className="bg-white rounded-xl shadow border overflow-hidden">
+                <button className="w-full p-4 flex justify-between" onClick={() => setExpanded((previous) => {
+                    const next = new Set(previous); if (next.has(title)) next.delete(title); else next.add(title); return next;
+                })}><span className="font-semibold">{open ? '▼' : '▶'} {title}</span><span>{items.length} session{items.length === 1 ? '' : 's'}</span></button>
+                {open && items.map((retro) => <div key={retro.id} className="border-t p-3 flex justify-between">
+                    <span>{new Date(retro.createdAt).toLocaleDateString()} · {retro.isClosed ? 'Closed' : 'Open'}</span>
+                    <span className="space-x-3"><button className="text-indigo-600" onClick={() => navigate(`/retrospectives/${retro.id}`)}>Open</button>
+                    {(role === 'Admin' || role === 'Manager') && <button className="text-red-600" onClick={() => {
+                        if (confirm('Delete this retrospective?')) remove.mutate(retro.id);
+                    }}>Delete</button>}</span>
+                </div>)}
+            </div>;
+        })}
+        <div className="flex justify-end gap-3">
+            <button disabled={page === 1} onClick={() => setPage((p) => p - 1)}>Previous</button><span>Page {page}</span>
+            <button disabled={!data || page * data.pageSize >= data.totalCount} onClick={() => setPage((p) => p + 1)}>Next</button>
+        </div>
+    </section>;
+}
+
+export function RetrospectivesPage() {
+    const { role, organizationId } = useAuthStore();
+    const [showCreate, setShowCreate] = useState(false);
+    const [organizationPage, setOrganizationPage] = useState(1);
+    const { data: organizations, isLoading } = useQuery({
+        queryKey: ['organizations', organizationPage],
+        queryFn: () => organizationsApi.getAll(organizationPage),
+        enabled: role === 'Admin' || role === 'Manager',
+    });
     const canManage = role === 'Admin' || role === 'Manager';
 
-    const [showCreate, setShowCreate] = useState(false);
-    const [expandedTitles, setExpandedTitles] = useState<Set<string>>(new Set());
-
-    const { data: retros = [], isLoading, isError } = useQuery({
-        queryKey: ['retrospectives'],
-        queryFn: retrospectivesApi.getAll,
-    });
-
-    const deleteMutation = useMutation({
-        mutationFn: retrospectivesApi.delete,
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['retrospectives'] }),
-    });
-
-    // Group by title, sort each group by date descending
-    const grouped = retros.reduce<Record<string, GetRetrospectiveSummaryDto[]>>((acc, retro) => {
-        (acc[retro.title] ??= []).push(retro);
-        return acc;
-    }, {});
-
-    Object.values(grouped).forEach((group) =>
-        group.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    );
-
-    const titles = Object.keys(grouped).sort();
-
-    function toggleTitle(title: string) {
-        setExpandedTitles((prev) => {
-            const next = new Set(prev);
-            if (next.has(title)) next.delete(title);
-            else next.add(title);
-            return next;
-        });
-    }
-
-    function confirmDelete(id: string) {
-        if (confirm('Delete this retrospective? This cannot be undone.')) {
-            deleteMutation.mutate(id);
-        }
-    }
-
-    return (
-        <Layout>
-            <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-bold text-slate-800">Retrospectives</h1>
-                {canManage && (
-                    <button
-                        onClick={() => setShowCreate(true)}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
-                    >
-                        + New Retrospective
-                    </button>
-                )}
-            </div>
-
-            {isLoading && <p className="text-slate-500">Loading…</p>}
-            {isError && <p className="text-red-600">Failed to load retrospectives.</p>}
-
-            {!isLoading && titles.length === 0 && (
-                <div className="text-center py-16 text-slate-400">
-                    <p className="text-4xl mb-3">📋</p>
-                    <p className="text-lg font-medium">No retrospectives yet</p>
-                    {canManage && (
-                        <p className="text-sm mt-1">Create your first one to get started.</p>
-                    )}
-                </div>
-            )}
-
-            <div className="space-y-3">
-                {titles.map((title) => {
-                    const group = grouped[title];
-                    const isExpanded = expandedTitles.has(title);
-                    const allClosed = group.every((r) => r.isClosed);
-
-                    return (
-                        <div key={title} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                            <button
-                                onClick={() => toggleTitle(title)}
-                                className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-slate-50 transition-colors"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <span className="text-slate-400 text-sm">{isExpanded ? '▼' : '▶'}</span>
-                                    <span className="font-semibold text-slate-800">{title}</span>
-                                    <span className="text-xs text-slate-400 font-normal">
-                                        {group.length} {group.length === 1 ? 'session' : 'sessions'}
-                                    </span>
-                                    {allClosed && (
-                                        <span className="px-2 py-0.5 text-xs bg-slate-100 text-slate-500 rounded-full">
-                                            All closed
-                                        </span>
-                                    )}
-                                </div>
-                                <span className="text-xs text-slate-400">
-                                    Latest: {new Date(group[0].createdAt).toLocaleDateString()}
-                                </span>
-                            </button>
-
-                            {isExpanded && (
-                                <div className="border-t border-slate-100 divide-y divide-slate-100">
-                                    {group.map((retro) => (
-                                        <div key={retro.id} className="flex items-center justify-between px-5 py-3 hover:bg-slate-50">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: retro.isClosed ? '#94a3b8' : '#6366f1' }} />
-                                                <div>
-                                                    <p className="text-sm font-medium text-slate-700">
-                                                        {new Date(retro.createdAt).toLocaleDateString('en-US', {
-                                                            year: 'numeric',
-                                                            month: 'long',
-                                                            day: 'numeric',
-                                                        })}
-                                                    </p>
-                                                    <p className="text-xs text-slate-400">
-                                                        {retro.isClosed ? 'Closed' : 'Open'} ·{' '}
-                                                        Updated {new Date(retro.updatedAt).toLocaleDateString()}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                {retro.isClosed && (
-                                                    <span className="px-2 py-0.5 text-xs bg-slate-100 text-slate-500 rounded-full">
-                                                        Closed
-                                                    </span>
-                                                )}
-                                                <button
-                                                    onClick={() => navigate(`/retrospectives/${retro.id}`)}
-                                                    className="px-3 py-1.5 text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md font-medium transition-colors"
-                                                >
-                                                    Open
-                                                </button>
-                                                {canManage && (
-                                                    <button
-                                                        onClick={() => confirmDelete(retro.id)}
-                                                        className="px-3 py-1.5 text-xs bg-red-50 hover:bg-red-100 text-red-600 rounded-md transition-colors"
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
-            </div>
-
-            {showCreate && <CreateRetroModal onClose={() => setShowCreate(false)} />}
-        </Layout>
-    );
+    return <Layout><div className="space-y-7">
+        <div className="flex justify-between"><h1 className="text-2xl font-bold">Retrospectives</h1>
+            {canManage && <button className="bg-indigo-600 text-white rounded px-4 py-2" onClick={() => setShowCreate(true)}>+ New Retrospective</button>}
+        </div>
+        {isLoading && <p>Loading organizations…</p>}
+        {(organizations?.items ?? (organizationId ? [{ id: organizationId, name: 'Your organization' }] : []))
+            .map((organization) => <OrganizationRetrospectives key={organization.id} organization={organization} />)}
+        {role === 'Admin' && <div className="flex justify-center gap-4">
+            <button disabled={organizationPage === 1} onClick={() => setOrganizationPage((p) => p - 1)}>Previous organizations</button>
+            <span>Page {organizationPage}</span>
+            <button disabled={!organizations || organizationPage * organizations.pageSize >= organizations.totalCount} onClick={() => setOrganizationPage((p) => p + 1)}>Next organizations</button>
+        </div>}
+        {showCreate && <CreateRetroModal onClose={() => setShowCreate(false)} />}
+    </div></Layout>;
 }

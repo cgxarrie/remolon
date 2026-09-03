@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { assignmentsApi } from '../api/assignments';
 
 interface Props {
@@ -9,57 +9,154 @@ interface Props {
 
 export function AssignUserModal({ retroId, onClose }: Props) {
     const queryClient = useQueryClient();
-    const [email, setEmail] = useState('');
+    const [search, setSearch] = useState('');
+    const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+    const [selectionInitialized, setSelectionInitialized] = useState(false);
     const [message, setMessage] = useState('');
 
-    const assignMutation = useMutation({
-        mutationFn: () => assignmentsApi.assign({ userEmail: email, retrospectiveId: retroId }),
-        onSuccess: () => {
-            setMessage(`User ${email} assigned successfully.`);
-            setEmail('');
-            queryClient.invalidateQueries({ queryKey: ['retrospectiveParticipants', retroId] });
+    const usersQuery = useQuery({
+        queryKey: ['retrospectiveUsers', retroId],
+        queryFn: () => assignmentsApi.getRetrospectiveUsers(retroId),
+    });
+
+    const participantsQuery = useQuery({
+        queryKey: ['retrospectiveParticipants', retroId],
+        queryFn: () => assignmentsApi.getRetrospectiveParticipants(retroId),
+    });
+
+    const assignedUserIds = useMemo(
+        () => new Set(participantsQuery.data?.map((participant) => participant.id) ?? []),
+        [participantsQuery.data],
+    );
+    useEffect(() => {
+        if (participantsQuery.data && !selectionInitialized) {
+            setSelectedUserIds(new Set(participantsQuery.data.map((participant) => participant.id)));
+            setSelectionInitialized(true);
+        }
+    }, [participantsQuery.data, selectionInitialized]);
+    const hasChanges = useMemo(
+        () => selectedUserIds.size !== assignedUserIds.size
+            || [...selectedUserIds].some((id) => !assignedUserIds.has(id)),
+        [assignedUserIds, selectedUserIds],
+    );
+    const filteredUsers = useMemo(() => {
+        const query = search.trim().toLowerCase();
+        if (!query) return usersQuery.data ?? [];
+        return (usersQuery.data ?? []).filter(
+            (user) =>
+                user.nickname.toLowerCase().includes(query)
+                || user.email.toLowerCase().includes(query),
+        );
+    }, [search, usersQuery.data]);
+
+    const saveMutation = useMutation({
+        mutationFn: () => assignmentsApi.assignBatch({
+            retrospectiveId: retroId,
+            userIds: [...selectedUserIds],
+        }),
+        onSuccess: async ({ assignedCount, removedCount }) => {
+            await queryClient.invalidateQueries({ queryKey: ['retrospectiveParticipants', retroId] });
+            setMessage(`${assignedCount} assigned, ${removedCount} removed.`);
         },
         onError: (err: unknown) => {
             const axiosError = err as { response?: { data?: { message?: string } } };
-            setMessage(axiosError.response?.data?.message ?? 'Failed to assign user.');
+            setMessage(axiosError.response?.data?.message ?? 'Failed to save participants.');
         },
     });
 
-    const unassignMutation = useMutation({
-        mutationFn: () => assignmentsApi.unassign({ userEmail: email, retrospectiveId: retroId }),
-        onSuccess: () => {
-            setMessage(`User ${email} removed.`);
-            setEmail('');
-            queryClient.invalidateQueries({ queryKey: ['retrospectiveParticipants', retroId] });
-        },
-        onError: (err: unknown) => {
-            const axiosError = err as { response?: { data?: { message?: string } } };
-            setMessage(axiosError.response?.data?.message ?? 'Failed to remove user.');
-        },
-    });
+    const toggleUser = (userId: string) => {
+        setMessage('');
+        setSelectedUserIds((current) => {
+            const next = new Set(current);
+            if (next.has(userId)) next.delete(userId);
+            else next.add(userId);
+            return next;
+        });
+    };
 
     return (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-sm">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
                 <div className="flex items-center justify-between px-6 py-4 border-b">
                     <h2 className="text-lg font-semibold">Manage Participants</h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl">
+                    <button
+                        onClick={onClose}
+                        aria-label="Close"
+                        className="text-slate-400 hover:text-slate-600 text-xl"
+                    >
                         ✕
                     </button>
                 </div>
                 <div className="p-6 space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">User Email</label>
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="user@example.com"
-                            className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
+                    <input
+                        type="search"
+                        value={search}
+                        onChange={(event) => setSearch(event.target.value)}
+                        placeholder="Search by nickname or email"
+                        aria-label="Search organization users"
+                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+
+                    <div className="border border-slate-200 rounded-xl overflow-hidden">
+                        <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 text-xs font-medium text-slate-500">
+                            Organization users
+                        </div>
+                        <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                            {(usersQuery.isPending || participantsQuery.isPending) && (
+                                <p className="px-4 py-8 text-sm text-slate-500 text-center">Loading users…</p>
+                            )}
+                            {(usersQuery.isError || participantsQuery.isError) && (
+                                <p className="px-4 py-8 text-sm text-red-600 text-center">
+                                    Failed to load organization users.
+                                </p>
+                            )}
+                            {!usersQuery.isPending && !participantsQuery.isPending
+                                && !usersQuery.isError && !participantsQuery.isError
+                                && filteredUsers.length === 0 && (
+                                <p className="px-4 py-8 text-sm text-slate-500 text-center">
+                                    {search.trim() ? 'No users match your search.' : 'No users found.'}
+                                </p>
+                            )}
+                            {!participantsQuery.isPending && filteredUsers.map((user) => {
+                                const isAssigned = assignedUserIds.has(user.id);
+                                const isSelected = selectedUserIds.has(user.id);
+                                return (
+                                    <label
+                                        key={user.id}
+                                        className="flex items-center gap-3 px-4 py-3 hover:bg-indigo-50 cursor-pointer"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={isSelected}
+                                            onChange={() => toggleUser(user.id)}
+                                            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                        />
+                                        <span className="min-w-0 flex-1">
+                                            <span className="flex items-center gap-2">
+                                                <span className="block text-sm font-medium text-slate-800 truncate">
+                                                    {user.nickname}
+                                                </span>
+                                                {isAssigned && isSelected && (
+                                                    <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">
+                                                        Assigned
+                                                    </span>
+                                                )}
+                                            </span>
+                                            <span className="block text-xs text-slate-500 truncate">
+                                                {user.email} · {user.role === 'StandardUser' ? 'Standard User' : user.role}
+                                            </span>
+                                        </span>
+                                    </label>
+                                );
+                            })}
+                        </div>
                     </div>
                     {message && (
-                        <p className="text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded-md p-3">
+                        <p className={`text-sm rounded-md border p-3 ${
+                            saveMutation.isError
+                                ? 'text-red-700 bg-red-50 border-red-200'
+                                : 'text-slate-600 bg-slate-50 border-slate-200'
+                        }`}>
                             {message}
                         </p>
                     )}
@@ -69,18 +166,11 @@ export function AssignUserModal({ retroId, onClose }: Props) {
                         Close
                     </button>
                     <button
-                        onClick={() => unassignMutation.mutate()}
-                        disabled={!email.trim() || unassignMutation.isPending}
-                        className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 text-sm font-medium rounded-md border border-red-200 transition-colors disabled:opacity-50"
+                        onClick={() => saveMutation.mutate()}
+                        disabled={!hasChanges || saveMutation.isPending}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
                     >
-                        Remove
-                    </button>
-                    <button
-                        onClick={() => assignMutation.mutate()}
-                        disabled={!email.trim() || assignMutation.isPending}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium rounded-md transition-colors"
-                    >
-                        Assign
+                        {saveMutation.isPending ? 'Saving…' : 'Save participants'}
                     </button>
                 </div>
             </div>

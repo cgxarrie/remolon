@@ -1,6 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { retrospectivesApi } from '../api/retrospectives';
+import { organizationsApi } from '../api/organizations';
+import { usersApi } from '../api/users';
+import { useAuthStore } from '../store/authStore';
+import { useQuery } from '@tanstack/react-query';
 
 const DEFAULT_COLUMNS = ['What went well', 'What could be improved', 'What confused me'];
 
@@ -13,11 +17,40 @@ export function CreateRetroModal({ onClose }: Props) {
     const [title, setTitle] = useState('');
     const [columns, setColumns] = useState<string[]>(DEFAULT_COLUMNS);
     const [newCol, setNewCol] = useState('');
+    const [organizationId, setOrganizationId] = useState('');
+    const [managerUserIds, setManagerUserIds] = useState<Set<string>>(new Set());
+    const role = useAuthStore((s) => s.role);
+    const ownOrganizationId = useAuthStore((s) => s.organizationId);
+    const currentUserId = useAuthStore((s) => s.userId);
+    const selectedOrganizationId = role === 'Admin' ? organizationId : ownOrganizationId ?? '';
+    const { data: organizations } = useQuery({
+        queryKey: ['organizations', 'create-retro'],
+        queryFn: () => organizationsApi.getAll(1, 100),
+        enabled: role === 'Admin',
+    });
+    const managersQuery = useQuery({
+        queryKey: ['organizationManagers', selectedOrganizationId],
+        queryFn: () => usersApi.getAll(selectedOrganizationId, 1, 100),
+        enabled: Boolean(selectedOrganizationId),
+        select: (page) => page.items.filter((user) => user.role === 'Manager'),
+    });
+
+    useEffect(() => {
+        setManagerUserIds((current) => {
+            const validIds = new Set(managersQuery.data?.map((manager) => manager.id) ?? []);
+            const next = new Set([...current].filter((id) => validIds.has(id)));
+            if (role === 'Manager' && currentUserId && validIds.has(currentUserId))
+                next.add(currentUserId);
+            return next;
+        });
+    }, [currentUserId, managersQuery.data, role, selectedOrganizationId]);
 
     const mutation = useMutation({
         mutationFn: () =>
             retrospectivesApi.create({
                 title,
+                organizationId: role === 'Admin' ? organizationId : undefined,
+                managerUserIds: [...managerUserIds],
                 columns: columns.map((c, i) => ({ title: c, position: i })),
             }),
         onSuccess: () => {
@@ -36,6 +69,15 @@ export function CreateRetroModal({ onClose }: Props) {
 
     function removeColumn(i: number) {
         setColumns((prev) => prev.filter((_, idx) => idx !== i));
+    }
+
+    function toggleManager(userId: string) {
+        setManagerUserIds((current) => {
+            const next = new Set(current);
+            if (next.has(userId)) next.delete(userId);
+            else next.add(userId);
+            return next;
+        });
     }
 
     return (
@@ -58,6 +100,55 @@ export function CreateRetroModal({ onClose }: Props) {
                             className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                     </div>
+                    {role === 'Admin' && <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Organization</label>
+                        <select
+                            className="w-full border rounded-md px-3 py-2"
+                            value={organizationId}
+                            onChange={(e) => {
+                                setOrganizationId(e.target.value);
+                                setManagerUserIds(new Set());
+                            }}
+                        >
+                            <option value="">Select organization</option>
+                            {organizations?.items.map((organization) => <option key={organization.id} value={organization.id}>{organization.name}</option>)}
+                        </select>
+                    </div>}
+                    {selectedOrganizationId && (
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">
+                                Managers <span className="text-red-500">*</span>
+                            </label>
+                            <div className="border border-slate-200 rounded-lg max-h-40 overflow-y-auto divide-y divide-slate-100">
+                                {managersQuery.isPending && (
+                                    <p className="px-3 py-4 text-sm text-slate-500">Loading managers…</p>
+                                )}
+                                {managersQuery.isError && (
+                                    <p className="px-3 py-4 text-sm text-red-600">Failed to load managers.</p>
+                                )}
+                                {!managersQuery.isPending && !managersQuery.isError && managersQuery.data?.length === 0 && (
+                                    <p className="px-3 py-4 text-sm text-red-600">
+                                        This organization has no managers.
+                                    </p>
+                                )}
+                                {managersQuery.data?.map((manager) => (
+                                    <label key={manager.id} className="flex items-center gap-3 px-3 py-2 hover:bg-indigo-50 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={managerUserIds.has(manager.id)}
+                                            onChange={() => toggleManager(manager.id)}
+                                            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                        />
+                                        <span className="min-w-0">
+                                            <span className="block text-sm font-medium text-slate-800 truncate">{manager.nickname}</span>
+                                            <span className="block text-xs text-slate-500 truncate">{manager.email}</span>
+                                        </span>
+                                    </label>
+                                ))}
+                            </div>
+                            <p className="mt-1 text-xs text-slate-500">At least one manager must be assigned.</p>
+                        </div>
+                    )}
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-2">Columns</label>
                         <ul className="space-y-2 mb-2">
@@ -93,7 +184,10 @@ export function CreateRetroModal({ onClose }: Props) {
                         </div>
                     </div>
                     {mutation.isError && (
-                        <p className="text-sm text-red-600">Failed to create retrospective.</p>
+                        <p className="text-sm text-red-600">
+                            {(mutation.error as { response?: { data?: { message?: string } } }).response?.data?.message
+                                ?? 'Failed to create retrospective.'}
+                        </p>
                     )}
                 </div>
                 <div className="flex justify-end gap-3 px-6 py-4 border-t">
@@ -105,7 +199,7 @@ export function CreateRetroModal({ onClose }: Props) {
                     </button>
                     <button
                         onClick={() => mutation.mutate()}
-                        disabled={!title.trim() || mutation.isPending}
+                        disabled={!title.trim() || managerUserIds.size === 0 || mutation.isPending || managersQuery.isPending || (role === 'Admin' && !organizationId)}
                         className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium rounded-md transition-colors"
                     >
                         {mutation.isPending ? 'Creating…' : 'Create'}

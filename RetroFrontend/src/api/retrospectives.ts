@@ -4,11 +4,14 @@ import type {
     GetRetrospectiveDto,
     GetRetrospectiveSummaryDto,
     UpdateRetrospectiveRequest,
+    PagedResponse,
 } from '../types';
 
 export const retrospectivesApi = {
-    getAll: () =>
-        client.get<GetRetrospectiveSummaryDto[]>('/retrospectives').then((r) => r.data),
+    getAll: (organizationId: string, page = 1, pageSize = 20) =>
+        client.get<PagedResponse<GetRetrospectiveSummaryDto>>('/retrospectives', {
+            params: { organizationId, page, pageSize },
+        }).then((r) => r.data),
 
     getById: (id: string) =>
         client.get<GetRetrospectiveDto>(`/retrospectives/${id}`).then((r) => r.data),
