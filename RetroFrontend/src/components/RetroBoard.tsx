@@ -17,6 +17,7 @@ import { retrospectivesApi } from '../api/retrospectives';
 import { ColumnView } from './ColumnView';
 import { ActionColumnView } from './ActionColumnView';
 import type { GetColumnDto, GetItemDto, GetRetrospectiveDto } from '../types';
+import { invalidateRetrospective } from '../query/retrospectiveQueries';
 import { useAuthStore } from '../store/authStore';
 
 interface Props {
@@ -30,6 +31,7 @@ export function RetroBoard({ retro, assigneeOptions }: Props) {
     const isAdmin = role === 'Admin';
     const isManager = role === 'Manager';
     const canManage = (isAdmin || isManager) && !retro.isClosed;
+    const canMergeItems = retro.isRevealed && (isAdmin || isManager) && !retro.isClosed;
     const currentUserId = userId ?? '';
 
     const [activeItem, setActiveItem] = useState<GetItemDto | null>(null);
@@ -43,7 +45,7 @@ export function RetroBoard({ retro, assigneeOptions }: Props) {
     );
 
     function invalidate() {
-        queryClient.invalidateQueries({ queryKey: ['retrospective', retro.id] });
+        invalidateRetrospective(queryClient, retro.id);
     }
 
     function findItem(id: string): GetItemDto | undefined {
@@ -120,7 +122,7 @@ export function RetroBoard({ retro, assigneeOptions }: Props) {
         if (overType === 'item') {
             const activeColId = findColumnId(String(active.id));
             const overColId = findColumnId(String(over.id));
-            if (activeColId && overColId && activeColId !== overColId) {
+            if (activeColId && overColId && activeColId !== overColId && canMergeItems) {
                 setOverItemId(String(over.id));
             } else {
                 setOverItemId(null);
@@ -175,7 +177,7 @@ export function RetroBoard({ retro, assigneeOptions }: Props) {
                         reorderItemMutation.mutate({ id: item.id, position: idx });
                     }
                 });
-            } else {
+            } else if (canMergeItems) {
                 // Cross-column → merge
                 mergeItemMutation.mutate({ sourceId: activeId, targetId: overId });
             }
@@ -189,6 +191,13 @@ export function RetroBoard({ retro, assigneeOptions }: Props) {
 
     const sortedColumns = [...retro.columns].sort((a, b) => a.position - b.position);
 
+    const pendingColumn = retro.actionColumns.find((c) =>
+        c.title.toLowerCase().includes('pending')
+    );
+    const actionItemsColumn = retro.actionColumns.find((c) =>
+        c.title === 'Action Items'
+    );
+
     return (
         <DndContext
             sensors={sensors}
@@ -197,101 +206,101 @@ export function RetroBoard({ retro, assigneeOptions }: Props) {
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
         >
-            <div className="space-y-8">
-                {/* Regular columns */}
-                <section>
-                    <h2 className="text-base font-semibold text-slate-600 mb-3">Board</h2>
-                    <div className="flex gap-4 overflow-x-auto pb-4 items-start">
-                        <SortableContext
-                            items={sortedColumns.map((c) => c.id)}
-                            strategy={horizontalListSortingStrategy}
-                        >
-                            {sortedColumns.map((col) => (
-                                <ColumnView
-                                    key={col.id}
-                                    column={col}
-                                    retroId={retro.id}
-                                    isClosed={retro.isClosed}
-                                    canAddItems={true}
-                                    canManage={canManage}
-                                    currentUserId={currentUserId}
-                                    isAdmin={isAdmin}
-                                    isManager={isManager}
-                                    overItemId={overItemId}
-                                    onDelete={() => deleteColumnMutation.mutate(col.id)}
-                                    onRename={(title) => renameColumnMutation.mutate({ id: col.id, title })}
-                                    onColorChange={(headerColor) => changeColorMutation.mutate({ id: col.id, headerColor })}
-                                    onMerge={(sourceId, targetId) => mergeItemMutation.mutate({ sourceId, targetId })}
-                                />
-                            ))}
-                        </SortableContext>
+            <div className="space-y-6">
+                {pendingColumn && (
+                    <ActionColumnView
+                        column={pendingColumn}
+                        retroId={retro.id}
+                        isClosed={retro.isClosed}
+                        canAddItems={true}
+                        assigneeOptions={assigneeOptions}
+                        currentUserId={currentUserId}
+                        isAdmin={isAdmin}
+                        isManager={isManager}
+                    />
+                )}
 
-                        {canManage && (
-                            <div className="w-64 flex-shrink-0">
-                                {addingColumn ? (
-                                    <div className="bg-white border-2 border-dashed border-indigo-300 rounded-lg p-3 space-y-2">
-                                        <input
-                                            autoFocus
-                                            value={newColumnTitle}
-                                            onChange={(e) => setNewColumnTitle(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') submitAddColumn();
-                                                if (e.key === 'Escape') { setAddingColumn(false); setNewColumnTitle(''); }
-                                            }}
-                                            placeholder="Column title…"
-                                            className="w-full text-sm border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                        />
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={submitAddColumn}
-                                                disabled={addColumnMutation.isPending || !newColumnTitle.trim()}
-                                                className="px-3 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
-                                            >
-                                                Add
-                                            </button>
-                                            <button
-                                                onClick={() => { setAddingColumn(false); setNewColumnTitle(''); }}
-                                                className="px-3 py-1 text-xs text-slate-600 hover:text-slate-800"
-                                            >
-                                                Cancel
-                                            </button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <button
-                                        onClick={() => setAddingColumn(true)}
-                                        className="w-full h-12 text-sm text-slate-400 hover:text-indigo-600 border-2 border-dashed border-slate-300 hover:border-indigo-400 rounded-lg transition-colors"
-                                    >
-                                        + Add Column
-                                    </button>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                </section>
+                <div className="flex gap-4 overflow-x-auto pb-4 items-start">
+                    <SortableContext
+                        items={sortedColumns.map((c) => c.id)}
+                        strategy={horizontalListSortingStrategy}
+                    >
+                        {sortedColumns.map((col) => (
+                            <ColumnView
+                                key={col.id}
+                                column={col}
+                                retroId={retro.id}
+                                isClosed={retro.isClosed}
+                                canAddItems={true}
+                                canManage={canManage}
+                                canMergeItems={canMergeItems}
+                                isRevealed={retro.isRevealed}
+                                currentUserId={currentUserId}
+                                isAdmin={isAdmin}
+                                isManager={isManager}
+                                overItemId={overItemId}
+                                onDelete={() => deleteColumnMutation.mutate(col.id)}
+                                onRename={(title) => renameColumnMutation.mutate({ id: col.id, title })}
+                                onColorChange={(headerColor) => changeColorMutation.mutate({ id: col.id, headerColor })}
+                                onMerge={(sourceId, targetId) => mergeItemMutation.mutate({ sourceId, targetId })}
+                            />
+                        ))}
+                    </SortableContext>
 
-                {/* Action item columns */}
-                {retro.actionColumns.length > 0 && (
-                    <section>
-                        <h2 className="text-base font-semibold text-slate-600 mb-3">Action Items</h2>
-                        <div className="flex gap-4 overflow-x-auto pb-4">
-                            {[...retro.actionColumns]
-                                .sort((a, b) => a.position - b.position)
-                                .map((col) => (
-                                    <ActionColumnView
-                                        key={col.id}
-                                        column={col}
-                                        retroId={retro.id}
-                                        isClosed={retro.isClosed}
-                                        canAddItems={true}
-                                        assigneeOptions={assigneeOptions}
-                                        currentUserId={currentUserId}
-                                        isAdmin={isAdmin}
-                                        isManager={isManager}
+                    {canManage && (
+                        <div className="w-64 flex-shrink-0">
+                            {addingColumn ? (
+                                <div className="bg-white border-2 border-dashed border-indigo-300 rounded-lg p-3 space-y-2">
+                                    <input
+                                        autoFocus
+                                        value={newColumnTitle}
+                                        onChange={(e) => setNewColumnTitle(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') submitAddColumn();
+                                            if (e.key === 'Escape') { setAddingColumn(false); setNewColumnTitle(''); }
+                                        }}
+                                        placeholder="Column title…"
+                                        className="w-full text-sm border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     />
-                                ))}
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={submitAddColumn}
+                                            disabled={addColumnMutation.isPending || !newColumnTitle.trim()}
+                                            className="px-3 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
+                                        >
+                                            Add
+                                        </button>
+                                        <button
+                                            onClick={() => { setAddingColumn(false); setNewColumnTitle(''); }}
+                                            className="px-3 py-1 text-xs text-slate-600 hover:text-slate-800"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => setAddingColumn(true)}
+                                    className="w-full h-12 text-sm text-slate-400 hover:text-indigo-600 border-2 border-dashed border-slate-300 hover:border-indigo-400 rounded-lg transition-colors"
+                                >
+                                    + Add Column
+                                </button>
+                            )}
                         </div>
-                    </section>
+                    )}
+                </div>
+
+                {retro.isRevealed && actionItemsColumn && (
+                    <ActionColumnView
+                        column={actionItemsColumn}
+                        retroId={retro.id}
+                        isClosed={retro.isClosed}
+                        canAddItems={true}
+                        assigneeOptions={assigneeOptions}
+                        currentUserId={currentUserId}
+                        isAdmin={isAdmin}
+                        isManager={isManager}
+                    />
                 )}
             </div>
 

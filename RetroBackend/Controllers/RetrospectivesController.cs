@@ -218,16 +218,21 @@ public class RetrospectivesController : ControllerBase
     public async Task<IActionResult> Close(Guid id, [FromBody] Dtos.CloseRetrospectiveRequest request)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var existingRetro = await _service.GetByIdAsync(id);
+        if (existingRetro is null) return NotFound();
 
         if (User.HasRole(Roles.Manager) && !User.HasRole(Roles.Admin))
         {
-            var existingRetro = await _service.GetByIdAsync(id);
-            if (existingRetro is null) return NotFound();
             if (!IsSameOrganization(existingRetro.OrganizationId)) return Forbid();
             var isOwner = await _authzService.IsRetrospectiveOwnerAsync(userId, id);
             var isAssigned = await _authzService.IsAssignedToRetrospectiveAsync(userId, id);
             if (!isOwner && !isAssigned) return Forbid();
         }
+
+        if (!existingRetro.IsRevealed)
+            return Conflict(new { message = "Retrospective must be revealed before it can be closed." });
+        if (existingRetro.IsClosed)
+            return Conflict(new { message = "Retrospective is already closed." });
 
         var svcReq = request.ToServiceRequest();
         svcReq.CurrentUser = userId;

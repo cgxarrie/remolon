@@ -4,6 +4,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { itemsApi } from '../api/items';
 import type { GetItemDto } from '../types';
+import { invalidateRetrospective } from '../query/retrospectiveQueries';
 
 interface Props {
     item: GetItemDto;
@@ -37,14 +38,14 @@ export function ItemCard({ item, retroId, isClosed, canEdit, canDelete, isMergeT
     const updateMutation = useMutation({
         mutationFn: (desc: string) => itemsApi.update(item.id, { description: desc }),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['retrospective', retroId] });
+            invalidateRetrospective(queryClient, retroId);
             setEditing(false);
         },
     });
 
     const deleteMutation = useMutation({
         mutationFn: () => itemsApi.delete(item.id),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['retrospective', retroId] }),
+        onSuccess: () => invalidateRetrospective(queryClient, retroId),
     });
 
     function saveEdit() {
@@ -55,8 +56,6 @@ export function ItemCard({ item, retroId, isClosed, canEdit, canDelete, isMergeT
             setEditing(false);
         }
     }
-
-    const grouped = item.groupId !== null;
 
     return (
         <div
@@ -69,7 +68,6 @@ export function ItemCard({ item, retroId, isClosed, canEdit, canDelete, isMergeT
                 !isMergeSource && isMergeTarget ? 'border-indigo-400 ring-2 ring-indigo-300' : '',
                 !isMergeSource && !isMergeTarget ? 'border-slate-200' : '',
                 onMergeInto ? 'cursor-pointer hover:bg-indigo-50' : '',
-                grouped ? 'border-l-4 border-l-amber-400' : '',
             ].join(' ')}
         >
             {editing ? (
@@ -152,9 +150,6 @@ export function ItemCard({ item, retroId, isClosed, canEdit, canDelete, isMergeT
                         </div>
                     )}
                 </div>
-            )}
-            {grouped && (
-                <p className="text-xs text-amber-600 mt-1">Merged group</p>
             )}
         </div>
     );

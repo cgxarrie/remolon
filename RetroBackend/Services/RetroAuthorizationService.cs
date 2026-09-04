@@ -69,4 +69,17 @@ public class RetroAuthorizationService : IRetroAuthorizationService
         if (columnId is null) return false;
         return await IsRetrospectiveOwnerByColumnAsync(userId, columnId.Value);
     }
+
+    public async Task<bool> IsRetrospectiveRevealedByItemAsync(Guid itemId)
+    {
+        var revealed = await (
+            from item in _context.Items
+            join column in _context.Columns on item.ColumnId equals column.Id
+            join retro in _context.Retrospectives on column.RetrospectiveId equals retro.Id
+            where item.Id == itemId
+            select (bool?)retro.IsRevealed
+        ).FirstOrDefaultAsync();
+
+        return revealed == true;
+    }
 }
