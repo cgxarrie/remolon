@@ -5,6 +5,7 @@ import { Layout } from '../components/Layout';
 import { organizationsApi } from '../api/organizations';
 import { clearOrganizationQueries } from '../query/organizationQueries';
 import { useAuthStore } from '../store/authStore';
+import { resolveTheme } from '../theme';
 
 export function OrganizationSelectorPage() {
     const navigate = useNavigate();
@@ -51,16 +52,26 @@ export function OrganizationSelectorPage() {
                 )}
 
                 <div className="grid sm:grid-cols-2 gap-4">
-                    {data?.items.map((organization) => (
-                        <button
-                            key={organization.id}
-                            onClick={() => selectOrganization(organization.id, organization.name)}
-                            className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 text-left hover:shadow transition theme-focus"
-                        >
-                            <span className="block font-semibold text-slate-800">{organization.name}</span>
-                            <span className="block mt-1 text-sm theme-link">Select organization →</span>
-                        </button>
-                    ))}
+                    {data?.items.map((organization) => {
+                        const palette = resolveTheme(organization.theme);
+                        return (
+                            <button
+                                key={organization.id}
+                                onClick={() => selectOrganization(organization.id, organization.name)}
+                                className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 text-left hover:shadow transition theme-focus flex gap-4 items-stretch"
+                            >
+                                <span
+                                    className="w-1.5 shrink-0 rounded-full self-stretch"
+                                    style={{ backgroundColor: palette.header }}
+                                    aria-hidden
+                                />
+                                <span className="min-w-0">
+                                    <span className="block font-semibold text-slate-800">{organization.name}</span>
+                                    <span className="block mt-1 text-sm theme-link">Select organization →</span>
+                                </span>
+                            </button>
+                        );
+                    })}
                 </div>
 
                 {data && data.totalCount > data.pageSize && (

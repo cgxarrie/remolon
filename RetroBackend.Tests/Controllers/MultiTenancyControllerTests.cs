@@ -63,6 +63,42 @@ public class MultiTenancyControllerTests
     }
 
     [Fact]
+    public async Task CreateUser_ManagerCannotAssignAdminRole()
+    {
+        await using var context = CreateContext();
+        var organization = new Organization { Name = "Acme" };
+        context.Organizations.Add(organization);
+        await context.SaveChangesAsync();
+        using var userManager = CreateUserManager(context);
+        var controller = new UsersController(userManager, context)
+        {
+            ControllerContext = ControllerContext(Roles.Manager, organization.Id),
+        };
+
+        var result = await controller.Create(new CreateUserRequest(
+            "admin@acme.test", "admin.acme", Roles.Admin, organization.Id));
+
+        Assert.IsType<ForbidResult>(result);
+        Assert.Empty(context.Users);
+    }
+
+    [Fact]
+    public async Task UpdateUserRole_ManagerCannotAssignAdminRole()
+    {
+        await using var context = CreateContext();
+        using var userManager = CreateUserManager(context);
+        var controller = new UsersController(userManager, context)
+        {
+            ControllerContext = ControllerContext(Roles.Manager, Guid.NewGuid()),
+        };
+
+        var result = await controller.UpdateRole(
+            "target-user", new UpdateUserRoleRequest(Roles.Admin));
+
+        Assert.IsType<ForbidResult>(result);
+    }
+
+    [Fact]
     public async Task DeleteOrganization_RemovesUsersAndRetrospectives()
     {
         await using var context = CreateContext();
@@ -81,6 +117,51 @@ public class MultiTenancyControllerTests
         Assert.Empty(context.Users);
         Assert.Empty(context.Retrospectives);
         Assert.Empty(context.Organizations);
+    }
+
+    [Fact]
+    public async Task UpdateOrganization_ManagerCanUpdateOwnOrganization()
+    {
+        await using var context = CreateContext();
+        var organization = new Organization { Name = "Acme" };
+        context.Organizations.Add(organization);
+        await context.SaveChangesAsync();
+        using var userManager = CreateUserManager(context);
+        var controller = new OrganizationsController(context, userManager)
+        {
+            ControllerContext = ControllerContext(Roles.Manager, organization.Id),
+        };
+
+        var result = await controller.Update(
+            organization.Id,
+            new SaveOrganizationRequest("Acme Updated", "ocean"));
+
+        var updated = Assert.IsType<OrganizationDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal("Acme Updated", updated.Name);
+        Assert.Equal("ocean", updated.Theme.ThemeKey);
+    }
+
+    [Fact]
+    public async Task UpdateOrganization_ManagerCannotUpdateDifferentOrganization()
+    {
+        await using var context = CreateContext();
+        var own = new Organization { Name = "Acme" };
+        var other = new Organization { Name = "Globex" };
+        context.Organizations.AddRange(own, other);
+        await context.SaveChangesAsync();
+        using var userManager = CreateUserManager(context);
+        var controller = new OrganizationsController(context, userManager)
+        {
+            ControllerContext = ControllerContext(Roles.Manager, own.Id),
+        };
+
+        var result = await controller.Update(
+            other.Id,
+            new SaveOrganizationRequest("Changed", "forest"));
+
+        Assert.IsType<ForbidResult>(result.Result);
+        Assert.Equal("Globex", (await context.Organizations.FindAsync(other.Id))!.Name);
+        Assert.Equal("default", (await context.Organizations.FindAsync(other.Id))!.ThemeKey);
     }
 
     private static RetroDbContext CreateContext() =>

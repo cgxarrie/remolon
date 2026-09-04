@@ -13,8 +13,8 @@ namespace RetroBackend.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-// Write actions below are Admin-only; the GET is scoped to the caller's own organization
-// for every non-Admin role, so StandardUsers may read it too.
+// Create and delete are Admin-only. Managers may update their own organization, while GET
+// is scoped to the caller's own organization for every non-Admin role.
 [Authorize(Roles = Roles.Admin + "," + Roles.Manager + "," + Roles.StandardUser)]
 public class OrganizationsController : ControllerBase
 {
@@ -94,9 +94,16 @@ public class OrganizationsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = Roles.Admin)]
+    [Authorize(Roles = Roles.Admin + "," + Roles.Manager)]
     public async Task<ActionResult<OrganizationDto>> Update(Guid id, SaveOrganizationRequest request)
     {
+        if (!User.HasRole(Roles.Admin))
+        {
+            var organizationId = User.FindFirstValue(AuthClaims.OrganizationId);
+            if (!Guid.TryParse(organizationId, out var callerOrganizationId) || callerOrganizationId != id)
+                return Forbid();
+        }
+
         var organization = await _context.Organizations.FindAsync(id);
         if (organization is null) return NotFound();
         var name = request.Name.Trim();

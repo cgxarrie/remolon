@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Layout } from '../components/Layout';
@@ -105,7 +105,9 @@ function ThemePicker({
 export function OrganizationsPage() {
     const {
         role,
+        organizationId,
         selectedOrganizationId,
+        setOrganizationName,
         setSelectedOrganization,
         clearSelectedOrganization,
     } = useAuthStore();
@@ -115,26 +117,49 @@ export function OrganizationsPage() {
     const [draft, setDraft] = useState<SaveOrganizationRequest>(emptyDraft);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [error, setError] = useState('');
+    const isAdmin = role === 'Admin';
+    const isManager = role === 'Manager';
     const { data } = useQuery({
         queryKey: ['organizations', page],
         queryFn: () => organizationsApi.getAll(page),
-        enabled: role === 'Admin',
+        enabled: isAdmin,
     });
+    const { data: managerOrganization, isLoading: isManagerOrganizationLoading } = useQuery({
+        queryKey: ['organizationEdit', organizationId],
+        queryFn: () => organizationsApi.getById(organizationId!),
+        enabled: isManager && !!organizationId,
+    });
+
+    useEffect(() => {
+        if (!isManager || !managerOrganization) return;
+        setDraft(draftFromOrganization(managerOrganization));
+        setEditingId(managerOrganization.id);
+    }, [isManager, managerOrganization]);
+
     const refresh = () => queryClient.invalidateQueries({ queryKey: ['organizations'] });
     const mutation = useMutation({
         mutationFn: () => {
             const request = { ...draft, name: draft.name.trim() };
+            if (isManager && organizationId) return organizationsApi.update(organizationId, request);
             return editingId
                 ? organizationsApi.update(editingId, request)
                 : organizationsApi.create(request);
         },
         onSuccess: (organization) => {
+            if (isManager && organizationId === organization.id) {
+                setOrganizationName(organization.name);
+                setDraft(draftFromOrganization(organization));
+                queryClient.setQueryData(['organizationEdit', organizationId], organization);
+                queryClient.setQueryData(['organizationTheme', organization.id], organization);
+            }
             if (selectedOrganizationId === organization.id) {
                 setSelectedOrganization(organization.id, organization.name);
-                queryClient.invalidateQueries({ queryKey: ['organizationTheme', organization.id] });
+                queryClient.setQueryData(['organizationTheme', organization.id], organization);
             }
-            setDraft(emptyDraft());
-            setEditingId(null);
+            if (isAdmin) {
+                setDraft(emptyDraft());
+                setEditingId(null);
+            }
             setError('');
             refresh();
         },
@@ -143,10 +168,11 @@ export function OrganizationsPage() {
             setError(e.response?.data?.message ?? 'Unable to save organization.');
         },
     });
-    if (role !== 'Admin') return <Navigate to="/" replace />;
+    if (!isAdmin && !isManager) return <Navigate to="/" replace />;
+    if (isManager && !organizationId) return <Navigate to="/" replace />;
 
     return <Layout><div className="max-w-4xl mx-auto space-y-5">
-        <h1 className="text-2xl font-bold">Organizations</h1>
+        <h1 className="text-2xl font-bold">{isAdmin ? 'Organizations' : 'Organization'}</h1>
         <div className="bg-white rounded-xl shadow p-4 space-y-4">
             <input
                 className="border rounded p-2 w-full theme-focus"
@@ -156,7 +182,7 @@ export function OrganizationsPage() {
             />
             <ThemePicker draft={draft} onChange={setDraft} />
             <div className="flex justify-end gap-2">
-                {editingId && (
+                {isAdmin && editingId && (
                     <button className="px-4 py-2 text-slate-600" onClick={() => {
                         setDraft(emptyDraft());
                         setEditingId(null);
@@ -165,15 +191,15 @@ export function OrganizationsPage() {
                 )}
                 <button
                     className="theme-primary rounded px-4 py-2 disabled:opacity-50"
-                    disabled={!draft.name.trim() || mutation.isPending}
+                    disabled={!draft.name.trim() || mutation.isPending || (isManager && isManagerOrganizationLoading)}
                     onClick={() => mutation.mutate()}
                 >
-                    {editingId ? 'Save changes' : 'Create'}
+                    {isManager || editingId ? 'Save changes' : 'Create'}
                 </button>
             </div>
         </div>
         {error && <p className="text-red-600">{error}</p>}
-        <div className="bg-white rounded-xl shadow overflow-hidden">
+        {isAdmin && <div className="bg-white rounded-xl shadow overflow-hidden">
             <table className="w-full"><thead><tr className="text-left border-b"><th className="p-3">Name</th><th /></tr></thead>
                 <tbody>{data?.items.map((organization) => <tr key={organization.id} className="border-b">
                     <td className="p-3">
@@ -207,11 +233,11 @@ export function OrganizationsPage() {
                     </td>
                 </tr>)}</tbody>
             </table>
-        </div>
-        <div className="flex justify-center gap-4">
+        </div>}
+        {isAdmin && <div className="flex justify-center gap-4">
             <button disabled={page === 1} onClick={() => setPage((p) => p - 1)}>Previous</button>
             <span>Page {page}</span>
             <button disabled={!data || page * data.pageSize >= data.totalCount} onClick={() => setPage((p) => p + 1)}>Next</button>
-        </div>
+        </div>}
     </div></Layout>;
 }

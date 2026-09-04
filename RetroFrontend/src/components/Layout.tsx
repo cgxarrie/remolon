@@ -104,7 +104,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
     const menuItems = [
         { to: '/users', label: 'Users', visible: role === 'Manager' || (role === 'Admin' && !!selectedOrganizationId), icon: usersIcon },
-        { to: '/organizations', label: 'Organizations', visible: role === 'Admin', icon: organizationsIcon },
+        {
+            to: '/organizations',
+            label: role === 'Manager' ? 'Organization' : 'Organizations',
+            visible: role === 'Admin' || role === 'Manager',
+            icon: organizationsIcon,
+        },
     ].filter((item) => item.visible);
 
     const homePath = role === 'Admin' && selectedOrganizationId ? '/retrospectives' : '/';

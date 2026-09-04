@@ -34,10 +34,13 @@ public class UsersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Create([FromBody] CreateUserRequest request)
     {
-        var isManager = User.HasRole(Roles.Manager) && !User.HasRole(Roles.Admin);
+        var isAdmin = User.HasRole(Roles.Admin);
         var role = string.IsNullOrWhiteSpace(request.Role) ? Roles.StandardUser : request.Role.Trim();
 
-        if (isManager && role != Roles.StandardUser)
+        if (role == Roles.Admin && !isAdmin)
+            return Forbid();
+
+        if (!isAdmin && role != Roles.StandardUser)
             return Forbid();
 
         if (role != Roles.Admin && role != Roles.Manager && role != Roles.StandardUser)
@@ -46,7 +49,7 @@ public class UsersController : ControllerBase
         Guid? organizationId = null;
         if (role != Roles.Admin)
         {
-            if (isManager)
+            if (!isAdmin)
             {
                 if (!Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var managerOrganizationId))
                     return Forbid();
@@ -136,6 +139,9 @@ public class UsersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateRole(string id, [FromBody] UpdateUserRoleRequest request)
     {
+        if (request.Role == Roles.Admin && !User.HasRole(Roles.Admin))
+            return Forbid();
+
         var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         if (id == currentUserId)
             return Forbid();

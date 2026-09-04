@@ -182,9 +182,14 @@ export interface CreateUserRequest {
     organizationId?: string;
 }
 
-export interface Organization {
+// The identity of an organization without its theme, which is loaded separately by
+// OrganizationThemeProvider and is not needed by pages that only scope queries by organization.
+export interface SelectedOrganization {
     id: string;
     name: string;
+}
+
+export interface Organization extends SelectedOrganization {
     theme: OrganizationTheme;
 }
 

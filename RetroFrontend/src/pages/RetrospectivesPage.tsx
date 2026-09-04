@@ -5,9 +5,9 @@ import { Layout } from '../components/Layout';
 import { CreateRetroModal } from '../components/CreateRetroModal';
 import { retrospectivesApi } from '../api/retrospectives';
 import { useAuthStore } from '../store/authStore';
-import type { GetRetrospectiveSummaryDto, Organization } from '../types';
+import type { GetRetrospectiveSummaryDto, SelectedOrganization } from '../types';
 
-function OrganizationRetrospectives({ organization }: { organization: Organization }) {
+function OrganizationRetrospectives({ organization }: { organization: SelectedOrganization }) {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const role = useAuthStore((s) => s.role);
@@ -59,7 +59,7 @@ export function RetrospectivesPage() {
     const [showCreate, setShowCreate] = useState(false);
     const canManage = role === 'Admin' || role === 'Manager';
     const activeOrganizationId = role === 'Admin' ? selectedOrganizationId : organizationId;
-    const activeOrganization: Organization | null = activeOrganizationId
+    const activeOrganization: SelectedOrganization | null = activeOrganizationId
         ? {
             id: activeOrganizationId,
             name: role === 'Admin' ? selectedOrganizationName ?? 'Selected organization' : 'Your organization',

@@ -4,9 +4,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Layout } from '../components/Layout';
 import { usersApi } from '../api/users';
 import { useAuthStore } from '../store/authStore';
-import type { Organization, Role } from '../types';
+import type { Role, SelectedOrganization } from '../types';
 
-function OrganizationUsers({ organization }: { organization: Organization }) {
+function OrganizationUsers({ organization }: { organization: SelectedOrganization }) {
     const [page, setPage] = useState(1);
     const queryClient = useQueryClient();
     const currentUserId = useAuthStore((s) => s.userId);
@@ -70,7 +70,7 @@ export function UsersPage() {
 
     const canView = role === 'Admin' || role === 'Manager';
     const activeOrganizationId = role === 'Admin' ? selectedOrganizationId : organizationId;
-    const activeOrganization: Organization | null = activeOrganizationId
+    const activeOrganization: SelectedOrganization | null = activeOrganizationId
         ? {
             id: activeOrganizationId,
             name: role === 'Admin' ? selectedOrganizationName ?? 'Selected organization' : 'Your organization',
@@ -82,9 +82,7 @@ export function UsersPage() {
             email: email.trim(),
             nickname: nickname.trim() || undefined,
             role: role === 'Manager' ? 'StandardUser' : newRole,
-            organizationId: role === 'Admin' && newRole !== 'Admin'
-                ? activeOrganizationId ?? undefined
-                : undefined,
+            organizationId: role === 'Admin' ? activeOrganizationId ?? undefined : undefined,
         }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['users'] });
