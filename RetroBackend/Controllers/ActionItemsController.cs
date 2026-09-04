@@ -23,7 +23,7 @@ public class ActionItemsController : ControllerBase
         _authzService = authzService;
     }
 
-    /// <summary>Creates a new action item. Standard users must be assigned; Managers must own the retrospective.</summary>
+    /// <summary>Creates a new action item. The user must own the retrospective or be assigned to it.</summary>
     /// <param name="request">The action item data including assignee.</param>
     /// <returns>The ID of the newly created action item.</returns>
     [HttpPost("")]
@@ -36,9 +36,8 @@ public class ActionItemsController : ControllerBase
 
         if (!User.HasRole(Roles.Admin))
         {
-            var allowed = User.HasRole(Roles.Manager)
-                ? await _authzService.IsRetrospectiveOwnerByColumnAsync(userId, request.ColumnId)
-                : await _authzService.IsAssignedToRetrospectiveByColumnAsync(userId, request.ColumnId);
+            var allowed = await _authzService.IsAssignedToRetrospectiveByColumnAsync(userId, request.ColumnId)
+                || await _authzService.IsRetrospectiveOwnerByColumnAsync(userId, request.ColumnId);
 
             if (!allowed) return Forbid();
         }
