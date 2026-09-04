@@ -34,7 +34,6 @@ public class UpdateRetrospectiveRequest
     public List<UpdateRetrospectiveRequestAddColumn>? AddColumns { get; set; }
     public List<UpdateRetrospectiveRequestUpdateColumn>? UpdateColumns { get; set; }
     public List<Guid>? RemoveColumnIds { get; set; }
-    public DateTime? RetrospectiveDate { get; set; }
 }
 
 public class UpdateRetrospectiveRequestAddColumn

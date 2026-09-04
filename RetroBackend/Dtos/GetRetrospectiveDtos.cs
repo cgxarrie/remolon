@@ -1,5 +1,12 @@
 namespace RetroBackend.Dtos;
 
+public class ColumnAuthorCountDto
+{
+    public string CreatedBy { get; set; } = string.Empty;
+    public string CreatedByNickname { get; set; } = string.Empty;
+    public int Count { get; set; }
+}
+
 public class GetColumnDto
 {
     public Guid Id { get; set; }
@@ -7,6 +14,7 @@ public class GetColumnDto
     public int Position { get; set; }
     public string? HeaderColor { get; set; }
     public List<GetItemDto> Items { get; set; } = [];
+    public List<ColumnAuthorCountDto> HiddenAuthorCounts { get; set; } = [];
 }
 
 public class GetActionColumnDto

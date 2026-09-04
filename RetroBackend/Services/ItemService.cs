@@ -107,8 +107,19 @@ public class ItemService : IItemService
         var item = await _repository.GetByIdAsync(itemId);
         if (item is null) return null;
 
+        var groupId = item.GroupId;
         item.LeaveGroup();
-        return await _repository.UpdateAsync(item);
+        var updated = await _repository.UpdateAsync(item);
+        if (updated is null || groupId is null) return updated;
+
+        var remaining = (await _repository.GetByGroupIdAsync(groupId.Value)).ToList();
+        if (remaining.Count == 1)
+        {
+            remaining[0].LeaveGroup();
+            await _repository.UpdateAsync(remaining[0]);
+        }
+
+        return updated;
     }
 
     public Task<bool> DeleteAsync(Guid id) => _repository.DeleteAsync(id);

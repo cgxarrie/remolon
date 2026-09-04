@@ -51,7 +51,7 @@ public class ItemsController : ControllerBase
         return StatusCode(StatusCodes.Status201Created, item.Id);
     }
 
-    /// <summary>Updates an existing item. Standard users can only update their own; Managers can update any in their retrospectives.</summary>
+    /// <summary>Updates an existing item. Creators can update their own; managers/admins can update any after reveal.</summary>
     /// <param name="id">The item's unique identifier.</param>
     /// <param name="request">The fields to update.</param>
     /// <returns>The updated item data.</returns>
@@ -62,21 +62,13 @@ public class ItemsController : ControllerBase
     public async Task<IActionResult> UpdateItem(Guid id, [FromBody] Dtos.UpdateItemRequest request)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-
-        if (!User.HasRole(Roles.Admin))
-        {
-            var allowed = User.HasRole(Roles.Manager)
-                ? await _authzService.IsRetrospectiveOwnerByItemAsync(userId, id)
-                : await _authzService.IsItemOwnerAsync(userId, id);
-
-            if (!allowed) return Forbid();
-        }
+        if (!await CanEditOrDeleteItemAsync(userId, id)) return Forbid();
 
         var item = await _service.UpdateItemAsync(id, request.ToServiceRequest());
         return item is null ? NotFound() : Ok(item.ToDto());
     }
 
-    /// <summary>Deletes an item. Standard users can only delete their own; Managers can delete any in their retrospectives.</summary>
+    /// <summary>Deletes an item. Creators can delete their own; managers/admins can delete any after reveal.</summary>
     /// <param name="id">The item's unique identifier.</param>
     /// <returns>No content if deleted, or not found if the item does not exist.</returns>
     [HttpDelete("{id:guid}")]
@@ -86,21 +78,13 @@ public class ItemsController : ControllerBase
     public async Task<IActionResult> DeleteItem(Guid id)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-
-        if (!User.HasRole(Roles.Admin))
-        {
-            var allowed = User.HasRole(Roles.Manager)
-                ? await _authzService.IsRetrospectiveOwnerByItemAsync(userId, id)
-                : await _authzService.IsItemOwnerAsync(userId, id);
-
-            if (!allowed) return Forbid();
-        }
+        if (!await CanEditOrDeleteItemAsync(userId, id)) return Forbid();
 
         var deleted = await _service.DeleteAsync(id);
         return deleted ? NoContent() : NotFound();
     }
 
-    /// <summary>Unlinks an item from its group. Any user assigned to the retrospective.</summary>
+    /// <summary>Unlinks an item from its group. Managers/admins after the retrospective is revealed.</summary>
     /// <param name="id">The item's unique identifier.</param>
     /// <returns>The updated item with GroupId cleared.</returns>
     [HttpDelete("{id:guid}/group")]
@@ -109,20 +93,14 @@ public class ItemsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UnlinkFromGroup(Guid id)
     {
-        if (!User.HasRole(Roles.Admin))
-        {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-            var allowed = User.HasRole(Roles.Manager)
-                ? await _authzService.IsRetrospectiveOwnerByItemAsync(userId, id)
-                : await _authzService.IsAssignedToRetrospectiveByItemAsync(userId, id);
-            if (!allowed) return Forbid();
-        }
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        if (!await CanMergeItemsAsync(userId, id)) return Forbid();
 
         var item = await _service.UnlinkFromGroupAsync(id);
         return item is null ? NotFound() : Ok(item.ToDto());
     }
 
-    /// <summary>Merges two items. Any user assigned to the retrospective.</summary>
+    /// <summary>Merges two items. Managers/admins after the retrospective is revealed.</summary>
     /// <param name="id">The source item's unique identifier.</param>
     /// <param name="request">The target item to merge with.</param>
     /// <returns>The merged group of items.</returns>
@@ -136,17 +114,37 @@ public class ItemsController : ControllerBase
         if (id == request.TargetItemId)
             return BadRequest(new { message = "An item cannot be merged with itself." });
 
-        if (!User.HasRole(Roles.Admin))
-        {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-            var allowed = User.HasRole(Roles.Manager)
-                ? await _authzService.IsRetrospectiveOwnerByItemAsync(userId, id)
-                : await _authzService.IsAssignedToRetrospectiveByItemAsync(userId, id);
-            if (!allowed) return Forbid();
-        }
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        if (!await CanMergeItemsAsync(userId, id)) return Forbid();
 
         var group = await _service.MergeItemsAsync(id, request.TargetItemId);
         return group is null ? NotFound() : Ok(group.Select(i => i.ToDto()));
+    }
+
+    private async Task<bool> CanEditOrDeleteItemAsync(string userId, Guid itemId)
+    {
+        if (await _authzService.IsItemOwnerAsync(userId, itemId))
+            return true;
+
+        return await CanManageOthersItemsAsync(userId, itemId);
+    }
+
+    private async Task<bool> CanMergeItemsAsync(string userId, Guid itemId) =>
+        await CanManageOthersItemsAsync(userId, itemId);
+
+    private async Task<bool> CanManageOthersItemsAsync(string userId, Guid itemId)
+    {
+        if (!await _authzService.IsRetrospectiveRevealedByItemAsync(itemId))
+            return false;
+
+        if (User.HasRole(Roles.Admin))
+            return true;
+
+        if (!User.HasRole(Roles.Manager))
+            return false;
+
+        return await _authzService.IsRetrospectiveOwnerByItemAsync(userId, itemId)
+            || await _authzService.IsAssignedToRetrospectiveByItemAsync(userId, itemId);
     }
 }
 

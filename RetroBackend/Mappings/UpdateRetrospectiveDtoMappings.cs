@@ -18,6 +18,5 @@ public static class UpdateRetrospectiveDtoMappings
             HeaderColor = c.HeaderColor,
         }).ToList(),
         RemoveColumnIds = dto.RemoveColumnIds,
-        RetrospectiveDate = dto.RetrospectiveDate,
     };
 }

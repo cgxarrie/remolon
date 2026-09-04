@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { retrospectivesApi } from '../api/retrospectives';
 import type { GetRetrospectiveDto } from '../types';
+import { invalidateRetrospective } from '../query/retrospectiveQueries';
 
 interface Props {
     retro: GetRetrospectiveDto;
@@ -22,7 +23,7 @@ export function EditRetroModal({ retro, onClose }: Props) {
                     : undefined,
             }),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['retrospective', retro.id] });
+            invalidateRetrospective(queryClient, retro.id);
             queryClient.invalidateQueries({ queryKey: ['retrospectives'] });
             onClose();
         },

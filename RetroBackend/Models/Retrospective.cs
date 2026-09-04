@@ -91,6 +91,7 @@ public class Retrospective : BaseEntity
     public void Reveal()
     {
         SetField(ref _isRevealed, true);
+        SetField(ref _retrospectiveDate, DateTime.UtcNow);
     }
 }
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { actionItemsApi } from '../api/actionItems';
 import type { GetActionItemDto } from '../types';
+import { invalidateRetrospective } from '../query/retrospectiveQueries';
 
 interface Props {
     item: GetActionItemDto;
@@ -38,7 +39,7 @@ export function ActionItemCard({ item, retroId, assigneeOptions, isClosed, canEd
     }, [editing, assignee, availableAssignees]);
 
     function invalidate() {
-        queryClient.invalidateQueries({ queryKey: ['retrospective', retroId] });
+        invalidateRetrospective(queryClient, retroId);
     }
 
     const updateMutation = useMutation({

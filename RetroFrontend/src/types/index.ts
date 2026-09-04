@@ -80,12 +80,19 @@ export interface GetActionItemDto extends GetItemDto {
     closedAt: string | null;
 }
 
+export interface ColumnAuthorCountDto {
+    createdBy: string;
+    createdByNickname: string;
+    count: number;
+}
+
 export interface GetColumnDto {
     id: string;
     title: string;
     position: number;
     headerColor: string | null;
     items: GetItemDto[];
+    hiddenAuthorCounts: ColumnAuthorCountDto[];
 }
 
 export interface GetActionColumnDto {
@@ -121,7 +128,6 @@ export interface UpdateRetrospectiveRequest {
     addColumns?: { title: string; position: number }[];
     updateColumns?: { id: string; title?: string; position?: number; headerColor?: string }[];
     removeColumnIds?: string[];
-    retrospectiveDate?: string;
 }
 
 export interface CreateItemRequest {

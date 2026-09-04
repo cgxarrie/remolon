@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { actionItemsApi } from '../api/actionItems';
 import { ActionItemCard } from './ActionItemCard';
 import type { GetActionColumnDto } from '../types';
+import { invalidateRetrospective } from '../query/retrospectiveQueries';
 
 interface Props {
     column: GetActionColumnDto;
@@ -55,7 +56,7 @@ export function ActionColumnView({
                 assignee: assignee.trim(),
             }),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['retrospective', retroId] });
+            invalidateRetrospective(queryClient, retroId);
             setDescription('');
             setAssignee('');
             setAddingItem(false);
@@ -70,12 +71,12 @@ export function ActionColumnView({
         : 'bg-emerald-600';
 
     return (
-        <div className="flex flex-col w-72 flex-shrink-0">
+        <div className="flex flex-col w-full">
             <div className={`${headerColor} text-white rounded-t-lg px-3 py-2`}>
                 <h3 className="font-semibold text-sm truncate">{column.title}</h3>
                 <p className="text-xs opacity-80">{column.items.length} item(s)</p>
             </div>
-            <div className="flex-1 bg-slate-100 rounded-b-lg p-2 space-y-2 min-h-[120px]">
+            <div className="bg-slate-100 rounded-b-lg p-2 grid gap-2 min-h-[120px] items-start grid-cols-[repeat(auto-fill,minmax(16rem,1fr))]">
                 {sortedItems.map((item) => (
                     <ActionItemCard
                         key={item.id}

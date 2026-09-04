@@ -21,6 +21,7 @@ public class RetrospectiveServiceTests
         {
             seedContext.Organizations.Add(new Organization { Id = organizationId, Name = "Acme" });
             var original = Retrospective.CreateNew(ownerUserId, "Sprint 11", organizationId);
+            original.Reveal();
             seedContext.Retrospectives.Add(original);
             await seedContext.SaveChangesAsync();
             originalRetroId = original.Id;
@@ -55,6 +56,65 @@ public class RetrospectiveServiceTests
             Assert.Equal(ownerUserId, nextRetro.CreatedBy);
             Assert.False(nextRetro.IsClosed);
             Assert.Equal(organizationId, nextRetro.OrganizationId);
+        }
+    }
+
+    [Fact]
+    public async Task CloseAsync_WhenUnrevealed_ReturnsNullAndLeavesRetroOpen()
+    {
+        var dbName = $"retro-service-unrevealed-close-{Guid.NewGuid()}";
+        var organizationId = Guid.NewGuid();
+        Guid retroId;
+
+        await using (var seedContext = CreateContext(dbName))
+        {
+            seedContext.Organizations.Add(new Organization { Id = organizationId, Name = "Acme" });
+            var original = Retrospective.CreateNew("manager-1", "Sprint 11", organizationId);
+            seedContext.Retrospectives.Add(original);
+            await seedContext.SaveChangesAsync();
+            retroId = original.Id;
+        }
+
+        await using (var actionContext = CreateContext(dbName))
+        {
+            var service = new RetrospectiveService(new EfRetrospectiveRepository(actionContext));
+            var created = await service.CloseAsync(retroId, new CloseRetrospectiveRequest { CurrentUser = "manager-1" });
+            Assert.Null(created);
+        }
+
+        await using (var assertContext = CreateContext(dbName))
+        {
+            var retro = await assertContext.Retrospectives.SingleAsync();
+            Assert.False(retro.IsClosed);
+            Assert.False(retro.IsRevealed);
+        }
+    }
+
+    [Fact]
+    public async Task RevealAsync_SetsRetrospectiveDateToNow()
+    {
+        var dbName = $"retro-service-reveal-date-{Guid.NewGuid()}";
+        var organizationId = Guid.NewGuid();
+        Guid retroId;
+        var before = DateTime.UtcNow.AddSeconds(-1);
+
+        await using (var seedContext = CreateContext(dbName))
+        {
+            seedContext.Organizations.Add(new Organization { Id = organizationId, Name = "Acme" });
+            var original = Retrospective.CreateNew("manager-1", "Sprint 11", organizationId);
+            seedContext.Retrospectives.Add(original);
+            await seedContext.SaveChangesAsync();
+            retroId = original.Id;
+        }
+
+        await using (var actionContext = CreateContext(dbName))
+        {
+            var service = new RetrospectiveService(new EfRetrospectiveRepository(actionContext));
+            var revealed = await service.RevealAsync(retroId);
+            Assert.NotNull(revealed);
+            Assert.True(revealed!.IsRevealed);
+            Assert.NotNull(revealed.RetrospectiveDate);
+            Assert.InRange(revealed.RetrospectiveDate!.Value, before, DateTime.UtcNow.AddSeconds(1));
         }
     }
 

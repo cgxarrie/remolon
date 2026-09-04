@@ -8,6 +8,7 @@ import { itemsApi } from '../api/items';
 import { ItemCard } from './ItemCard';
 import { MergedGroupCard } from './MergedGroupCard';
 import type { GetColumnDto, GetItemDto } from '../types';
+import { invalidateRetrospective } from '../query/retrospectiveQueries';
 
 interface Props {
     column: GetColumnDto;
@@ -15,6 +16,8 @@ interface Props {
     isClosed: boolean;
     canAddItems: boolean;
     canManage: boolean;
+    canMergeItems: boolean;
+    isRevealed: boolean;
     currentUserId: string;
     isAdmin: boolean;
     isManager: boolean;
@@ -31,6 +34,8 @@ export function ColumnView({
     isClosed,
     canAddItems,
     canManage,
+    canMergeItems,
+    isRevealed,
     currentUserId,
     isAdmin,
     isManager,
@@ -86,7 +91,7 @@ export function ColumnView({
                 position: column.items.length,
             }),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['retrospective', retroId] });
+            invalidateRetrospective(queryClient, retroId);
             setNewItemText('');
             // Keep the form open so the user can add another item immediately.
             // Press Escape or Cancel to close.
@@ -95,7 +100,7 @@ export function ColumnView({
 
     const unlinkMutation = useMutation({
         mutationFn: (itemId: string) => itemsApi.unlinkFromGroup(itemId),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['retrospective', retroId] }),
+        onSuccess: () => invalidateRetrospective(queryClient, retroId),
     });
 
     function submitNewItem() {
@@ -108,6 +113,10 @@ export function ColumnView({
         if (trimmed && trimmed !== column.title) onRename(trimmed);
         setEditingTitle(false);
     }
+
+    const hiddenAuthorCounts = column.hiddenAuthorCounts ?? [];
+    const totalItemCount =
+        column.items.length + hiddenAuthorCounts.reduce((sum, author) => sum + author.count, 0);
 
     const sortedItems = [...column.items].sort((a, b) => a.position - b.position);
 
@@ -130,7 +139,11 @@ export function ColumnView({
         const entries: DisplayEntry[] = singles.map(item => ({ kind: 'single', item, sortId: item.id }));
         groups.forEach((grpItems) => {
             const grpSorted = [...grpItems].sort((a, b) => a.position - b.position);
-            entries.push({ kind: 'group', items: grpSorted, sortId: grpSorted[0].id });
+            if (grpSorted.length === 1) {
+                entries.push({ kind: 'single', item: grpSorted[0], sortId: grpSorted[0].id });
+            } else {
+                entries.push({ kind: 'group', items: grpSorted, sortId: grpSorted[0].id });
+            }
         });
         entries.sort((a, b) => {
             const posA = a.kind === 'single' ? a.item.position : a.items[0].position;
@@ -185,7 +198,7 @@ export function ColumnView({
                             )}
                         </div>
                     )}
-                    <p className="text-xs text-indigo-200">{column.items.length} item(s)</p>
+                    <p className="text-xs text-indigo-200">{totalItemCount} item(s)</p>
                 </div>
                 {canManage && (
                     <button
@@ -240,31 +253,36 @@ export function ColumnView({
                     {displayEntries.map((entry) => {
                         if (entry.kind === 'group') {
                             const repId = entry.sortId;
-                            const canMerge = !isClosed && displayEntries.length > 1;
+                            const canMerge = canMergeItems && displayEntries.length > 1;
                             return (
                                 <MergedGroupCard
                                     key={repId}
                                     representativeId={repId}
                                     items={entry.items}
                                     isClosed={isClosed}
-                                    canLink={canAddItems}
+                                    canLink={canMergeItems}
                                     isMergeSource={mergingFromId === repId}
                                     isMergeTarget={
-                                        overItemId === repId ||
-                                        (mergingFromId !== null && mergingFromId !== repId)
+                                        canMergeItems && (
+                                            overItemId === repId ||
+                                            (mergingFromId !== null && mergingFromId !== repId)
+                                        )
                                     }
                                     onMergeStart={canMerge && mergingFromId === null ? () => setMergingFromId(repId) : undefined}
-                                    onMergeInto={mergingFromId !== null && mergingFromId !== repId ? () => {
+                                    onMergeInto={canMergeItems && mergingFromId !== null && mergingFromId !== repId ? () => {
                                         onMerge(mergingFromId, repId);
                                         setMergingFromId(null);
                                     } : undefined}
-                                    onUnlink={canAddItems ? (itemId) => unlinkMutation.mutate(itemId) : undefined}
+                                    onUnlink={canMergeItems ? (itemId) => unlinkMutation.mutate(itemId) : undefined}
                                 />
                             );
                         }
                         const item = entry.item;
-                        const canEditItem = isAdmin || isManager || item.createdBy === currentUserId;
-                        const canMergeItem = canAddItems && !isClosed && displayEntries.length > 1;
+                        const canEditItem = !isClosed && (
+                            item.createdBy === currentUserId ||
+                            (isRevealed && (isAdmin || isManager))
+                        );
+                        const canMergeItem = canMergeItems && displayEntries.length > 1;
                         return (
                             <ItemCard
                                 key={item.id}
@@ -273,11 +291,13 @@ export function ColumnView({
                                 isClosed={isClosed}
                                 isMergeSource={mergingFromId === item.id}
                                 isMergeTarget={
-                                    overItemId === item.id ||
-                                    (mergingFromId !== null && item.id !== mergingFromId)
+                                    canMergeItems && (
+                                        overItemId === item.id ||
+                                        (mergingFromId !== null && item.id !== mergingFromId)
+                                    )
                                 }
                                 onMergeStart={canMergeItem && mergingFromId === null ? () => setMergingFromId(item.id) : undefined}
-                                onMergeInto={mergingFromId !== null && item.id !== mergingFromId ? () => {
+                                onMergeInto={canMergeItems && mergingFromId !== null && item.id !== mergingFromId ? () => {
                                     onMerge(mergingFromId, item.id);
                                     setMergingFromId(null);
                                 } : undefined}
@@ -287,6 +307,18 @@ export function ColumnView({
                         );
                     })}
                 </SortableContext>
+
+                {hiddenAuthorCounts.map((author) => (
+                    <div
+                        key={author.createdBy}
+                        className="bg-white/70 border border-dashed border-slate-300 rounded-lg px-3 py-2"
+                    >
+                        <p className="text-sm text-slate-600">{author.createdByNickname}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                            {author.count} item(s) hidden until reveal
+                        </p>
+                    </div>
+                ))}
 
                 {!isClosed && canAddItems && (
                     <>

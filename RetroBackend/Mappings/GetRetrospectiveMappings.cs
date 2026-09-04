@@ -54,6 +54,7 @@ public static class GetRetrospectiveMappings
                     .Where(i => retro.IsRevealed || i.CreatedBy == currentUserId)
                     .Select(i => i.ToDto())
                     .ToList(),
+                HiddenAuthorCounts = HiddenAuthorCounts(c, retro.IsRevealed, currentUserId),
             })
             .ToList(),
         ActionColumns = retro.Columns
@@ -73,4 +74,25 @@ public static class GetRetrospectiveMappings
         CreatedAt = retro.CreatedAt,
         UpdatedAt = retro.UpdatedAt,
     };
+
+    private static List<Dtos.ColumnAuthorCountDto> HiddenAuthorCounts(
+        Models.Column column,
+        bool isRevealed,
+        string currentUserId)
+    {
+        if (isRevealed) return [];
+
+        return column.Items
+            .Where(i => i is not Models.ActionItem)
+            .Where(i => i.CreatedBy != currentUserId)
+            .GroupBy(i => i.CreatedBy)
+            .Select(g => new Dtos.ColumnAuthorCountDto
+            {
+                CreatedBy = g.Key,
+                CreatedByNickname = g.First().CreatedByNickname,
+                Count = g.Count(),
+            })
+            .OrderBy(x => x.CreatedByNickname)
+            .ToList();
+    }
 }

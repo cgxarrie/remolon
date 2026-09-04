@@ -35,7 +35,6 @@ public class RetrospectiveService : IRetrospectiveService
         if (existing.IsClosed) return null;
 
         if (request.Title is not null) existing.Title = request.Title;
-        if (request.RetrospectiveDate.HasValue) existing.RetrospectiveDate = request.RetrospectiveDate.Value;
         request.RemoveColumnIds?.ForEach(existing.RemoveColumn);
         request.UpdateColumns?.ForEach(c => existing.UpdateColumn(c.Id, c.Title, c.Position, c.HeaderColor));
         request.AddColumns?.ForEach(c => existing.AddColumn(request.CurrentUser, c.Title, c.Position));
@@ -61,7 +60,7 @@ public class RetrospectiveService : IRetrospectiveService
     public async Task<Retrospective?> CloseAsync(Guid id, CloseRetrospectiveRequest request)
     {
         var existing = await _repository.GetByIdAsync(id);
-        if (existing is null || existing.IsClosed) return null;
+        if (existing is null || existing.IsClosed || !existing.IsRevealed) return null;
 
         var actingUser = string.IsNullOrWhiteSpace(request.CurrentUser)
             ? existing.CreatedBy

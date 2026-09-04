@@ -176,7 +176,7 @@ export function RetrospectiveDetailPage() {
         onError: (err: unknown) => {
             const axiosError = err as { response?: { data?: { message?: string }; status?: number } };
             if (axiosError.response?.status === 409) {
-                alert('This retrospective is already closed.');
+                alert(axiosError.response?.data?.message ?? 'This retrospective cannot be closed.');
             }
         },
     });
@@ -204,15 +204,6 @@ export function RetrospectiveDetailPage() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['retrospectives'] });
             navigate('/retrospectives');
-        },
-    });
-
-    const setDateMutation = useMutation({
-        mutationFn: () =>
-            retrospectivesApi.update(id!, { retrospectiveDate: new Date().toISOString() }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['retrospective', activeOrganizationId, id] });
-            queryClient.invalidateQueries({ queryKey: ['retrospectives'] });
         },
     });
 
@@ -405,7 +396,7 @@ export function RetrospectiveDetailPage() {
 
     return (
         <Layout>
-            <div ref={arenaRef} className="relative grid grid-cols-1 xl:grid-cols-[5rem_minmax(0,1fr)_5rem] gap-5 xl:gap-8 items-start">
+            <div ref={arenaRef} className="relative">
                 {axeFlights.map((axeFlight) => (
                     <div key={axeFlight.id} className="pointer-events-none absolute inset-0 z-30">
                         {(() => {
@@ -475,45 +466,15 @@ export function RetrospectiveDetailPage() {
                     </div>
                 )}
 
-                <aside className="order-2 xl:order-1 xl:sticky xl:top-24">
-                    <div className="bg-white/75 backdrop-blur border border-slate-200 rounded-2xl p-3 flex xl:flex-col items-center gap-3">
-                        <p className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">You</p>
-                        <AvatarPill
-                            user={currentUser}
-                            isCurrent
-                            avatarRef={(element) => {
-                                currentAvatarRef.current = element;
-                            }}
-                        />
-                        <button
-                            onClick={handleCurrentThrowableIconClick}
-                            className="text-lg leading-none rounded hover:bg-slate-100 p-1"
-                            aria-label={`Selected throwable ${selectedThrowable.label}`}
-                            title={selectedThrowable.label}
-                        >
-                            {selectedThrowable.imageUrl ? (
-                                <img
-                                    src={selectedThrowable.imageUrl}
-                                    alt={selectedThrowable.label}
-                                    className="h-6 w-6 object-contain"
-                                />
-                            ) : (
-                                selectedThrowable.emoji
-                            )}
-                        </button>
-                    </div>
-                </aside>
-
-                <section className="order-1 xl:order-2 min-w-0">
-                    {/* Header */}
-                    <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+                <div className="mb-6">
+                    <button
+                        onClick={() => navigate('/retrospectives')}
+                        className="text-sm text-indigo-600 hover:underline mb-1 inline-block"
+                    >
+                        ← Retrospectives
+                    </button>
+                    <div className="flex flex-wrap items-start justify-between gap-4">
                         <div>
-                            <button
-                                onClick={() => navigate('/retrospectives')}
-                                className="text-sm text-indigo-600 hover:underline mb-1 inline-block"
-                            >
-                                ← Retrospectives
-                            </button>
                             <div className="flex items-center gap-2">
                                 {editingTitle ? (
                                     <>
@@ -565,7 +526,92 @@ export function RetrospectiveDetailPage() {
                                     </span>
                                 )}
                             </div>
-                            <p className="text-sm text-slate-400 mt-0.5">
+                            {canManage && (
+                                <div className="flex items-center gap-2 mt-2">
+                                    {!retro.isRevealed && (
+                                        <button
+                                            onClick={() => revealMutation.mutate()}
+                                            disabled={revealMutation.isPending}
+                                            className="p-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+                                            title={revealMutation.isPending ? 'Revealing…' : 'Reveal retrospective'}
+                                            aria-label={revealMutation.isPending ? 'Revealing retrospective' : 'Reveal retrospective'}
+                                        >
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="1.75"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                className="w-4 h-4"
+                                                aria-hidden="true"
+                                            >
+                                                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+                                                <circle cx="12" cy="12" r="3" />
+                                            </svg>
+                                        </button>
+                                    )}
+                                    {retro.isRevealed && !retro.isClosed && (
+                                        <button
+                                            onClick={() => {
+                                                if (confirm('Close this retrospective? All items will be locked and a new session will be created.')) {
+                                                    closeMutation.mutate();
+                                                }
+                                            }}
+                                            disabled={closeMutation.isPending}
+                                            className="p-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+                                            title={closeMutation.isPending ? 'Closing…' : 'Close retrospective'}
+                                            aria-label={closeMutation.isPending ? 'Closing retrospective' : 'Close retrospective'}
+                                        >
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="1.75"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                className="w-4 h-4"
+                                                aria-hidden="true"
+                                            >
+                                                <rect x="5" y="11" width="14" height="10" rx="2" />
+                                                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                                            </svg>
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => {
+                                            if (confirm('Delete this retrospective? This cannot be undone.')) {
+                                                deleteMutation.mutate();
+                                            }
+                                        }}
+                                        disabled={deleteMutation.isPending}
+                                        className="p-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+                                        title={deleteMutation.isPending ? 'Deleting…' : 'Delete retrospective'}
+                                        aria-label={deleteMutation.isPending ? 'Deleting retrospective' : 'Delete retrospective'}
+                                    >
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="1.75"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            className="w-4 h-4"
+                                            aria-hidden="true"
+                                        >
+                                            <path d="M3 6h18" />
+                                            <path d="M8 6V4h8v2" />
+                                            <path d="M19 6l-1 14H6L5 6" />
+                                            <path d="M10 11v6" />
+                                            <path d="M14 11v6" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            )}
+                            <p className="text-sm text-slate-400 mt-2">
                                 Created {new Date(retro.createdAt).toLocaleDateString('en-US', {
                                     year: 'numeric', month: 'long', day: 'numeric',
                                 })}
@@ -578,79 +624,82 @@ export function RetrospectiveDetailPage() {
                                 </p>
                             )}
                         </div>
+                    </div>
+                </div>
 
-                        {canManage && (
-                            <div className="flex flex-wrap gap-2">
-                                <button
-                                    onClick={() => setShowAssign(true)}
-                                    className="px-3 py-2 text-sm bg-white border border-slate-300 hover:border-indigo-400 text-slate-700 rounded-lg transition-colors"
-                                >
-                                    Manage Participants
-                                </button>
-                                {!retro.isRevealed && (
-                                    <button
-                                        onClick={() => revealMutation.mutate()}
-                                        disabled={revealMutation.isPending}
-                                        className="px-3 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg transition-colors"
-                                    >
-                                        {revealMutation.isPending ? 'Revealing…' : 'Reveal'}
-                                    </button>
-                                )}
-                                {!retro.isClosed && (
-                                    <>
-                                        <button
-                                            onClick={() => setDateMutation.mutate()}
-                                            disabled={setDateMutation.isPending}
-                                            className="px-3 py-2 text-sm bg-white border border-slate-300 hover:border-indigo-400 text-slate-700 rounded-lg transition-colors disabled:opacity-50"
-                                            title="Set retrospective date to today"
-                                        >
-                                            📅 Set Date to Today
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                if (confirm('Close this retrospective? All items will be locked and a new session will be created.')) {
-                                                    closeMutation.mutate();
-                                                }
-                                            }}
-                                            disabled={closeMutation.isPending}
-                                            className="px-3 py-2 text-sm bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-lg transition-colors"
-                                        >
-                                            {closeMutation.isPending ? 'Closing…' : 'Close Retrospective'}
-                                        </button>
-                                    </>
-                                )}
-                                <button
-                                    onClick={() => {
-                                        if (confirm('Delete this retrospective? This cannot be undone.')) {
-                                            deleteMutation.mutate();
-                                        }
-                                    }}
-                                    disabled={deleteMutation.isPending}
-                                    className="px-3 py-2 text-sm bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg transition-colors"
-                                >
-                                    Delete
-                                </button>
-                            </div>
-                        )}
+                {retro.isClosed && (
+                    <div className="mb-4 p-3 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-600">
+                        This retrospective is <strong>closed</strong>. Items are read-only.
+                    </div>
+                )}
+
+                <div className="flex items-start gap-4">
+                    <aside className="w-32 flex-shrink-0 bg-white/75 backdrop-blur border border-slate-200 rounded-2xl p-3 flex flex-col items-center gap-2">
+                        <p className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">You</p>
+                        <AvatarPill
+                            user={currentUser}
+                            isCurrent
+                            avatarRef={(element) => {
+                                currentAvatarRef.current = element;
+                            }}
+                        />
+                        <button
+                            onClick={handleCurrentThrowableIconClick}
+                            className="text-lg leading-none rounded hover:bg-slate-100 p-1"
+                            aria-label={`Selected throwable ${selectedThrowable.label}`}
+                            title={selectedThrowable.label}
+                        >
+                            {selectedThrowable.imageUrl ? (
+                                <img
+                                    src={selectedThrowable.imageUrl}
+                                    alt={selectedThrowable.label}
+                                    className="h-6 w-6 object-contain"
+                                />
+                            ) : (
+                                selectedThrowable.emoji
+                            )}
+                        </button>
+                    </aside>
+
+                    <div className="flex-1 min-w-0">
+                        <RetroBoard retro={retro} assigneeOptions={assigneeOptions} />
                     </div>
 
-                    {retro.isClosed && (
-                        <div className="mb-4 p-3 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-600">
-                            This retrospective is <strong>closed</strong>. Items are read-only.
+                    <aside className="w-32 flex-shrink-0 bg-white/75 backdrop-blur border border-slate-200 rounded-2xl p-3">
+                        <div className="mb-3 flex flex-col items-center gap-1">
+                            <p className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+                                People
+                            </p>
+                            {canManage && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAssign(true)}
+                                    className="p-1 text-slate-400 hover:text-indigo-600 rounded-md transition-colors"
+                                    title="Manage participants"
+                                    aria-label="Manage participants"
+                                >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="1.75"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        className="w-4 h-4"
+                                        aria-hidden="true"
+                                    >
+                                        <path d="M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1" />
+                                        <circle cx="9" cy="7" r="4" />
+                                        <path d="M19 8v6" />
+                                        <path d="M22 11h-6" />
+                                    </svg>
+                                </button>
+                            )}
                         </div>
-                    )}
-
-                    <RetroBoard retro={retro} assigneeOptions={assigneeOptions} />
-                </section>
-
-                <aside className="order-3 xl:sticky xl:top-24">
-                    <div className="bg-white/75 backdrop-blur border border-slate-200 rounded-2xl p-3">
-                        <p className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase mb-3 text-center">
-                            Players
-                        </p>
-                        <div className="flex xl:flex-col flex-wrap justify-center gap-3">
+                        <div className="flex flex-col items-center gap-3">
                             {otherUsers.length === 0 ? (
-                                <p className="text-xs text-slate-400 text-center">No other players yet</p>
+                                <p className="text-xs text-slate-400 text-center">No other people yet</p>
                             ) : (
                                 otherUsers.map((user) => (
                                     <AvatarPill
@@ -665,8 +714,8 @@ export function RetrospectiveDetailPage() {
                                 ))
                             )}
                         </div>
-                    </div>
-                </aside>
+                    </aside>
+                </div>
             </div>
 
             {showAssign && (
