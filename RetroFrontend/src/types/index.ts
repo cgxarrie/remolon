@@ -12,7 +12,7 @@ export interface RegisterRequest {
     email: string;
     password: string;
     nickname?: string;
-    organizationId: string;
+    organizationName: string;
 }
 
 export interface LoginRequest {

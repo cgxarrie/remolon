@@ -41,7 +41,7 @@ RetroBackend/
 
 | Resource            | Method   | Route                                    | Auth             |
 |---------------------|----------|------------------------------------------|------------------|
-| Auth                | POST     | `/api/auth/register`                     | Public           |
+| Auth                | POST     | `/api/auth/register`                     | Public (creates org + Manager) |
 | Auth                | POST     | `/api/auth/login`                        | Public           |
 | Users               | GET      | `/api/users`                             | Admin            |
 | Users               | PUT      | `/api/users/{id}/role`                   | Admin / Manager  |

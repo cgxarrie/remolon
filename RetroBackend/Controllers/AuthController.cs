@@ -11,6 +11,7 @@ using RetroBackend.Auth;
 using RetroBackend.Models;
 using RetroBackend.Data;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace RetroBackend.Controllers;
 
@@ -30,31 +31,57 @@ public class AuthController : ControllerBase
         _context = context;
     }
 
-    /// <summary>Registers a new standard user.</summary>
-    /// <param name="request">Email and password for the new account.</param>
-    /// <returns>A JWT token for the newly created user.</returns>
+    /// <summary>Registers a new manager and creates their organization.</summary>
+    /// <param name="request">Email, password, and unique organization name for the new account.</param>
+    /// <returns>A JWT token for the newly created manager.</returns>
     [HttpPost("register")]
     [ProducesResponseType(typeof(AuthTokenResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Register([FromBody] PublicRegisterRequest request)
     {
+        var organizationName = request.OrganizationName.Trim();
+        if (string.IsNullOrWhiteSpace(organizationName))
+            return BadRequest(new { message = "Organization name is required." });
+
         var nickname = !string.IsNullOrWhiteSpace(request.Nickname)
             ? request.Nickname.Trim()
             : request.Email.Split('@')[0];
-        if (!request.OrganizationId.HasValue
-            || !await _context.Organizations.AnyAsync(o => o.Id == request.OrganizationId))
-            return BadRequest(new { message = "A valid organizationId is required." });
         if (await _userManager.Users.AnyAsync(u => u.Nickname.ToLower() == nickname.ToLower()))
             return BadRequest(new { message = "A user with this nickname already exists." });
+        if (await _context.Organizations.AnyAsync(o => o.Name.ToLower() == organizationName.ToLower()))
+            return Conflict(new { message = "An organization with this name already exists." });
 
-        var user = new AppUser(request.Email, nickname) { OrganizationId = request.OrganizationId };
-        var result = await _userManager.CreateAsync(user, request.Password);
-        if (!result.Succeeded)
-            return BadRequest(result.Errors);
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            var organization = new Organization { Name = organizationName };
+            _context.Organizations.Add(organization);
+            await _context.SaveChangesAsync();
 
-        await _userManager.AddToRoleAsync(user, Roles.StandardUser);
+            var user = new AppUser(request.Email, nickname) { OrganizationId = organization.Id };
+            var result = await _userManager.CreateAsync(user, request.Password);
+            if (!result.Succeeded)
+            {
+                await transaction.RollbackAsync();
+                return BadRequest(result.Errors);
+            }
 
-        return Ok(await BuildAuthResponseAsync(user, Roles.StandardUser));
+            var roleResult = await _userManager.AddToRoleAsync(user, Roles.Manager);
+            if (!roleResult.Succeeded)
+            {
+                await transaction.RollbackAsync();
+                return BadRequest(roleResult.Errors);
+            }
+
+            await transaction.CommitAsync();
+            return Ok(await BuildAuthResponseAsync(user, Roles.Manager));
+        }
+        catch (DbUpdateException ex) when (IsOrganizationNameUniqueViolation(ex))
+        {
+            await transaction.RollbackAsync();
+            return Conflict(new { message = "An organization with this name already exists." });
+        }
     }
 
     /// <summary>Authenticates a user and returns a JWT token.</summary>
@@ -269,4 +296,7 @@ public class AuthController : ControllerBase
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
+
+    private static bool IsOrganizationNameUniqueViolation(DbUpdateException ex) =>
+        ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
 }

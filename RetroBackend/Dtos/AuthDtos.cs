@@ -2,6 +2,13 @@ using System.ComponentModel.DataAnnotations;
 
 namespace RetroBackend.Dtos;
 
+public record PublicRegisterRequest(
+    [Required, EmailAddress] string Email,
+    [Required, MinLength(8)] string Password,
+    [MaxLength(50)] string? Nickname,
+    [Required, MaxLength(200)] string OrganizationName
+);
+
 public record RegisterRequest(
     [Required, EmailAddress] string Email,
     [Required, MinLength(8)] string Password,
