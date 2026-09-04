@@ -16,13 +16,15 @@ public class RetroAuthorizationService : IRetroAuthorizationService
         _context.UserRetrospectives
             .AnyAsync(ur => ur.UserId == userId && ur.RetrospectiveId == retrospectiveId);
 
-    public async Task<bool> IsAssignedToRetrospectiveByColumnAsync(string userId, Guid columnId)
-    {
-        var retroId = await _context.Columns
+    public Task<Guid?> GetRetrospectiveIdByColumnAsync(Guid columnId) =>
+        _context.Columns
             .Where(c => c.Id == columnId)
             .Select(c => (Guid?)c.RetrospectiveId)
             .FirstOrDefaultAsync();
 
+    public async Task<bool> IsAssignedToRetrospectiveByColumnAsync(string userId, Guid columnId)
+    {
+        var retroId = await GetRetrospectiveIdByColumnAsync(columnId);
         if (retroId is null) return false;
 
         return await IsAssignedToRetrospectiveAsync(userId, retroId.Value);
@@ -50,11 +52,7 @@ public class RetroAuthorizationService : IRetroAuthorizationService
 
     public async Task<bool> IsRetrospectiveOwnerByColumnAsync(string userId, Guid columnId)
     {
-        var retroId = await _context.Columns
-            .Where(c => c.Id == columnId)
-            .Select(c => (Guid?)c.RetrospectiveId)
-            .FirstOrDefaultAsync();
-
+        var retroId = await GetRetrospectiveIdByColumnAsync(columnId);
         if (retroId is null) return false;
         return await IsRetrospectiveOwnerAsync(userId, retroId.Value);
     }
@@ -81,5 +79,16 @@ public class RetroAuthorizationService : IRetroAuthorizationService
         ).FirstOrDefaultAsync();
 
         return revealed == true;
+    }
+
+    public async Task<Guid?> GetRetrospectiveIdByItemAsync(Guid itemId)
+    {
+        var columnId = await _context.Items
+            .Where(i => i.Id == itemId)
+            .Select(i => (Guid?)i.ColumnId)
+            .FirstOrDefaultAsync();
+
+        if (columnId is null) return null;
+        return await GetRetrospectiveIdByColumnAsync(columnId.Value);
     }
 }

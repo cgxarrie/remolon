@@ -46,6 +46,9 @@ public class GetRetrospectiveDto
     public string Title { get; set; } = string.Empty;
     public bool IsClosed { get; set; }
     public bool IsRevealed { get; set; }
+
+    /// <summary>True when this board is closed and no other iteration of it is still open.</summary>
+    public bool CanStartNextIteration { get; set; }
     public DateTime? RetrospectiveDate { get; set; }
     public List<GetColumnDto> Columns { get; set; } = [];
     public List<GetActionColumnDto> ActionColumns { get; set; } = [];

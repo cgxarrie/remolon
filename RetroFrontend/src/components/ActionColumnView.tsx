@@ -30,6 +30,7 @@ export function ActionColumnView({
     const [addingItem, setAddingItem] = useState(false);
     const [description, setDescription] = useState('');
     const [assignee, setAssignee] = useState('');
+    const [error, setError] = useState('');
 
     const participantAssignees = useMemo(() => {
         const unique = new Set(assigneeOptions.map((name) => name.trim()).filter(Boolean));
@@ -59,7 +60,17 @@ export function ActionColumnView({
             invalidateRetrospective(queryClient, retroId);
             setDescription('');
             setAssignee('');
+            setError('');
             setAddingItem(false);
+        },
+        onError: (err: unknown) => {
+            const axiosError = err as { response?: { status?: number; data?: { message?: string } } };
+            if (axiosError.response?.status === 403) {
+                setError('You are not allowed to add action items to this retrospective.');
+                return;
+            }
+
+            setError(axiosError.response?.data?.message ?? 'Could not save the action item.');
         },
     });
 
@@ -122,12 +133,13 @@ export function ActionColumnView({
                                         Add
                                     </button>
                                     <button
-                                        onClick={() => { setAddingItem(false); setDescription(''); setAssignee(''); }}
+                                        onClick={() => { setAddingItem(false); setDescription(''); setAssignee(''); setError(''); }}
                                         className="px-3 py-1 text-xs text-slate-600 hover:text-slate-800"
                                     >
                                         Cancel
                                     </button>
                                 </div>
+                                {error && <p className="text-xs text-red-600">{error}</p>}
                             </div>
                         ) : (
                             <button

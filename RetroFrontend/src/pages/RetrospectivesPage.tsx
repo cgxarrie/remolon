@@ -21,6 +21,17 @@ function OrganizationRetrospectives({ organization }: { organization: SelectedOr
         mutationFn: retrospectivesApi.delete,
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['retrospectives', organization.id] }),
     });
+    const nextIteration = useMutation({
+        mutationFn: (retroId: string) => retrospectivesApi.createNextIteration(retroId),
+        onSuccess: (nextId) => {
+            queryClient.invalidateQueries({ queryKey: ['retrospectives', organization.id] });
+            navigate(`/retrospectives/${nextId}`);
+        },
+        onError: (err: unknown) => {
+            const axiosError = err as { response?: { data?: { message?: string } } };
+            alert(axiosError.response?.data?.message ?? 'Could not start the next iteration.');
+        },
+    });
     const grouped = (data?.items ?? []).reduce<Record<string, GetRetrospectiveSummaryDto[]>>((result, retro) => {
         (result[retro.title] ??= []).push(retro);
         return result;
@@ -34,17 +45,72 @@ function OrganizationRetrospectives({ organization }: { organization: SelectedOr
         {titles.map((title) => {
             const items = grouped[title];
             const open = expanded.has(title);
+            const hasOpenIteration = items.some((retro) => !retro.isClosed);
+            const latestClosed = items.find((retro) => retro.isClosed);
             return <div key={title} className="bg-white rounded-xl shadow border overflow-hidden">
                 <button className="w-full p-4 flex justify-between" onClick={() => setExpanded((previous) => {
                     const next = new Set(previous); if (next.has(title)) next.delete(title); else next.add(title); return next;
                 })}><span className="font-semibold">{open ? '▼' : '▶'} {title}</span><span>{items.length} session{items.length === 1 ? '' : 's'}</span></button>
-                {open && items.map((retro) => <div key={retro.id} className="border-t p-3 flex justify-between">
-                    <span>{new Date(retro.createdAt).toLocaleDateString()} · {retro.isClosed ? 'Closed' : 'Open'}</span>
-                    <span className="space-x-3"><button className="theme-link" onClick={() => navigate(`/retrospectives/${retro.id}`)}>Open</button>
-                    {(role === 'Admin' || role === 'Manager') && <button className="text-red-600" onClick={() => {
-                        if (confirm('Delete this retrospective?')) remove.mutate(retro.id);
-                    }}>Delete</button>}</span>
+                {open && items.map((retro) => <div key={retro.id} className="border-t p-3 flex justify-between items-center gap-3">
+                    <button
+                        type="button"
+                        className="flex items-center gap-2 min-w-0 text-left"
+                        onClick={() => navigate(`/retrospectives/${retro.id}`)}
+                    >
+                        <span className="theme-link">
+                            {new Date(retro.createdAt).toLocaleDateString()}
+                        </span>
+                        {retro.isClosed ? (
+                            <span className="px-2.5 py-0.5 text-xs font-semibold bg-slate-200 text-slate-600 rounded-full">
+                                Closed
+                            </span>
+                        ) : (
+                            <span className="px-2.5 py-0.5 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
+                                Open
+                            </span>
+                        )}
+                    </button>
+                    {(role === 'Admin' || role === 'Manager') && (
+                        <button
+                            type="button"
+                            className="p-1.5 text-slate-400 hover:text-red-600 rounded-md transition-colors"
+                            title="Delete retrospective"
+                            aria-label="Delete retrospective"
+                            onClick={() => {
+                                if (confirm('Delete this retrospective?')) remove.mutate(retro.id);
+                            }}
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.75"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="w-4 h-4"
+                                aria-hidden="true"
+                            >
+                                <path d="M3 6h18" />
+                                <path d="M8 6V4h8v2" />
+                                <path d="M19 6l-1 14H6L5 6" />
+                                <path d="M10 11v6" />
+                                <path d="M14 11v6" />
+                            </svg>
+                        </button>
+                    )}
                 </div>)}
+                {open && !hasOpenIteration && latestClosed && (role === 'Admin' || role === 'Manager') && (
+                    <div className="border-t p-3">
+                        <button
+                            className="theme-primary text-white rounded px-3 py-1.5 text-sm disabled:opacity-50"
+                            disabled={nextIteration.isPending}
+                            onClick={() => nextIteration.mutate(latestClosed.id)}
+                        >
+                            {nextIteration.isPending ? 'Starting…' : 'Start next iteration'}
+                        </button>
+                    </div>
+                )}
             </div>;
         })}
         <div className="flex justify-end gap-3">

@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using RetroBackend.Data;
+using RetroBackend.Hubs;
 using RetroBackend.Models;
 using RetroBackend.Repositories;
 using RetroBackend.Services;
@@ -99,6 +100,15 @@ builder.Services
 
         options.Events = new JwtBearerEvents
         {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                    context.Token = accessToken;
+
+                return Task.CompletedTask;
+            },
             OnTokenValidated = context =>
             {
                 if (context.Principal?.Identity is not ClaimsIdentity identity)
@@ -128,12 +138,15 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddSignalR();
 
 builder.Services.AddScoped<IRetrospectiveRepository, EfRetrospectiveRepository>();
 builder.Services.AddScoped<IRetrospectiveService, RetrospectiveService>();
 builder.Services.AddScoped<IItemRepository, EfItemRepository>();
 builder.Services.AddScoped<IItemService, ItemService>();
 builder.Services.AddScoped<IRetroAuthorizationService, RetroAuthorizationService>();
+builder.Services.AddScoped<IRetrospectiveRealtimeService, RetrospectiveRealtimeService>();
+builder.Services.AddScoped<IRetrospectiveLiveNotifier, RetrospectiveLiveNotifier>();
 
 var app = builder.Build();
 
@@ -158,6 +171,7 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<RetrospectiveHub>("/hubs/retrospective");
 
 app.Run();
 

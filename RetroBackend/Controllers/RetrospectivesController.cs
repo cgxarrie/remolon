@@ -20,12 +20,18 @@ public class RetrospectivesController : ControllerBase
     private readonly IRetrospectiveService _service;
     private readonly IRetroAuthorizationService _authzService;
     private readonly RetroDbContext _context;
+    private readonly IRetrospectiveLiveNotifier _liveNotifier;
 
-    public RetrospectivesController(IRetrospectiveService service, IRetroAuthorizationService authzService, RetroDbContext context)
+    public RetrospectivesController(
+        IRetrospectiveService service,
+        IRetroAuthorizationService authzService,
+        RetroDbContext context,
+        IRetrospectiveLiveNotifier liveNotifier)
     {
         _service = service;
         _authzService = authzService;
         _context = context;
+        _liveNotifier = liveNotifier;
     }
 
     /// <summary>Retrieves all retrospectives.</summary>
@@ -82,9 +88,14 @@ public class RetrospectivesController : ControllerBase
         }
 
         var retro = await _service.GetByIdAsync(id);
-        if (retro is not null && !User.HasRole(Roles.Admin) && !IsSameOrganization(retro.OrganizationId))
+        if (retro is null) return NotFound();
+        if (!User.HasRole(Roles.Admin) && !IsSameOrganization(retro.OrganizationId))
             return Forbid();
-        return retro is null ? NotFound() : Ok(retro.ToGetDto(userId));
+
+        var dto = retro.ToGetDto(userId);
+        dto.CanStartNextIteration = retro.IsClosed
+            && !await _service.HasOpenWithTitleAsync(retro.OrganizationId, retro.Title);
+        return Ok(dto);
     }
 
     /// <summary>Creates a new retrospective. Admin or Manager.</summary>
@@ -202,13 +213,16 @@ public class RetrospectivesController : ControllerBase
         }
 
         var deleted = await _service.DeleteAsync(id);
-        return deleted ? NoContent() : NotFound();
+        if (!deleted) return NotFound();
+
+        await _liveNotifier.NotifyRetrospectiveDeletedAsync(id);
+        return NoContent();
     }
 
-    /// <summary>Closes a retrospective and creates the next one. Admin always; Manager for own or assigned retrospectives.</summary>
+    /// <summary>Closes a retrospective and creates the next iteration. Admin always; Manager for own or assigned retrospectives.</summary>
     /// <param name="id">The retrospective's unique identifier.</param>
     /// <param name="request">Close request data.</param>
-    /// <returns>The ID of the newly created retrospective.</returns>
+    /// <returns>The ID of the newly created iteration.</returns>
     [HttpPost("{id:guid}/close")]
     [Authorize(Roles = Roles.Admin + "," + Roles.Manager)]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
@@ -237,13 +251,51 @@ public class RetrospectivesController : ControllerBase
         var svcReq = request.ToServiceRequest();
         svcReq.CurrentUser = userId;
 
-        var newRetro = await _service.CloseAsync(id, svcReq);
-        if (newRetro is null)
+        var next = await _service.CloseAsync(id, svcReq);
+        if (next is null)
         {
             var existing = await _service.GetByIdAsync(id);
             return existing is null ? NotFound() : Conflict(new { message = "Retrospective is already closed." });
         }
-        return CreatedAtAction(nameof(GetById), new { id = newRetro.Id }, newRetro.Id);
+
+        await _liveNotifier.NotifyRetrospectiveClosedAsync(id);
+        if (next.Id == id)
+            return Ok(id);
+
+        return CreatedAtAction(nameof(GetById), new { id = next.Id }, next.Id);
+    }
+
+    /// <summary>Creates a new open iteration from a closed retrospective. Copies columns, assignments, and action items as pending.</summary>
+    [HttpPost("{id:guid}/next-iteration")]
+    [Authorize(Roles = Roles.Admin + "," + Roles.Manager)]
+    [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> CreateNextIteration(Guid id)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var existing = await _service.GetByIdAsync(id);
+        if (existing is null) return NotFound();
+
+        if (User.HasRole(Roles.Manager) && !User.HasRole(Roles.Admin))
+        {
+            if (!IsSameOrganization(existing.OrganizationId)) return Forbid();
+            var isOwner = await _authzService.IsRetrospectiveOwnerAsync(userId, id);
+            var isAssigned = await _authzService.IsAssignedToRetrospectiveAsync(userId, id);
+            if (!isOwner && !isAssigned) return Forbid();
+        }
+
+        if (!existing.IsClosed)
+            return Conflict(new { message = "Only a closed retrospective can start the next iteration." });
+
+        if (await _service.HasOpenWithTitleAsync(existing.OrganizationId, existing.Title))
+            return Conflict(new { message = "An open iteration already exists for this retrospective." });
+
+        var next = await _service.CreateNextIterationAsync(id, userId);
+        if (next is null) return Conflict(new { message = "Could not create the next iteration." });
+
+        return CreatedAtAction(nameof(GetById), new { id = next.Id }, next.Id);
     }
 
     /// <summary>Reveals a retrospective so all participants can see all tickets.</summary>
@@ -268,7 +320,10 @@ public class RetrospectivesController : ControllerBase
         }
 
         var revealed = await _service.RevealAsync(id);
-        return revealed is null ? NotFound() : Ok(revealed.Id);
+        if (revealed is null) return NotFound();
+
+        await _liveNotifier.NotifyRetrospectiveRevealedAsync(revealed.Id);
+        return Ok(revealed.Id);
     }
 
     private bool IsSameOrganization(Guid organizationId) =>

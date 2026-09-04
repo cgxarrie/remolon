@@ -82,4 +82,13 @@ public class EfRetrospectiveRepository : IRetrospectiveRepository
 
         await _context.SaveChangesAsync();
     }
+
+    public Task<bool> HasOpenWithTitleAsync(Guid organizationId, string title)
+    {
+        var normalized = title.ToLower();
+        return _context.Retrospectives.AnyAsync(r =>
+            r.OrganizationId == organizationId
+            && !r.IsClosed
+            && r.Title.ToLower() == normalized);
+    }
 }

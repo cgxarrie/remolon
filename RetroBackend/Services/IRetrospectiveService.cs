@@ -12,4 +12,6 @@ public interface IRetrospectiveService
     Task<Retrospective?> RevealAsync(Guid id);
     Task<bool> DeleteAsync(Guid id);
     Task<Retrospective?> CloseAsync(Guid id, CloseRetrospectiveRequest request);
+    Task<Retrospective?> CreateNextIterationAsync(Guid id, string currentUser);
+    Task<bool> HasOpenWithTitleAsync(Guid organizationId, string title);
 }
