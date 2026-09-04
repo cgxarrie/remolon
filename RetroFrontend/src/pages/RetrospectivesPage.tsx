@@ -21,6 +21,17 @@ function OrganizationRetrospectives({ organization }: { organization: SelectedOr
         mutationFn: retrospectivesApi.delete,
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['retrospectives', organization.id] }),
     });
+    const nextIteration = useMutation({
+        mutationFn: (retroId: string) => retrospectivesApi.createNextIteration(retroId),
+        onSuccess: (nextId) => {
+            queryClient.invalidateQueries({ queryKey: ['retrospectives', organization.id] });
+            navigate(`/retrospectives/${nextId}`);
+        },
+        onError: (err: unknown) => {
+            const axiosError = err as { response?: { data?: { message?: string } } };
+            alert(axiosError.response?.data?.message ?? 'Could not start the next iteration.');
+        },
+    });
     const grouped = (data?.items ?? []).reduce<Record<string, GetRetrospectiveSummaryDto[]>>((result, retro) => {
         (result[retro.title] ??= []).push(retro);
         return result;
@@ -34,6 +45,8 @@ function OrganizationRetrospectives({ organization }: { organization: SelectedOr
         {titles.map((title) => {
             const items = grouped[title];
             const open = expanded.has(title);
+            const hasOpenIteration = items.some((retro) => !retro.isClosed);
+            const latestClosed = items.find((retro) => retro.isClosed);
             return <div key={title} className="bg-white rounded-xl shadow border overflow-hidden">
                 <button className="w-full p-4 flex justify-between" onClick={() => setExpanded((previous) => {
                     const next = new Set(previous); if (next.has(title)) next.delete(title); else next.add(title); return next;
@@ -45,6 +58,17 @@ function OrganizationRetrospectives({ organization }: { organization: SelectedOr
                         if (confirm('Delete this retrospective?')) remove.mutate(retro.id);
                     }}>Delete</button>}</span>
                 </div>)}
+                {open && !hasOpenIteration && latestClosed && (role === 'Admin' || role === 'Manager') && (
+                    <div className="border-t p-3">
+                        <button
+                            className="theme-primary text-white rounded px-3 py-1.5 text-sm disabled:opacity-50"
+                            disabled={nextIteration.isPending}
+                            onClick={() => nextIteration.mutate(latestClosed.id)}
+                        >
+                            {nextIteration.isPending ? 'Starting…' : 'Start next iteration'}
+                        </button>
+                    </div>
+                )}
             </div>;
         })}
         <div className="flex justify-end gap-3">

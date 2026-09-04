@@ -29,6 +29,9 @@ export const retrospectivesApi = {
             .post<string>(`/retrospectives/${id}/close`, { currentUser: '' })
             .then((r) => r.data),
 
+    createNextIteration: (id: string) =>
+        client.post<string>(`/retrospectives/${id}/next-iteration`).then((r) => r.data),
+
     reveal: (id: string) =>
         client.post<string>(`/retrospectives/${id}/reveal`).then((r) => r.data),
 };

@@ -5,10 +5,12 @@ using Microsoft.EntityFrameworkCore;
 using RetroBackend.Auth;
 using RetroBackend.Controllers;
 using RetroBackend.Data;
+using RetroBackend.Dtos;
 using RetroBackend.Mappings;
 using RetroBackend.Models;
 using RetroBackend.Repositories;
 using RetroBackend.Services;
+using RetroBackend.Tests.Fakes;
 using Xunit;
 
 namespace RetroBackend.Tests.Controllers;
@@ -19,7 +21,8 @@ public class ItemCreationRulesTests
     public async Task CreateActionItem_AssignedStandardUser_IsPersistedAndReturnedInRetrospective()
     {
         var setup = await SeedAsync();
-        var controller = CreateActionItemsController(setup.Context, setup.AssignedUserId, Roles.StandardUser);
+        var notifier = new RecordingLiveNotifier();
+        var controller = CreateActionItemsController(setup.Context, setup.AssignedUserId, Roles.StandardUser, notifier);
 
         var result = await controller.CreateActionItem(new Dtos.CreateActionItemRequest
         {
@@ -38,6 +41,7 @@ public class ItemCreationRulesTests
         var item = Assert.Single(column.Items);
         Assert.Equal("Do the thing", item.Description);
         Assert.Equal("Alice", item.Assignee);
+        Assert.Equal([setup.RetrospectiveId], notifier.ItemsChangedNotifications);
     }
 
     [Fact]
@@ -78,7 +82,8 @@ public class ItemCreationRulesTests
     public async Task CreateActionItem_UnrelatedUser_IsForbidden()
     {
         var setup = await SeedAsync();
-        var controller = CreateActionItemsController(setup.Context, "outsider", Roles.Manager);
+        var notifier = new RecordingLiveNotifier();
+        var controller = CreateActionItemsController(setup.Context, "outsider", Roles.Manager, notifier);
 
         var result = await controller.CreateActionItem(new Dtos.CreateActionItemRequest
         {
@@ -89,15 +94,18 @@ public class ItemCreationRulesTests
         });
 
         Assert.IsType<ForbidResult>(result);
+        Assert.Empty(notifier.ItemsChangedNotifications);
     }
 
     [Fact]
     public async Task CreateItem_AssignedManagerWhoDoesNotOwnRetrospective_IsAllowed()
     {
         var setup = await SeedAsync();
+        var notifier = new RecordingLiveNotifier();
         var controller = new ItemsController(
             new ItemService(new EfItemRepository(setup.Context)),
-            new RetroAuthorizationService(setup.Context))
+            new RetroAuthorizationService(setup.Context),
+            notifier)
         {
             ControllerContext = ControllerContext(setup.AssignedManagerId, Roles.Manager),
         };
@@ -110,13 +118,157 @@ public class ItemCreationRulesTests
         });
 
         Assert.Equal(StatusCodes.Status201Created, Assert.IsType<ObjectResult>(result).StatusCode);
+        Assert.Equal([setup.RetrospectiveId], notifier.ItemsChangedNotifications);
+    }
+
+    [Fact]
+    public async Task CloseActionItem_NotifiesOpenRetrospectiveClients()
+    {
+        var setup = await SeedAsync();
+        var pendingColumnId = setup.Context.Columns.Single(c => c.Title == "Pending Action Items").Id;
+        var pending = new ActionItem(setup.AssignedUserId, "Alice", "Alice", pendingColumnId, "Carry over", 0);
+        setup.Context.Items.Add(pending);
+        await setup.Context.SaveChangesAsync();
+
+        var notifier = new RecordingLiveNotifier();
+        var controller = CreateActionItemsController(setup.Context, setup.AssignedUserId, Roles.StandardUser, notifier);
+
+        var result = await controller.CloseActionItem(pending.Id);
+
+        var dto = Assert.IsType<GetActionItemDto>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.True(dto.IsCompleted);
+        Assert.Equal([setup.RetrospectiveId], notifier.ItemsChangedNotifications);
+    }
+
+    [Fact]
+    public async Task CloseActionItem_WhenMissing_DoesNotNotify()
+    {
+        var setup = await SeedAsync();
+        var notifier = new RecordingLiveNotifier();
+        var controller = CreateActionItemsController(setup.Context, setup.AssignedUserId, Roles.StandardUser, notifier);
+
+        var result = await controller.CloseActionItem(Guid.NewGuid());
+
+        Assert.IsType<NotFoundResult>(result);
+        Assert.Empty(notifier.ItemsChangedNotifications);
+    }
+
+    [Fact]
+    public async Task UpdateItem_NotifiesOpenRetrospectiveClients()
+    {
+        var setup = await SeedAsync();
+        var item = new Item(setup.AssignedUserId, "Alice", setup.ColumnId, "Original", 0);
+        setup.Context.Items.Add(item);
+        await setup.Context.SaveChangesAsync();
+
+        var notifier = new RecordingLiveNotifier();
+        var controller = new ItemsController(
+            new ItemService(new EfItemRepository(setup.Context)),
+            new RetroAuthorizationService(setup.Context),
+            notifier)
+        {
+            ControllerContext = ControllerContext(setup.AssignedUserId, Roles.StandardUser),
+        };
+
+        var result = await controller.UpdateItem(item.Id, new Dtos.UpdateItemRequest { Description = "Edited" });
+
+        Assert.Equal("Edited", Assert.IsType<GetItemDto>(Assert.IsType<OkObjectResult>(result).Value).Description);
+        Assert.Equal([setup.RetrospectiveId], notifier.ItemsChangedNotifications);
+    }
+
+    [Fact]
+    public async Task DeleteItem_NotifiesOpenRetrospectiveClients()
+    {
+        var setup = await SeedAsync();
+        var item = new Item(setup.AssignedUserId, "Alice", setup.ColumnId, "To delete", 0);
+        setup.Context.Items.Add(item);
+        await setup.Context.SaveChangesAsync();
+
+        var notifier = new RecordingLiveNotifier();
+        var controller = new ItemsController(
+            new ItemService(new EfItemRepository(setup.Context)),
+            new RetroAuthorizationService(setup.Context),
+            notifier)
+        {
+            ControllerContext = ControllerContext(setup.AssignedUserId, Roles.StandardUser),
+        };
+
+        var result = await controller.DeleteItem(item.Id);
+
+        Assert.IsType<NoContentResult>(result);
+        Assert.Equal([setup.RetrospectiveId], notifier.ItemsChangedNotifications);
+    }
+
+    [Fact]
+    public async Task UpdateItem_WhenForbidden_DoesNotNotify()
+    {
+        var setup = await SeedAsync();
+        var item = new Item(setup.AssignedUserId, "Alice", setup.ColumnId, "Original", 0);
+        setup.Context.Items.Add(item);
+        await setup.Context.SaveChangesAsync();
+
+        var notifier = new RecordingLiveNotifier();
+        var controller = new ItemsController(
+            new ItemService(new EfItemRepository(setup.Context)),
+            new RetroAuthorizationService(setup.Context),
+            notifier)
+        {
+            ControllerContext = ControllerContext("outsider", Roles.StandardUser),
+        };
+
+        var result = await controller.UpdateItem(item.Id, new Dtos.UpdateItemRequest { Description = "Nope" });
+
+        Assert.IsType<ForbidResult>(result);
+        Assert.Empty(notifier.ItemsChangedNotifications);
+    }
+
+    [Fact]
+    public async Task UpdateActionItem_NotifiesOpenRetrospectiveClients()
+    {
+        var setup = await SeedAsync();
+        var action = new ActionItem(setup.AssignedUserId, "Alice", "Alice", setup.ActionColumnId, "Original", 0);
+        setup.Context.Items.Add(action);
+        await setup.Context.SaveChangesAsync();
+
+        var notifier = new RecordingLiveNotifier();
+        var controller = CreateActionItemsController(setup.Context, setup.AssignedUserId, Roles.StandardUser, notifier);
+
+        var result = await controller.UpdateActionItem(action.Id, new Dtos.UpdateActionItemRequest
+        {
+            Description = "Edited action",
+            Assignee = "Bob",
+        });
+
+        Assert.Equal("Edited action", Assert.IsType<GetActionItemDto>(Assert.IsType<OkObjectResult>(result).Value).Description);
+        Assert.Equal([setup.RetrospectiveId], notifier.ItemsChangedNotifications);
+    }
+
+    [Fact]
+    public async Task DeleteActionItem_NotifiesOpenRetrospectiveClients()
+    {
+        var setup = await SeedAsync();
+        var action = new ActionItem(setup.AssignedUserId, "Alice", "Alice", setup.ActionColumnId, "To delete", 0);
+        setup.Context.Items.Add(action);
+        await setup.Context.SaveChangesAsync();
+
+        var notifier = new RecordingLiveNotifier();
+        var controller = CreateActionItemsController(setup.Context, setup.AssignedUserId, Roles.StandardUser, notifier);
+
+        var result = await controller.DeleteActionItem(action.Id);
+
+        Assert.IsType<NoContentResult>(result);
+        Assert.Equal([setup.RetrospectiveId], notifier.ItemsChangedNotifications);
     }
 
     private static ActionItemsController CreateActionItemsController(
         RetroDbContext context,
         string userId,
-        string role) =>
-        new(new ItemService(new EfItemRepository(context)), new RetroAuthorizationService(context))
+        string role,
+        IRetrospectiveLiveNotifier? notifier = null) =>
+        new(
+            new ItemService(new EfItemRepository(context)),
+            new RetroAuthorizationService(context),
+            notifier ?? new RecordingLiveNotifier())
         {
             ControllerContext = ControllerContext(userId, role),
         };
@@ -129,6 +281,7 @@ public class ItemCreationRulesTests
                 [
                     new Claim(ClaimTypes.NameIdentifier, userId),
                     new Claim(ClaimTypes.Role, role),
+                    new Claim(ClaimTypes.Email, $"{userId}@test.local"),
                 ],
                 "test")),
         },

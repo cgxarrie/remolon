@@ -62,28 +62,48 @@ public class RetrospectiveService : IRetrospectiveService
         var existing = await _repository.GetByIdAsync(id);
         if (existing is null || existing.IsClosed || !existing.IsRevealed) return null;
 
-        var actingUser = string.IsNullOrWhiteSpace(request.CurrentUser)
-            ? existing.CreatedBy
-            : request.CurrentUser;
-
         existing.Close();
         await _repository.UpdateAsync(existing);
 
-        var newRetroDraft = Retrospective.CreateNew(actingUser, existing.Title, existing.OrganizationId);
+        var actingUser = string.IsNullOrWhiteSpace(request.CurrentUser) ? existing.CreatedBy : request.CurrentUser;
+        return await CreateIterationFromSourceAsync(existing, actingUser) ?? existing;
+    }
 
-        // Copy regular (non-action) columns
-        foreach (var col in existing.Columns.Where(c => c is not ActionColumn))
-            newRetroDraft.AddColumn(actingUser, col.Title, col.Position);
+    public async Task<Retrospective?> CreateNextIterationAsync(Guid id, string currentUser)
+    {
+        var source = await _repository.GetByIdAsync(id);
+        if (source is null || !source.IsClosed) return null;
 
-        // Carry over action items to the new retro's Pending Action Items column
-        var pendingColumn = newRetroDraft.Columns
+        var actingUser = string.IsNullOrWhiteSpace(currentUser) ? source.CreatedBy : currentUser;
+        return await CreateIterationFromSourceAsync(source, actingUser);
+    }
+
+    private async Task<Retrospective?> CreateIterationFromSourceAsync(Retrospective source, string actingUser)
+    {
+        if (await _repository.HasOpenWithTitleAsync(source.OrganizationId, source.Title))
+            return null;
+
+        var next = Retrospective.CreateNew(actingUser, source.Title, source.OrganizationId);
+
+        foreach (var col in source.Columns.Where(c => c is not ActionColumn))
+            next.AddColumn(actingUser, col.Title, col.Position);
+
+        CopyActionItemsAsPending(source, next, actingUser);
+
+        var created = await _repository.AddAsync(next);
+        await _repository.CopyUserAssignmentsAsync(source.Id, created.Id);
+        return created;
+    }
+
+    private static void CopyActionItemsAsPending(Retrospective source, Retrospective next, string actingUser)
+    {
+        var pendingColumn = next.Columns
             .OfType<ActionColumn>()
             .First(c => c.Title == "Pending Action Items");
 
         var position = 0;
 
-        // 1. Items still pending from the previous "Pending Action Items" column
-        var existingPendingColumn = existing.Columns
+        var existingPendingColumn = source.Columns
             .OfType<ActionColumn>()
             .FirstOrDefault(c => c.Title == "Pending Action Items");
 
@@ -102,14 +122,13 @@ public class RetrospectiveService : IRetrospectiveService
             }
         }
 
-        // 2. Uncompleted items from "Action Items" column
-        var actionColumn = existing.Columns
+        var actionColumn = source.Columns
             .OfType<ActionColumn>()
             .FirstOrDefault(c => c.Title == "Action Items");
 
         if (actionColumn is not null)
         {
-            foreach (var item in actionColumn.Items.OfType<ActionItem>().Where(i => !i.IsCompleted))
+            foreach (var item in actionColumn.Items.OfType<ActionItem>())
             {
                 pendingColumn.Items.Add(new ActionItem(
                     actingUser,
@@ -121,9 +140,8 @@ public class RetrospectiveService : IRetrospectiveService
                     item.Iterations + 1));
             }
         }
-
-        var newRetro = await _repository.AddAsync(newRetroDraft);
-        await _repository.CopyUserAssignmentsAsync(existing.Id, newRetro.Id);
-        return newRetro;
     }
+
+    public Task<bool> HasOpenWithTitleAsync(Guid organizationId, string title) =>
+        _repository.HasOpenWithTitleAsync(organizationId, title);
 }

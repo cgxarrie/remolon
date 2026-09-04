@@ -9,6 +9,7 @@ using RetroBackend.Dtos;
 using RetroBackend.Models;
 using RetroBackend.Repositories;
 using RetroBackend.Services;
+using RetroBackend.Tests.Fakes;
 using Xunit;
 
 namespace RetroBackend.Tests.Controllers;
@@ -86,7 +87,7 @@ public class ItemRevealRulesTests
     }
 
     private static ItemsController CreateController(RetroDbContext context, string userId, string role) =>
-        new(new ItemService(new EfItemRepository(context)), new RetroAuthorizationService(context))
+        new(new ItemService(new EfItemRepository(context)), new RetroAuthorizationService(context), new RecordingLiveNotifier())
         {
             ControllerContext = new ControllerContext
             {

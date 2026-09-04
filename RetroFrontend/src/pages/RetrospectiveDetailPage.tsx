@@ -9,7 +9,8 @@ import { AssignUserModal } from '../components/AssignUserModal';
 import { ParticipantsTable } from '../components/ParticipantsTable';
 import type { AvatarEntry } from '../components/ParticipantsTable';
 import { createRetrospectiveHubConnection } from '../api/retrospectiveHub';
-import type { ObjectThrownEvent } from '../api/retrospectiveHub';
+import type { ItemsChangedEvent, ObjectThrownEvent, RetrospectiveClosedEvent, RetrospectiveDeletedEvent, RetrospectiveRevealedEvent } from '../api/retrospectiveHub';
+import { invalidateRetrospective } from '../query/retrospectiveQueries';
 import { useAuthStore } from '../store/authStore';
 
 interface AxeFlightState {
@@ -100,10 +101,14 @@ export function RetrospectiveDetailPage() {
 
     const closeMutation = useMutation({
         mutationFn: () => retrospectivesApi.close(id!),
-        onSuccess: (newRetroId) => {
+        onSuccess: (nextId) => {
             queryClient.invalidateQueries({ queryKey: ['retrospectives'] });
+            if (nextId && nextId !== id) {
+                navigate(`/retrospectives/${nextId}`);
+                return;
+            }
             queryClient.invalidateQueries({ queryKey: ['retrospective', activeOrganizationId, id] });
-            navigate(`/retrospectives/${newRetroId}`);
+            queryClient.refetchQueries({ queryKey: ['retrospective', activeOrganizationId, id] });
         },
         onError: (err: unknown) => {
             const axiosError = err as { response?: { data?: { message?: string }; status?: number } };
@@ -128,6 +133,18 @@ export function RetrospectiveDetailPage() {
             }
 
             alert(axiosError.response?.data?.message ?? 'Could not reveal retrospective.');
+        },
+    });
+
+    const nextIterationMutation = useMutation({
+        mutationFn: () => retrospectivesApi.createNextIteration(id!),
+        onSuccess: (nextId) => {
+            queryClient.invalidateQueries({ queryKey: ['retrospectives'] });
+            navigate(`/retrospectives/${nextId}`);
+        },
+        onError: (err: unknown) => {
+            const axiosError = err as { response?: { data?: { message?: string }; status?: number } };
+            alert(axiosError.response?.data?.message ?? 'Could not start the next iteration.');
         },
     });
 
@@ -332,7 +349,31 @@ export function RetrospectiveDetailPage() {
             playFlightRef.current(event.fromUserId, event.targetUserId, event.objectId);
         };
 
+        const refreshBoard = (event: ItemsChangedEvent | RetrospectiveRevealedEvent) => {
+            if (event.retrospectiveId.toLowerCase() !== id.toLowerCase()) return;
+            void invalidateRetrospective(queryClient, id);
+            void queryClient.invalidateQueries({ queryKey: ['retrospectives'] });
+            void queryClient.refetchQueries({
+                predicate: (query) =>
+                    query.queryKey[0] === 'retrospective' && query.queryKey.includes(id),
+            });
+        };
+
+        const handleClosed = (event: RetrospectiveClosedEvent) => {
+            refreshBoard(event);
+        };
+
+        const handleDeleted = (event: RetrospectiveDeletedEvent) => {
+            if (event.retrospectiveId.toLowerCase() !== id.toLowerCase()) return;
+            void queryClient.invalidateQueries({ queryKey: ['retrospectives'] });
+            navigate('/retrospectives');
+        };
+
         connection.on('ObjectThrown', handleThrown);
+        connection.on('ItemsChanged', refreshBoard);
+        connection.on('RetrospectiveRevealed', refreshBoard);
+        connection.on('RetrospectiveClosed', handleClosed);
+        connection.on('RetrospectiveDeleted', handleDeleted);
 
         const join = () => connection.invoke('Join', id).catch(() => undefined);
 
@@ -344,10 +385,14 @@ export function RetrospectiveDetailPage() {
 
         return () => {
             connection.off('ObjectThrown', handleThrown);
+            connection.off('ItemsChanged', refreshBoard);
+            connection.off('RetrospectiveRevealed', refreshBoard);
+            connection.off('RetrospectiveClosed', handleClosed);
+            connection.off('RetrospectiveDeleted', handleDeleted);
             hubConnectionRef.current = null;
             void connection.stop();
         };
-    }, [id, token]);
+    }, [id, token, queryClient, navigate]);
 
     function launchAxeToParticipant(targetId: string) {
         const fromUserId = userId ?? '';
@@ -538,7 +583,7 @@ export function RetrospectiveDetailPage() {
                                     {retro.isRevealed && !retro.isClosed && (
                                         <button
                                             onClick={() => {
-                                                if (confirm('Close this retrospective? All items will be locked and a new session will be created.')) {
+                                                if (confirm('Close this retrospective? A new iteration will be created with pending and action items carried over as pending.')) {
                                                     closeMutation.mutate();
                                                 }
                                             }}
@@ -611,8 +656,18 @@ export function RetrospectiveDetailPage() {
                 </div>
 
                 {retro.isClosed && (
-                    <div className="mb-4 p-3 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-600">
-                        This retrospective is <strong>closed</strong>. Items are read-only.
+                    <div className="mb-4 p-3 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-600 flex items-center justify-between gap-3">
+                        <span>This retrospective is <strong>closed</strong>. Items are read-only.</span>
+                        {canManage && retro.canStartNextIteration && (
+                            <button
+                                type="button"
+                                onClick={() => nextIterationMutation.mutate()}
+                                disabled={nextIterationMutation.isPending}
+                                className="flex-shrink-0 px-3 py-1.5 theme-primary text-white text-xs font-medium rounded-md disabled:opacity-50"
+                            >
+                                {nextIterationMutation.isPending ? 'Starting…' : 'Start next iteration'}
+                            </button>
+                        )}
                     </div>
                 )}
 

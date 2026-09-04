@@ -7,6 +7,14 @@ export interface ObjectThrownEvent {
     objectId: string;
 }
 
+export interface ItemsChangedEvent {
+    retrospectiveId: string;
+}
+
+export type RetrospectiveRevealedEvent = ItemsChangedEvent;
+export type RetrospectiveClosedEvent = ItemsChangedEvent;
+export type RetrospectiveDeletedEvent = ItemsChangedEvent;
+
 export function createRetrospectiveHubConnection(): HubConnection {
     return new HubConnectionBuilder()
         .withUrl('/hubs/retrospective', {

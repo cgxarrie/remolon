@@ -146,6 +146,7 @@ builder.Services.AddScoped<IItemRepository, EfItemRepository>();
 builder.Services.AddScoped<IItemService, ItemService>();
 builder.Services.AddScoped<IRetroAuthorizationService, RetroAuthorizationService>();
 builder.Services.AddScoped<IRetrospectiveRealtimeService, RetrospectiveRealtimeService>();
+builder.Services.AddScoped<IRetrospectiveLiveNotifier, RetrospectiveLiveNotifier>();
 
 var app = builder.Build();
 

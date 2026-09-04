@@ -108,6 +108,7 @@ export interface GetRetrospectiveDto {
     organizationName: string;
     title: string;
     isClosed: boolean;
+    canStartNextIteration: boolean;
     isRevealed: boolean;
     retrospectiveDate: string | null;
     columns: GetColumnDto[];

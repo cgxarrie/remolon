@@ -16,11 +16,16 @@ public class ActionItemsController : ControllerBase
 {
     private readonly IItemService _service;
     private readonly IRetroAuthorizationService _authzService;
+    private readonly IRetrospectiveLiveNotifier _liveNotifier;
 
-    public ActionItemsController(IItemService service, IRetroAuthorizationService authzService)
+    public ActionItemsController(
+        IItemService service,
+        IRetroAuthorizationService authzService,
+        IRetrospectiveLiveNotifier liveNotifier)
     {
         _service = service;
         _authzService = authzService;
+        _liveNotifier = liveNotifier;
     }
 
     /// <summary>Creates a new action item. The user must own the retrospective or be assigned to it.</summary>
@@ -46,6 +51,7 @@ public class ActionItemsController : ControllerBase
         svcReq.CreatedBy = userId;
         svcReq.CreatedByNickname = User.FindFirstValue(ClaimTypes.GivenName) ?? userId;
         var item = await _service.CreateActionItemAsync(svcReq);
+        await NotifyItemsChangedAsync(request.ColumnId);
         return StatusCode(StatusCodes.Status201Created, item.Id);
     }
 
@@ -71,7 +77,10 @@ public class ActionItemsController : ControllerBase
         }
 
         var item = await _service.UpdateActionItemAsync(id, request.ToServiceRequest());
-        return item is null ? NotFound() : Ok(item.ToDto());
+        if (item is null) return NotFound();
+
+        await NotifyItemsChangedAsync(item.ColumnId);
+        return Ok(item.ToDto());
     }
 
     /// <summary>Marks an action item as completed.</summary>
@@ -84,7 +93,10 @@ public class ActionItemsController : ControllerBase
     {
         var closedBy = User.FindFirstValue(System.Security.Claims.ClaimTypes.Email)!;
         var item = await _service.CloseActionItemAsync(id, closedBy);
-        return item is null ? NotFound() : Ok(item.ToDto());
+        if (item is null) return NotFound();
+
+        await NotifyItemsChangedAsync(item.ColumnId);
+        return Ok(item.ToDto());
     }
 
     /// <summary>Deletes an action item. Standard users can only delete their own; Managers can delete any in their retrospectives.</summary>
@@ -107,8 +119,20 @@ public class ActionItemsController : ControllerBase
             if (!allowed) return Forbid();
         }
 
+        var retrospectiveId = await _authzService.GetRetrospectiveIdByItemAsync(id);
         var deleted = await _service.DeleteAsync(id);
-        return deleted ? NoContent() : NotFound();
+        if (!deleted) return NotFound();
+
+        if (retrospectiveId is not null)
+            await _liveNotifier.NotifyItemsChangedAsync(retrospectiveId.Value);
+        return NoContent();
+    }
+
+    private async Task NotifyItemsChangedAsync(Guid columnId)
+    {
+        var retrospectiveId = await _authzService.GetRetrospectiveIdByColumnAsync(columnId);
+        if (retrospectiveId is null) return;
+        await _liveNotifier.NotifyItemsChangedAsync(retrospectiveId.Value);
     }
 }
 

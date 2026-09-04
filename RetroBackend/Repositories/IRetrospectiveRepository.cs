@@ -11,4 +11,5 @@ public interface IRetrospectiveRepository
     Task<Retrospective?> UpdateAsync(Retrospective retrospective);
     Task<bool> DeleteAsync(Guid id);
     Task CopyUserAssignmentsAsync(Guid fromRetrospectiveId, Guid toRetrospectiveId);
+    Task<bool> HasOpenWithTitleAsync(Guid organizationId, string title);
 }

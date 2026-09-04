@@ -10,7 +10,7 @@ namespace RetroBackend.Tests.Services;
 public class RetrospectiveServiceTests
 {
     [Fact]
-    public async Task CloseAsync_ClosesExistingAndCreatesNextRetrospective_WhenCurrentUserIsEmpty()
+    public async Task CloseAsync_CreatesNextIterationAndCopiesActionItemsAsPending()
     {
         var dbName = $"retro-service-tests-{Guid.NewGuid()}";
         var ownerUserId = "manager-1";
@@ -21,41 +21,62 @@ public class RetrospectiveServiceTests
         {
             seedContext.Organizations.Add(new Organization { Id = organizationId, Name = "Acme" });
             var original = Retrospective.CreateNew(ownerUserId, "Sprint 11", organizationId);
+            original.AddColumn(ownerUserId, "Went Well", 1);
             original.Reveal();
+
+            var pending = original.Columns.OfType<ActionColumn>().Single(c => c.Title == "Pending Action Items");
+            pending.Items.Add(new ActionItem(ownerUserId, "Mgr", "Alice", pending.Id, "Finish docs", 0, 2));
+            var completedPending = new ActionItem(ownerUserId, "Mgr", "Bob", pending.Id, "Already done", 1, 1);
+            completedPending.Complete(ownerUserId);
+            pending.Items.Add(completedPending);
+
+            var actions = original.Columns.OfType<ActionColumn>().Single(c => c.Title == "Action Items");
+            actions.Items.Add(new ActionItem(ownerUserId, "Mgr", "Carol", actions.Id, "Ship feature", 0));
+
             seedContext.Retrospectives.Add(original);
             await seedContext.SaveChangesAsync();
             originalRetroId = original.Id;
         }
 
-        Guid newRetroId;
+        Guid nextId;
         await using (var actionContext = CreateContext(dbName))
         {
-            var repository = new EfRetrospectiveRepository(actionContext);
-            var service = new RetrospectiveService(repository);
-
-            var created = await service.CloseAsync(originalRetroId, new CloseRetrospectiveRequest
+            var service = new RetrospectiveService(new EfRetrospectiveRepository(actionContext));
+            var next = await service.CloseAsync(originalRetroId, new CloseRetrospectiveRequest
             {
-                CurrentUser = string.Empty,
+                CurrentUser = "manager-2",
             });
 
-            Assert.NotNull(created);
-            newRetroId = created.Id;
-            Assert.Equal(ownerUserId, created.CreatedBy);
-            Assert.Equal(organizationId, created.OrganizationId);
+            Assert.NotNull(next);
+            Assert.NotEqual(originalRetroId, next.Id);
+            Assert.False(next.IsClosed);
+            Assert.Equal("Sprint 11", next.Title);
+            nextId = next.Id;
         }
 
         await using (var assertContext = CreateContext(dbName))
         {
-            var allRetros = await assertContext.Retrospectives.ToListAsync();
-            Assert.Equal(2, allRetros.Count);
+            var original = await assertContext.Retrospectives.SingleAsync(r => r.Id == originalRetroId);
+            Assert.True(original.IsClosed);
 
-            var oldRetro = allRetros.Single(r => r.Id == originalRetroId);
-            var nextRetro = allRetros.Single(r => r.Id == newRetroId);
+            var next = await assertContext.Retrospectives
+                .Include(r => r.Columns)
+                .ThenInclude(c => c.Items)
+                .SingleAsync(r => r.Id == nextId);
 
-            Assert.True(oldRetro.IsClosed);
-            Assert.Equal(ownerUserId, nextRetro.CreatedBy);
-            Assert.False(nextRetro.IsClosed);
-            Assert.Equal(organizationId, nextRetro.OrganizationId);
+            Assert.Contains(next.Columns, c => c.Title == "Went Well" && c is not ActionColumn);
+
+            var pending = next.Columns.OfType<ActionColumn>().Single(c => c.Title == "Pending Action Items");
+            var copied = pending.Items.OfType<ActionItem>().OrderBy(i => i.Position).ToList();
+            Assert.Equal(2, copied.Count);
+            Assert.Equal("Finish docs", copied[0].Description);
+            Assert.Equal("Alice", copied[0].Assignee);
+            Assert.Equal(3, copied[0].Iterations);
+            Assert.False(copied[0].IsCompleted);
+            Assert.Equal("Ship feature", copied[1].Description);
+            Assert.Equal("Carol", copied[1].Assignee);
+            Assert.Equal(1, copied[1].Iterations);
+            Assert.DoesNotContain(copied, i => i.Description == "Already done");
         }
     }
 
@@ -136,6 +157,81 @@ public class RetrospectiveServiceTests
         });
 
         Assert.Equal(organizationId, created.OrganizationId);
+    }
+
+    [Fact]
+    public async Task CreateNextIterationAsync_CopiesPendingAndActionItemsAsPending()
+    {
+        var dbName = $"retro-next-iteration-{Guid.NewGuid()}";
+        var organizationId = Guid.NewGuid();
+        Guid closedId;
+
+        await using (var seedContext = CreateContext(dbName))
+        {
+            seedContext.Organizations.Add(new Organization { Id = organizationId, Name = "Acme" });
+            var closed = Retrospective.CreateNew("manager-1", "Sprint 11", organizationId);
+            closed.AddColumn("manager-1", "Went Well", 1);
+            closed.Reveal();
+            closed.Close();
+            var pending = closed.Columns.OfType<ActionColumn>().Single(c => c.Title == "Pending Action Items");
+            pending.Items.Add(new ActionItem("manager-1", "Mgr", "Alice", pending.Id, "Carry this", 0, 2));
+            var actions = closed.Columns.OfType<ActionColumn>().Single(c => c.Title == "Action Items");
+            actions.Items.Add(new ActionItem("manager-1", "Mgr", "Bob", actions.Id, "New action", 0));
+            seedContext.Retrospectives.Add(closed);
+            await seedContext.SaveChangesAsync();
+            closedId = closed.Id;
+        }
+
+        Guid nextId;
+        await using (var actionContext = CreateContext(dbName))
+        {
+            var service = new RetrospectiveService(new EfRetrospectiveRepository(actionContext));
+            var next = await service.CreateNextIterationAsync(closedId, "manager-2");
+            Assert.NotNull(next);
+            nextId = next.Id;
+            Assert.False(next.IsClosed);
+            Assert.Equal("Sprint 11", next.Title);
+            Assert.Contains(next.Columns, c => c.Title == "Went Well" && c is not ActionColumn);
+        }
+
+        await using (var assertContext = CreateContext(dbName))
+        {
+            var next = await assertContext.Retrospectives
+                .Include(r => r.Columns)
+                .ThenInclude(c => c.Items)
+                .SingleAsync(r => r.Id == nextId);
+            var pending = next.Columns.OfType<ActionColumn>().Single(c => c.Title == "Pending Action Items");
+            var copied = pending.Items.OfType<ActionItem>().OrderBy(i => i.Position).ToList();
+            Assert.Equal(2, copied.Count);
+            Assert.Equal("Carry this", copied[0].Description);
+            Assert.Equal(3, copied[0].Iterations);
+            Assert.Equal("New action", copied[1].Description);
+            Assert.Equal(1, copied[1].Iterations);
+        }
+    }
+
+    [Fact]
+    public async Task CreateNextIterationAsync_WhenOpenExists_ReturnsNull()
+    {
+        var dbName = $"retro-next-open-{Guid.NewGuid()}";
+        var organizationId = Guid.NewGuid();
+        Guid closedId;
+
+        await using (var seedContext = CreateContext(dbName))
+        {
+            seedContext.Organizations.Add(new Organization { Id = organizationId, Name = "Acme" });
+            var closed = Retrospective.CreateNew("manager-1", "Sprint 11", organizationId);
+            closed.Reveal();
+            closed.Close();
+            var open = Retrospective.CreateNew("manager-1", "Sprint 11", organizationId);
+            seedContext.Retrospectives.AddRange(closed, open);
+            await seedContext.SaveChangesAsync();
+            closedId = closed.Id;
+        }
+
+        await using var actionContext = CreateContext(dbName);
+        var service = new RetrospectiveService(new EfRetrospectiveRepository(actionContext));
+        Assert.Null(await service.CreateNextIterationAsync(closedId, "manager-1"));
     }
 
     private static RetroDbContext CreateContext(string dbName)

@@ -17,11 +17,16 @@ public class ItemsController : ControllerBase
 {
     private readonly IItemService _service;
     private readonly IRetroAuthorizationService _authzService;
+    private readonly IRetrospectiveLiveNotifier _liveNotifier;
 
-    public ItemsController(IItemService service, IRetroAuthorizationService authzService)
+    public ItemsController(
+        IItemService service,
+        IRetroAuthorizationService authzService,
+        IRetrospectiveLiveNotifier liveNotifier)
     {
         _service = service;
         _authzService = authzService;
+        _liveNotifier = liveNotifier;
     }
 
     /// <summary>Creates a new item. The user must own the retrospective or be assigned to it.</summary>
@@ -47,6 +52,7 @@ public class ItemsController : ControllerBase
         svcReq.CreatedBy = userId;
         svcReq.CreatedByNickname = User.FindFirstValue(ClaimTypes.GivenName) ?? userId;
         var item = await _service.CreateItemAsync(svcReq);
+        await NotifyItemsChangedAsync(request.ColumnId);
         return StatusCode(StatusCodes.Status201Created, item.Id);
     }
 
@@ -64,7 +70,10 @@ public class ItemsController : ControllerBase
         if (!await CanEditOrDeleteItemAsync(userId, id)) return Forbid();
 
         var item = await _service.UpdateItemAsync(id, request.ToServiceRequest());
-        return item is null ? NotFound() : Ok(item.ToDto());
+        if (item is null) return NotFound();
+
+        await NotifyItemsChangedByItemAsync(id);
+        return Ok(item.ToDto());
     }
 
     /// <summary>Deletes an item. Creators can delete their own; managers/admins can delete any after reveal.</summary>
@@ -79,8 +88,13 @@ public class ItemsController : ControllerBase
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         if (!await CanEditOrDeleteItemAsync(userId, id)) return Forbid();
 
+        var retrospectiveId = await _authzService.GetRetrospectiveIdByItemAsync(id);
         var deleted = await _service.DeleteAsync(id);
-        return deleted ? NoContent() : NotFound();
+        if (!deleted) return NotFound();
+
+        if (retrospectiveId is not null)
+            await _liveNotifier.NotifyItemsChangedAsync(retrospectiveId.Value);
+        return NoContent();
     }
 
     /// <summary>Unlinks an item from its group. Managers/admins after the retrospective is revealed.</summary>
@@ -96,7 +110,10 @@ public class ItemsController : ControllerBase
         if (!await CanMergeItemsAsync(userId, id)) return Forbid();
 
         var item = await _service.UnlinkFromGroupAsync(id);
-        return item is null ? NotFound() : Ok(item.ToDto());
+        if (item is null) return NotFound();
+
+        await NotifyItemsChangedByItemAsync(id);
+        return Ok(item.ToDto());
     }
 
     /// <summary>Merges two items. Managers/admins after the retrospective is revealed.</summary>
@@ -117,7 +134,10 @@ public class ItemsController : ControllerBase
         if (!await CanMergeItemsAsync(userId, id)) return Forbid();
 
         var group = await _service.MergeItemsAsync(id, request.TargetItemId);
-        return group is null ? NotFound() : Ok(group.Select(i => i.ToDto()));
+        if (group is null) return NotFound();
+
+        await NotifyItemsChangedByItemAsync(id);
+        return Ok(group.Select(i => i.ToDto()));
     }
 
     private async Task<bool> CanEditOrDeleteItemAsync(string userId, Guid itemId)
@@ -144,6 +164,20 @@ public class ItemsController : ControllerBase
 
         return await _authzService.IsRetrospectiveOwnerByItemAsync(userId, itemId)
             || await _authzService.IsAssignedToRetrospectiveByItemAsync(userId, itemId);
+    }
+
+    private async Task NotifyItemsChangedAsync(Guid columnId)
+    {
+        var retrospectiveId = await _authzService.GetRetrospectiveIdByColumnAsync(columnId);
+        if (retrospectiveId is null) return;
+        await _liveNotifier.NotifyItemsChangedAsync(retrospectiveId.Value);
+    }
+
+    private async Task NotifyItemsChangedByItemAsync(Guid itemId)
+    {
+        var retrospectiveId = await _authzService.GetRetrospectiveIdByItemAsync(itemId);
+        if (retrospectiveId is null) return;
+        await _liveNotifier.NotifyItemsChangedAsync(retrospectiveId.Value);
     }
 }
 

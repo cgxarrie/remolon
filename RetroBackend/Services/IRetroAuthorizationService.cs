@@ -10,4 +10,6 @@ public interface IRetroAuthorizationService
     Task<bool> IsRetrospectiveOwnerByColumnAsync(string userId, Guid columnId);
     Task<bool> IsRetrospectiveOwnerByItemAsync(string userId, Guid itemId);
     Task<bool> IsRetrospectiveRevealedByItemAsync(Guid itemId);
+    Task<Guid?> GetRetrospectiveIdByColumnAsync(Guid columnId);
+    Task<Guid?> GetRetrospectiveIdByItemAsync(Guid itemId);
 }
