@@ -6,13 +6,11 @@ import { assignmentsApi } from '../api/assignments';
 import { Layout } from '../components/Layout';
 import { RetroBoard } from '../components/RetroBoard';
 import { AssignUserModal } from '../components/AssignUserModal';
+import { ParticipantsTable } from '../components/ParticipantsTable';
+import type { AvatarEntry } from '../components/ParticipantsTable';
+import { createRetrospectiveHubConnection } from '../api/retrospectiveHub';
+import type { ObjectThrownEvent } from '../api/retrospectiveHub';
 import { useAuthStore } from '../store/authStore';
-
-interface AvatarEntry {
-    id: string;
-    name: string;
-    subtitle?: string;
-}
 
 interface AxeFlightState {
     id: number;
@@ -42,85 +40,12 @@ const THROWABLE_OBJECTS: ThrowableObject[] = [
     { id: 'shit', label: 'shit', emoji: '💩' },
 ];
 
-function getThrowableObject(id: ThrowableObject['id']): ThrowableObject {
+function getThrowableObject(id: string): ThrowableObject {
     return THROWABLE_OBJECTS.find((obj) => obj.id === id) ?? THROWABLE_OBJECTS[0];
 }
 
-function initialsFrom(name: string): string {
-    const parts = name
-        .trim()
-        .split(/\s+/)
-        .filter(Boolean);
-
-    if (parts.length === 0) return '?';
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-}
-
-function colorClassFrom(id: string): string {
-    const classes = [
-        'bg-rose-100 text-rose-700',
-        'bg-amber-100 text-amber-700',
-        'bg-emerald-100 text-emerald-700',
-        'bg-cyan-100 text-cyan-700',
-        'bg-indigo-100 text-indigo-700',
-    ];
-
-    let sum = 0;
-    for (let i = 0; i < id.length; i += 1) sum += id.charCodeAt(i);
-    return classes[sum % classes.length];
-}
-
-function AvatarPill({
-    user,
-    isCurrent = false,
-    onClick,
-    isTargeted = false,
-    avatarRef,
-}: {
-    user: AvatarEntry;
-    isCurrent?: boolean;
-    onClick?: () => void;
-    isTargeted?: boolean;
-    avatarRef?: (element: HTMLDivElement | null) => void;
-}) {
-    const clickable = Boolean(onClick);
-
-    return (
-        <div className="flex flex-col items-center gap-1 text-center">
-            <div
-                ref={avatarRef}
-                onClick={onClick}
-                className={[
-                    'h-12 w-12 rounded-full flex items-center justify-center font-semibold text-sm border transition-all',
-                    isCurrent ? 'bg-indigo-600 text-white border-indigo-700' : `${colorClassFrom(user.id)} border-white`,
-                    clickable ? 'cursor-pointer hover:scale-105 hover:shadow-md' : '',
-                    isTargeted ? 'ring-4 ring-amber-300 scale-105' : '',
-                ].join(' ')}
-                title={user.name}
-                aria-label={user.name}
-                role={clickable ? 'button' : undefined}
-                tabIndex={clickable ? 0 : -1}
-                onKeyDown={(event) => {
-                    if (!clickable) return;
-                    if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        onClick?.();
-                    }
-                }}
-            >
-                {initialsFrom(user.name)}
-            </div>
-            <p className="text-[11px] leading-tight text-slate-500 max-w-16 truncate" title={user.name}>
-                {user.name}
-            </p>
-            {user.subtitle && (
-                <p className="text-[10px] leading-tight text-slate-400 max-w-16 truncate" title={user.subtitle}>
-                    {user.subtitle}
-                </p>
-            )}
-        </div>
-    );
+function isThrowableId(id: string): id is ThrowableObject['id'] {
+    return THROWABLE_OBJECTS.some((obj) => obj.id === id);
 }
 
 export function RetrospectiveDetailPage() {
@@ -131,6 +56,7 @@ export function RetrospectiveDetailPage() {
     const organizationId = useAuthStore((s) => s.organizationId);
     const selectedOrganizationId = useAuthStore((s) => s.selectedOrganizationId);
     const userId = useAuthStore((s) => s.userId);
+    const token = useAuthStore((s) => s.token);
     const email = useAuthStore((s) => s.email);
     const nickname = useAuthStore((s) => s.nickname);
     const canManage = role === 'Admin' || role === 'Manager';
@@ -153,6 +79,12 @@ export function RetrospectiveDetailPage() {
     const targetAvatarRefs = useRef<Record<string, HTMLDivElement | null>>({});
     const clearFlightTimeoutRefs = useRef<number[]>([]);
     const nextFlightIdRef = useRef(0);
+    const hubConnectionRef = useRef<ReturnType<typeof createRetrospectiveHubConnection> | null>(null);
+    const playFlightRef = useRef<(
+        fromUserId: string,
+        targetId: string,
+        objectId: ThrowableObject['id']
+    ) => void>(() => undefined);
 
     const { data: retro, isLoading, isError } = useQuery({
         queryKey: ['retrospective', activeOrganizationId, id],
@@ -216,7 +148,7 @@ export function RetrospectiveDetailPage() {
         },
     });
 
-    const currentUserLabel = (nickname?.trim() || 'You');
+    const currentUserLabel = (nickname?.trim() || email?.trim() || 'You');
     const currentUser: AvatarEntry = {
         id: userId ?? email ?? 'current-user',
         name: currentUserLabel,
@@ -330,10 +262,23 @@ export function RetrospectiveDetailPage() {
         });
     }
 
-    function launchAxeToParticipant(targetId: string) {
+    function resolveAvatar(personId: string): HTMLDivElement | null {
+        const currentId = (userId ?? '').toLowerCase();
+        if (personId.toLowerCase() === currentId) return currentAvatarRef.current;
+
+        const direct = targetAvatarRefs.current[personId];
+        if (direct) return direct;
+
+        const match = Object.entries(targetAvatarRefs.current).find(
+            ([id, element]) => Boolean(element) && id.toLowerCase() === personId.toLowerCase()
+        );
+        return match?.[1] ?? null;
+    }
+
+    function playFlight(fromUserId: string, targetId: string, objectId: ThrowableObject['id']) {
         const arena = arenaRef.current;
-        const source = currentAvatarRef.current;
-        const target = targetAvatarRefs.current[targetId];
+        const source = resolveAvatar(fromUserId);
+        const target = resolveAvatar(targetId);
 
         if (!arena || !source || !target) return;
 
@@ -352,7 +297,7 @@ export function RetrospectiveDetailPage() {
         setAxeFlights((prev) => ([...prev, {
             id: flightId,
             targetId,
-            objectId: selectedThrowable.id,
+            objectId,
             startX,
             startY,
             endX,
@@ -372,6 +317,44 @@ export function RetrospectiveDetailPage() {
         }, AXE_FLIGHT_DURATION_MS);
 
         clearFlightTimeoutRefs.current.push(timeoutId);
+    }
+
+    playFlightRef.current = playFlight;
+
+    useEffect(() => {
+        if (!id || !token) return;
+
+        const connection = createRetrospectiveHubConnection();
+        hubConnectionRef.current = connection;
+
+        const handleThrown = (event: ObjectThrownEvent) => {
+            if (!isThrowableId(event.objectId)) return;
+            playFlightRef.current(event.fromUserId, event.targetUserId, event.objectId);
+        };
+
+        connection.on('ObjectThrown', handleThrown);
+
+        const join = () => connection.invoke('Join', id).catch(() => undefined);
+
+        connection.onreconnected(() => {
+            void join();
+        });
+
+        void connection.start().then(join).catch(() => undefined);
+
+        return () => {
+            connection.off('ObjectThrown', handleThrown);
+            hubConnectionRef.current = null;
+            void connection.stop();
+        };
+    }, [id, token]);
+
+    function launchAxeToParticipant(targetId: string) {
+        const fromUserId = userId ?? '';
+        playFlight(fromUserId, targetId, selectedThrowable.id);
+        void hubConnectionRef.current
+            ?.invoke('Throw', id, targetId, selectedThrowable.id)
+            .catch(() => undefined);
     }
 
     if (isLoading) {
@@ -633,40 +616,9 @@ export function RetrospectiveDetailPage() {
                     </div>
                 )}
 
-                <div className="flex items-start gap-4">
-                    <aside className="w-32 flex-shrink-0 bg-white/75 backdrop-blur border border-slate-200 rounded-2xl p-3 flex flex-col items-center gap-2">
-                        <p className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">You</p>
-                        <AvatarPill
-                            user={currentUser}
-                            isCurrent
-                            avatarRef={(element) => {
-                                currentAvatarRef.current = element;
-                            }}
-                        />
-                        <button
-                            onClick={handleCurrentThrowableIconClick}
-                            className="text-lg leading-none rounded hover:bg-slate-100 p-1"
-                            aria-label={`Selected throwable ${selectedThrowable.label}`}
-                            title={selectedThrowable.label}
-                        >
-                            {selectedThrowable.imageUrl ? (
-                                <img
-                                    src={selectedThrowable.imageUrl}
-                                    alt={selectedThrowable.label}
-                                    className="h-6 w-6 object-contain"
-                                />
-                            ) : (
-                                selectedThrowable.emoji
-                            )}
-                        </button>
-                    </aside>
-
-                    <div className="flex-1 min-w-0">
-                        <RetroBoard retro={retro} assigneeOptions={assigneeOptions} />
-                    </div>
-
-                    <aside className="w-32 flex-shrink-0 bg-white/75 backdrop-blur border border-slate-200 rounded-2xl p-3">
-                        <div className="mb-3 flex flex-col items-center gap-1">
+                <div className="space-y-4">
+                    <section className="bg-white/75 backdrop-blur border border-slate-200 rounded-2xl p-4">
+                        <div className="mb-2 flex items-center justify-between gap-2">
                             <p className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
                                 People
                             </p>
@@ -697,24 +649,39 @@ export function RetrospectiveDetailPage() {
                                 </button>
                             )}
                         </div>
-                        <div className="flex flex-col items-center gap-3">
-                            {otherUsers.length === 0 ? (
-                                <p className="text-xs text-slate-400 text-center">No other people yet</p>
-                            ) : (
-                                otherUsers.map((user) => (
-                                    <AvatarPill
-                                        key={user.id}
-                                        user={user}
-                                        isTargeted={axeFlights.some((flight) => flight.targetId === user.id)}
-                                        onClick={() => launchAxeToParticipant(user.id)}
-                                        avatarRef={(element) => {
-                                            targetAvatarRefs.current[user.id] = element;
-                                        }}
-                                    />
-                                ))
+                        <ParticipantsTable
+                            currentUser={currentUser}
+                            participants={otherUsers}
+                            targetedIds={axeFlights.map((flight) => flight.targetId)}
+                            onParticipantClick={launchAxeToParticipant}
+                            currentUserRef={(element) => {
+                                currentAvatarRef.current = element;
+                            }}
+                            participantRef={(participantId, element) => {
+                                targetAvatarRefs.current[participantId] = element;
+                            }}
+                            centerAction={(
+                                <button
+                                    onClick={handleCurrentThrowableIconClick}
+                                    className="text-lg leading-none rounded hover:bg-slate-100 p-1"
+                                    aria-label={`Selected throwable ${selectedThrowable.label}`}
+                                    title={selectedThrowable.label}
+                                >
+                                    {selectedThrowable.imageUrl ? (
+                                        <img
+                                            src={selectedThrowable.imageUrl}
+                                            alt={selectedThrowable.label}
+                                            className="h-6 w-6 object-contain"
+                                        />
+                                    ) : (
+                                        selectedThrowable.emoji
+                                    )}
+                                </button>
                             )}
-                        </div>
-                    </aside>
+                        />
+                    </section>
+
+                    <RetroBoard retro={retro} assigneeOptions={assigneeOptions} />
                 </div>
             </div>
 
