@@ -233,5 +233,6 @@ export interface CreateUserResponse {
     email: string;
     nickname: string;
     role: Role;
-    temporaryPassword: string;
+    invitationEmailSent: boolean;
+    temporaryPassword?: string | null;
 }

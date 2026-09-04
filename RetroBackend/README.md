@@ -43,7 +43,7 @@ RetroBackend/
 |---------------------|----------|------------------------------------------|------------------|
 | Auth                | POST     | `/api/auth/register`                     | Public (creates org + Manager) |
 | Auth                | POST     | `/api/auth/login`                        | Public           |
-| Users               | GET      | `/api/users`                             | Admin            |
+| Users               | POST     | `/api/users`                             | Admin / Manager  |
 | Users               | PUT      | `/api/users/{id}/role`                   | Admin / Manager  |
 | Retrospectives      | GET      | `/api/retrospectives`                    | Authenticated    |
 | Retrospectives      | GET      | `/api/retrospectives/{id}`               | Authenticated    |
@@ -102,6 +102,8 @@ Edit `appsettings.Development.json` (or set environment variables):
   }
 }
 ```
+
+Invitation emails (when a Manager or Admin creates a user) are sent via SMTP. Local Docker uses [Mailpit](https://github.com/axllent/mailpit) at `http://localhost:8025`. Configure `Email` in `appsettings.json` for other environments.
 
 ### 3. Apply migrations
 

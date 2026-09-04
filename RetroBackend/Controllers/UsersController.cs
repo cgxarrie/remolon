@@ -2,11 +2,14 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using System.Security.Cryptography;
 using RetroBackend.Dtos;
 using RetroBackend.Auth;
+using RetroBackend.Config;
 using RetroBackend.Models;
 using RetroBackend.Data;
+using RetroBackend.Services;
 using System.Security.Claims;
 
 namespace RetroBackend.Controllers;
@@ -19,11 +22,22 @@ public class UsersController : ControllerBase
 {
     private readonly UserManager<AppUser> _userManager;
     private readonly RetroDbContext _context;
+    private readonly IEmailSender _emailSender;
+    private readonly EmailOptions _emailOptions;
+    private readonly ILogger<UsersController> _logger;
 
-    public UsersController(UserManager<AppUser> userManager, RetroDbContext context)
+    public UsersController(
+        UserManager<AppUser> userManager,
+        RetroDbContext context,
+        IEmailSender emailSender,
+        IOptions<EmailOptions> emailOptions,
+        ILogger<UsersController> logger)
     {
         _userManager = userManager;
         _context = context;
+        _emailSender = emailSender;
+        _emailOptions = emailOptions.Value;
+        _logger = logger;
     }
 
     /// <summary>Creates a user with a temporary password. Admin and Manager.</summary>
@@ -70,11 +84,17 @@ public class UsersController : ControllerBase
 
         var atIndex = request.Email.IndexOf('@');
         var fallbackNickname = atIndex > 0 ? request.Email[..atIndex] : request.Email;
-        var nickname = string.IsNullOrWhiteSpace(request.Nickname)
-            ? fallbackNickname
-            : request.Nickname.Trim();
-        if (await _userManager.Users.AnyAsync(u => u.Nickname.ToLower() == nickname.ToLower()))
-            return BadRequest(new { message = "A user with this nickname already exists." });
+        string nickname;
+        if (!string.IsNullOrWhiteSpace(request.Nickname))
+        {
+            nickname = request.Nickname.Trim();
+            if (await NicknameTakenAsync(nickname))
+                return BadRequest(new { message = "A user with this nickname already exists." });
+        }
+        else
+        {
+            nickname = await UniqueNicknameAsync(fallbackNickname);
+        }
 
         var temporaryPassword = GenerateTemporaryPassword();
 
@@ -89,8 +109,16 @@ public class UsersController : ControllerBase
 
         await _userManager.AddClaimAsync(user, new System.Security.Claims.Claim(AuthClaims.MustChangePassword, "true"));
 
+        var invitationEmailSent = await TrySendInvitationAsync(user.Email!, temporaryPassword);
+
         return StatusCode(StatusCodes.Status201Created,
-            new CreateUserResponse(user.Id, user.Email!, user.Nickname, role, temporaryPassword));
+            new CreateUserResponse(
+                user.Id,
+                user.Email!,
+                user.Nickname,
+                role,
+                invitationEmailSent,
+                invitationEmailSent ? null : temporaryPassword));
     }
 
     /// <summary>Returns all users with their assigned role. Admin and Manager.</summary>
@@ -192,6 +220,39 @@ public class UsersController : ControllerBase
             return BadRequest(result.Errors);
 
         return NoContent();
+    }
+
+    private async Task<bool> NicknameTakenAsync(string nickname) =>
+        await _userManager.Users.AnyAsync(u => u.Nickname.ToLower() == nickname.ToLower());
+
+    private async Task<string> UniqueNicknameAsync(string preferred)
+    {
+        var candidate = preferred;
+        var suffix = 2;
+        while (await NicknameTakenAsync(candidate))
+        {
+            candidate = $"{preferred}{suffix}";
+            suffix += 1;
+        }
+        return candidate;
+    }
+
+    private async Task<bool> TrySendInvitationAsync(string email, string temporaryPassword)
+    {
+        try
+        {
+            var loginUrl = $"{_emailOptions.FrontendBaseUrl.TrimEnd('/')}/login";
+            await _emailSender.SendAsync(
+                email,
+                UserInvitationEmail.Subject,
+                UserInvitationEmail.HtmlBody(email, temporaryPassword, loginUrl));
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send invitation email to {Email}", email);
+            return false;
+        }
     }
 
     private static string GenerateTemporaryPassword(int length = 12)

@@ -38,9 +38,23 @@ services:
       # frontend container is on port 3000 – allow it as CORS origin
       Cors__AllowedOrigins__0: "http://localhost:3000"
       Cors__AllowedOrigins__1: "http://localhost:5173"
+      Email__SmtpHost: mailpit
+      Email__SmtpPort: "1025"
+      Email__From: "noreply@remolon.local"
+      Email__FrontendBaseUrl: "http://localhost:3000"
     depends_on:
       postgres:
         condition: service_healthy
+      mailpit:
+        condition: service_started
+
+  # ── Mailpit (local SMTP catcher) ────────────────────────────────────────────
+  mailpit:
+    image: axllent/mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+      - "1025:1025"
 
   # ── Frontend (nginx) ────────────────────────────────────────────────────────
   frontend:

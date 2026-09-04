@@ -45,6 +45,7 @@ docker compose up --build
 | Frontend | http://localhost:3000        |
 | Backend  | http://localhost:5145        |
 | Swagger  | http://localhost:5145/swagger|
+| Mailpit  | http://localhost:8025        |
 
 A default admin account is created on first run:
 - **Email:** `sa@ReMolon.com`

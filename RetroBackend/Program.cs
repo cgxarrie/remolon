@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using RetroBackend.Config;
 using RetroBackend.Data;
 using RetroBackend.Hubs;
 using RetroBackend.Models;
@@ -139,6 +140,9 @@ builder.Services
 
 builder.Services.AddAuthorization();
 builder.Services.AddSignalR();
+
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
+builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 
 builder.Services.AddScoped<IRetrospectiveRepository, EfRetrospectiveRepository>();
 builder.Services.AddScoped<IRetrospectiveService, RetrospectiveService>();

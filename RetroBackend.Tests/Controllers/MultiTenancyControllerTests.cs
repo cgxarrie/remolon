@@ -7,10 +7,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using RetroBackend.Auth;
+using RetroBackend.Config;
 using RetroBackend.Controllers;
 using RetroBackend.Data;
 using RetroBackend.Dtos;
 using RetroBackend.Models;
+using RetroBackend.Services;
 using Xunit;
 
 namespace RetroBackend.Tests.Controllers;
@@ -30,10 +32,7 @@ public class MultiTenancyControllerTests
             new AppUser("other@globex.test", "other") { OrganizationId = other.Id });
         await context.SaveChangesAsync();
         using var userManager = CreateUserManager(context);
-        var controller = new UsersController(userManager, context)
-        {
-            ControllerContext = ControllerContext(Roles.Manager, own.Id),
-        };
+        var controller = CreateUsersController(userManager, context, Roles.Manager, own.Id);
 
         var result = await controller.GetAll(own.Id, 1, 1);
         var page = Assert.IsType<PagedResponse<UserSummaryDto>>(Assert.IsType<OkObjectResult>(result).Value);
@@ -51,10 +50,7 @@ public class MultiTenancyControllerTests
         context.Users.Add(new AppUser("alice@acme.test", "Alice") { OrganizationId = organization.Id });
         await context.SaveChangesAsync();
         using var userManager = CreateUserManager(context);
-        var controller = new UsersController(userManager, context)
-        {
-            ControllerContext = ControllerContext(Roles.Admin, null),
-        };
+        var controller = CreateUsersController(userManager, context, Roles.Admin, null);
 
         var result = await controller.Create(new CreateUserRequest(
             "alice2@acme.test", "alice", Roles.StandardUser, organization.Id));
@@ -70,10 +66,7 @@ public class MultiTenancyControllerTests
         context.Organizations.Add(organization);
         await context.SaveChangesAsync();
         using var userManager = CreateUserManager(context);
-        var controller = new UsersController(userManager, context)
-        {
-            ControllerContext = ControllerContext(Roles.Manager, organization.Id),
-        };
+        var controller = CreateUsersController(userManager, context, Roles.Manager, organization.Id);
 
         var result = await controller.Create(new CreateUserRequest(
             "admin@acme.test", "admin.acme", Roles.Admin, organization.Id));
@@ -87,10 +80,7 @@ public class MultiTenancyControllerTests
     {
         await using var context = CreateContext();
         using var userManager = CreateUserManager(context);
-        var controller = new UsersController(userManager, context)
-        {
-            ControllerContext = ControllerContext(Roles.Manager, Guid.NewGuid()),
-        };
+        var controller = CreateUsersController(userManager, context, Roles.Manager, Guid.NewGuid());
 
         var result = await controller.UpdateRole(
             "target-user", new UpdateUserRoleRequest(Roles.Admin));
@@ -162,6 +152,25 @@ public class MultiTenancyControllerTests
         Assert.IsType<ForbidResult>(result.Result);
         Assert.Equal("Globex", (await context.Organizations.FindAsync(other.Id))!.Name);
         Assert.Equal("default", (await context.Organizations.FindAsync(other.Id))!.ThemeKey);
+    }
+
+    private static UsersController CreateUsersController(
+        UserManager<AppUser> userManager,
+        RetroDbContext context,
+        string role,
+        Guid? organizationId) =>
+        new(userManager, context, new FakeEmailSender(), EmailOptions(), NullLogger<UsersController>.Instance)
+        {
+            ControllerContext = ControllerContext(role, organizationId),
+        };
+
+    private static IOptions<EmailOptions> EmailOptions() =>
+        Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" });
+
+    private sealed class FakeEmailSender : IEmailSender
+    {
+        public Task SendAsync(string to, string subject, string htmlBody, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
     }
 
     private static RetroDbContext CreateContext() =>

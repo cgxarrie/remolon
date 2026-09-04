@@ -67,6 +67,7 @@ export function UsersPage() {
     const [nickname, setNickname] = useState('');
     const [newRole, setNewRole] = useState<Role>('StandardUser');
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
 
     const canView = role === 'Admin' || role === 'Manager';
     const activeOrganizationId = role === 'Admin' ? selectedOrganizationId : organizationId;
@@ -80,16 +81,24 @@ export function UsersPage() {
     const create = useMutation({
         mutationFn: () => usersApi.create({
             email: email.trim(),
-            nickname: nickname.trim() || undefined,
+            nickname: role === 'Admin' ? (nickname.trim() || undefined) : undefined,
             role: role === 'Manager' ? 'StandardUser' : newRole,
             organizationId: role === 'Admin' ? activeOrganizationId ?? undefined : undefined,
         }),
-        onSuccess: () => {
+        onSuccess: (created) => {
             queryClient.invalidateQueries({ queryKey: ['users'] });
-            setEmail(''); setNickname(''); setError('');
+            setEmail('');
+            setNickname('');
+            setError('');
+            setSuccess(created.invitationEmailSent
+                ? `User created. An invitation with a temporary password was sent to ${created.email}.`
+                : created.temporaryPassword
+                    ? `User created, but the invitation email could not be sent. Temporary password: ${created.temporaryPassword}`
+                    : 'User created.');
         },
         onError: (value: unknown) => {
             const e = value as { response?: { data?: { message?: string } } };
+            setSuccess('');
             setError(e.response?.data?.message ?? 'Failed to create user.');
         },
     });
@@ -101,9 +110,12 @@ export function UsersPage() {
         <div className="bg-white rounded-xl shadow p-4 space-y-3">
             <h2 className="font-semibold">Create User</h2>
             {error && <p className="text-red-600">{error}</p>}
+            {success && <p className="text-emerald-700">{success}</p>}
             <div className="grid md:grid-cols-4 gap-3">
-                <input className="border rounded p-2" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-                <input className="border rounded p-2" placeholder="Nickname" value={nickname} onChange={(e) => setNickname(e.target.value)} />
+                <input className="border rounded p-2" placeholder="Email" value={email} onChange={(e) => { setEmail(e.target.value); setSuccess(''); }} />
+                {role === 'Admin' && (
+                    <input className="border rounded p-2" placeholder="Nickname" value={nickname} onChange={(e) => setNickname(e.target.value)} />
+                )}
                 {role === 'Admin' && <select className="border rounded p-2" value={newRole} onChange={(e) => setNewRole(e.target.value as Role)}>
                     <option>Admin</option><option>Manager</option><option>StandardUser</option>
                 </select>}

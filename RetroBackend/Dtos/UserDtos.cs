@@ -19,7 +19,14 @@ public record CreateUserRequest(
     Guid? OrganizationId
 );
 
-public record CreateUserResponse(string Id, string Email, string Nickname, string Role, string TemporaryPassword);
+public record CreateUserResponse(
+    string Id,
+    string Email,
+    string Nickname,
+    string Role,
+    bool InvitationEmailSent,
+    string? TemporaryPassword
+);
 
 public record UpdateUserRoleRequest(
     [Required]
