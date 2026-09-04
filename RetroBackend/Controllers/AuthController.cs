@@ -54,8 +54,7 @@ public class AuthController : ControllerBase
 
         await _userManager.AddToRoleAsync(user, Roles.StandardUser);
 
-        var token = await GenerateJwtAsync(user);
-        return Ok(new AuthTokenResponse(token, user.Email!, Roles.StandardUser, user.Nickname));
+        return Ok(await BuildAuthResponseAsync(user, Roles.StandardUser));
     }
 
     /// <summary>Authenticates a user and returns a JWT token.</summary>
@@ -81,8 +80,7 @@ public class AuthController : ControllerBase
 
         var roles = await _userManager.GetRolesAsync(user);
         var role = roles.FirstOrDefault() ?? Roles.StandardUser;
-        var token = await GenerateJwtAsync(user);
-        return Ok(new AuthTokenResponse(token, user.Email!, role, user.Nickname));
+        return Ok(await BuildAuthResponseAsync(user, role));
     }
 
     /// <summary>Starts forgot password flow and returns a reset token for the provided email.</summary>
@@ -175,8 +173,7 @@ public class AuthController : ControllerBase
 
         var roles = await _userManager.GetRolesAsync(user);
         var role = roles.FirstOrDefault() ?? Roles.StandardUser;
-        var token = await GenerateJwtAsync(user);
-        return Ok(new AuthTokenResponse(token, user.Email!, role, user.Nickname));
+        return Ok(await BuildAuthResponseAsync(user, role));
     }
 
     /// <summary>Registers a new super user. Requires an existing super user.</summary>
@@ -221,7 +218,24 @@ public class AuthController : ControllerBase
         return Ok(new { message = $"Manager '{user.Email}' created." });
     }
 
-    private async Task<string> GenerateJwtAsync(AppUser user)
+    private async Task<AuthTokenResponse> BuildAuthResponseAsync(AppUser user, string role)
+    {
+        var organizationName = await GetOrganizationNameAsync(user);
+        var token = await GenerateJwtAsync(user, organizationName);
+        return new AuthTokenResponse(token, user.Email!, role, user.Nickname, organizationName);
+    }
+
+    private async Task<string?> GetOrganizationNameAsync(AppUser user)
+    {
+        if (!user.OrganizationId.HasValue) return null;
+
+        return await _context.Organizations
+            .Where(o => o.Id == user.OrganizationId.Value)
+            .Select(o => o.Name)
+            .FirstOrDefaultAsync();
+    }
+
+    private async Task<string> GenerateJwtAsync(AppUser user, string? organizationName)
     {
         var roles = await _userManager.GetRolesAsync(user);
 
@@ -239,6 +253,8 @@ public class AuthController : ControllerBase
             claims.Add(new Claim(ClaimTypes.Role, role));
         if (user.OrganizationId.HasValue)
             claims.Add(new Claim(AuthClaims.OrganizationId, user.OrganizationId.Value.ToString()));
+        if (!string.IsNullOrWhiteSpace(organizationName))
+            claims.Add(new Claim(AuthClaims.OrganizationName, organizationName));
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

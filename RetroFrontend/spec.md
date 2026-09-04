@@ -1,4 +1,4 @@
-# Retro Molon FrontEnd
+# ReMolon FrontEnd
 
 # Users
 Ability to login and register users, with different roles (Admin, Manager, StandardUser). Admins can manage retrospectives and users, Managers can manage retrospectives, and StandardUsers can participate in retrospectives.

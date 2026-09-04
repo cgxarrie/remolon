@@ -1,6 +1,6 @@
 # RetroBackend
 
-> REST API for Retro Molon — built with .NET 10 and ASP.NET Core.
+> REST API for ReMolon — built with .NET 10 and ASP.NET Core.
 
 ---
 
@@ -96,7 +96,7 @@ Edit `appsettings.Development.json` (or set environment variables):
     "Audience": "RetroBackendClients"
   },
   "DefaultAdmin": {
-    "Email": "sa@remolon.com",
+    "Email": "sa@ReMolon.com",
     "Password": "Passw0rd!",
     "Nickname": "sa"
   }

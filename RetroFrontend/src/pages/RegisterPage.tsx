@@ -24,8 +24,8 @@ export function RegisterPage() {
         setLoading(true);
         try {
             const res = await authApi.register({ email, password, nickname: nickname.trim() || undefined, organizationId });
-            setAuth(res.token, res.email, res.role, res.nickname);
-            navigate('/');
+            setAuth(res.token, res.email, res.role, res.nickname, res.organizationName);
+            navigate('/retrospectives');
         } catch (err: unknown) {
             const axiosError = err as { response?: { data?: unknown } };
             const data = axiosError.response?.data;
@@ -42,7 +42,7 @@ export function RegisterPage() {
     return (
         <div className="min-h-screen flex items-center justify-center bg-slate-100">
             <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-sm">
-                <h1 className="text-2xl font-bold text-indigo-700 mb-6 text-center">Retro Molon</h1>
+                <h1 className="text-2xl font-bold text-indigo-700 mb-6 text-center">ReMolon</h1>
                 <h2 className="text-lg font-semibold mb-4 text-center text-slate-700">Create Account</h2>
                 {error && (
                     <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">

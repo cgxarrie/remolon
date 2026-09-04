@@ -1,8 +1,8 @@
-# Retro Molon
+# ReMolon
 
 > A full-stack retrospective board application for agile teams.
 
-Retro Molon lets teams create and run structured retrospectives. Participants can add items to columns, drag-and-drop to reorder, merge, or move items across columns, and close the session when done. Role-based access control keeps things tidy — Admins manage everything, Managers own retrospectives, and Standard Users contribute their feedback.
+ReMolon lets teams create and run structured retrospectives. Participants can add items to columns, drag-and-drop to reorder, merge, or move items across columns, and close the session when done. Role-based access control keeps things tidy — Admins manage everything, Managers own retrospectives, and Standard Users contribute their feedback.
 
 ---
 
@@ -35,8 +35,8 @@ The entire stack (frontend, backend, database) runs with a single command.
 **Prerequisites:** Docker and Docker Compose installed.
 
 ```bash
-git clone https://github.com/cgxarrie/remolon.git
-cd remolon
+git clone https://github.com/cgxarrie/ReMolon.git
+cd ReMolon
 docker compose up --build
 ```
 
@@ -47,7 +47,7 @@ docker compose up --build
 | Swagger  | http://localhost:5145/swagger|
 
 A default admin account is created on first run:
-- **Email:** `sa@remolon.com`
+- **Email:** `sa@ReMolon.com`
 - **Password:** `Passw0rd!`
 
 > Change these defaults in `docker-compose.yml` before deploying to production.
@@ -57,7 +57,7 @@ A default admin account is created on first run:
 ## Project Structure
 
 ```
-remolon/
+ReMolon/
 ├── RetroBackend/       # .NET 10 REST API
 ├── RetroFrontend/      # React 19 SPA
 └── docker-compose.yml  # Full-stack orchestration

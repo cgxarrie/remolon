@@ -2,12 +2,11 @@ import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Layout } from '../components/Layout';
-import { organizationsApi } from '../api/organizations';
 import { usersApi } from '../api/users';
 import { useAuthStore } from '../store/authStore';
-import type { Organization, Role } from '../types';
+import type { Role, SelectedOrganization } from '../types';
 
-function OrganizationUsers({ organization }: { organization: Organization }) {
+function OrganizationUsers({ organization }: { organization: SelectedOrganization }) {
     const [page, setPage] = useState(1);
     const queryClient = useQueryClient();
     const currentUserId = useAuthStore((s) => s.userId);
@@ -28,7 +27,7 @@ function OrganizationUsers({ organization }: { organization: Organization }) {
     return (
         <section className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
             <div className="px-4 py-3 bg-slate-50 border-b flex justify-between">
-                <h2 className="font-semibold">{organization.name}</h2>
+                <h2 className="font-semibold">Users</h2>
                 <span className="text-sm text-slate-500">{data?.totalCount ?? 0} users</span>
             </div>
             {isLoading ? <p className="p-4 text-slate-500">Loading…</p> : (
@@ -62,28 +61,28 @@ function OrganizationUsers({ organization }: { organization: Organization }) {
 }
 
 export function UsersPage() {
-    const { role, organizationId } = useAuthStore();
+    const { role, organizationId, selectedOrganizationId, selectedOrganizationName } = useAuthStore();
     const queryClient = useQueryClient();
-    const [organizationPage, setOrganizationPage] = useState(1);
     const [email, setEmail] = useState('');
     const [nickname, setNickname] = useState('');
     const [newRole, setNewRole] = useState<Role>('StandardUser');
-    const [selectedOrganization, setSelectedOrganization] = useState('');
     const [error, setError] = useState('');
 
     const canView = role === 'Admin' || role === 'Manager';
-    const { data: organizations } = useQuery({
-        queryKey: ['organizations', organizationPage],
-        queryFn: () => organizationsApi.getAll(organizationPage),
-        enabled: canView,
-    });
+    const activeOrganizationId = role === 'Admin' ? selectedOrganizationId : organizationId;
+    const activeOrganization: SelectedOrganization | null = activeOrganizationId
+        ? {
+            id: activeOrganizationId,
+            name: role === 'Admin' ? selectedOrganizationName ?? 'Selected organization' : 'Your organization',
+        }
+        : null;
 
     const create = useMutation({
         mutationFn: () => usersApi.create({
             email: email.trim(),
             nickname: nickname.trim() || undefined,
             role: role === 'Manager' ? 'StandardUser' : newRole,
-            organizationId: role === 'Admin' && newRole !== 'Admin' ? selectedOrganization : undefined,
+            organizationId: role === 'Admin' ? activeOrganizationId ?? undefined : undefined,
         }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -96,8 +95,6 @@ export function UsersPage() {
     });
 
     if (!canView) return <Navigate to="/" replace />;
-    const visibleOrganizations = organizations?.items
-        ?? (organizationId ? [{ id: organizationId, name: 'Organization' }] : []);
 
     return <Layout><div className="max-w-5xl mx-auto space-y-6">
         <h1 className="text-2xl font-bold">User Management</h1>
@@ -110,18 +107,9 @@ export function UsersPage() {
                 {role === 'Admin' && <select className="border rounded p-2" value={newRole} onChange={(e) => setNewRole(e.target.value as Role)}>
                     <option>Admin</option><option>Manager</option><option>StandardUser</option>
                 </select>}
-                {role === 'Admin' && newRole !== 'Admin' && <select className="border rounded p-2" value={selectedOrganization} onChange={(e) => setSelectedOrganization(e.target.value)}>
-                    <option value="">Select organization</option>
-                    {organizations?.items.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-                </select>}
             </div>
-            <button className="bg-indigo-600 text-white rounded px-4 py-2 disabled:opacity-50" disabled={!email || create.isPending || (role === 'Admin' && newRole !== 'Admin' && !selectedOrganization)} onClick={() => create.mutate()}>Create User</button>
+            <button className="theme-primary text-white rounded px-4 py-2 disabled:opacity-50" disabled={!email || create.isPending || (role === 'Admin' && newRole !== 'Admin' && !activeOrganizationId)} onClick={() => create.mutate()}>Create User</button>
         </div>
-        {visibleOrganizations.map((organization) => <OrganizationUsers key={organization.id} organization={organization} />)}
-        {role === 'Admin' && <div className="flex justify-center gap-4">
-            <button disabled={organizationPage === 1} onClick={() => setOrganizationPage((p) => p - 1)}>Previous organizations</button>
-            <span>Page {organizationPage}</span>
-            <button disabled={!organizations || organizationPage * organizations.pageSize >= organizations.totalCount} onClick={() => setOrganizationPage((p) => p + 1)}>Next organizations</button>
-        </div>}
+        {activeOrganization && <OrganizationUsers organization={activeOrganization} />}
     </div></Layout>;
 }

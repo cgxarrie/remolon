@@ -5,6 +5,7 @@ export interface AuthTokenResponse {
     role: string;
     nickname: string;
     organizationId?: string;
+    organizationName?: string | null;
 }
 
 export interface RegisterRequest {
@@ -181,9 +182,36 @@ export interface CreateUserRequest {
     organizationId?: string;
 }
 
-export interface Organization {
+// The identity of an organization without its theme, which is loaded separately by
+// OrganizationThemeProvider and is not needed by pages that only scope queries by organization.
+export interface SelectedOrganization {
     id: string;
     name: string;
+}
+
+export interface Organization extends SelectedOrganization {
+    theme: OrganizationTheme;
+}
+
+export type ThemeKey = 'default' | 'ocean' | 'forest' | 'sunset' | 'custom';
+
+export interface OrganizationTheme {
+    themeKey: ThemeKey;
+    headerColor: string | null;
+    headerHoverColor: string | null;
+    accentColor: string | null;
+    accentHoverColor: string | null;
+    focusColor: string | null;
+}
+
+export interface SaveOrganizationRequest {
+    name: string;
+    themeKey: ThemeKey;
+    headerColor?: string | null;
+    headerHoverColor?: string | null;
+    accentColor?: string | null;
+    accentHoverColor?: string | null;
+    focusColor?: string | null;
 }
 
 export interface PagedResponse<T> {

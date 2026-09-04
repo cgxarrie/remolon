@@ -2,6 +2,57 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+    --theme-header: #4338ca;
+    --theme-header-hover: #4f46e5;
+    --theme-accent: #4f46e5;
+    --theme-accent-hover: #4338ca;
+    --theme-focus: #6366f1;
+}
+
 body {
     @apply bg-slate-50 text-slate-900;
+}
+
+@layer components {
+    .theme-header {
+        background-color: var(--theme-header);
+    }
+
+    .theme-header-hover {
+        background-color: var(--theme-header-hover);
+    }
+
+    .theme-header-hover:hover {
+        background-color: var(--theme-accent);
+    }
+
+    .theme-primary {
+        background-color: var(--theme-accent);
+        color: white;
+    }
+
+    .theme-primary:hover {
+        background-color: var(--theme-accent-hover);
+    }
+
+    .theme-link {
+        color: var(--theme-accent);
+    }
+
+    .theme-link:hover {
+        color: var(--theme-accent-hover);
+    }
+
+    .theme-focus:focus {
+        outline: 2px solid var(--theme-focus);
+        outline-offset: 2px;
+    }
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+    outline-color: var(--theme-focus);
 }
