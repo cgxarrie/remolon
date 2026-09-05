@@ -1,16 +1,19 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using RetroBackend.Dtos;
 using RetroBackend.Auth;
+using RetroBackend.Config;
 using RetroBackend.Models;
 using RetroBackend.Data;
+using RetroBackend.Services;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace RetroBackend.Controllers;
 
@@ -19,42 +22,83 @@ namespace RetroBackend.Controllers;
 [Produces("application/json")]
 public class AuthController : ControllerBase
 {
+    private const string ForgotPasswordMessage =
+        "If an account exists for that email, a password reset link has been sent. The link expires in 30 minutes.";
+
     private readonly UserManager<AppUser> _userManager;
     private readonly IConfiguration _configuration;
     private readonly RetroDbContext _context;
+    private readonly IEmailSender _emailSender;
+    private readonly EmailOptions _emailOptions;
+    private readonly ILogger<AuthController> _logger;
 
-    public AuthController(UserManager<AppUser> userManager, IConfiguration configuration, RetroDbContext context)
+    public AuthController(
+        UserManager<AppUser> userManager,
+        IConfiguration configuration,
+        RetroDbContext context,
+        IEmailSender emailSender,
+        IOptions<EmailOptions> emailOptions,
+        ILogger<AuthController> logger)
     {
         _userManager = userManager;
         _configuration = configuration;
         _context = context;
+        _emailSender = emailSender;
+        _emailOptions = emailOptions.Value;
+        _logger = logger;
     }
 
-    /// <summary>Registers a new standard user.</summary>
-    /// <param name="request">Email and password for the new account.</param>
-    /// <returns>A JWT token for the newly created user.</returns>
+    /// <summary>Registers a new manager and creates their organization.</summary>
+    /// <param name="request">Email, password, and unique organization name for the new account.</param>
+    /// <returns>A JWT token for the newly created manager.</returns>
     [HttpPost("register")]
     [ProducesResponseType(typeof(AuthTokenResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Register([FromBody] PublicRegisterRequest request)
     {
+        var organizationName = request.OrganizationName.Trim();
+        if (string.IsNullOrWhiteSpace(organizationName))
+            return BadRequest(new { message = "Organization name is required." });
+
         var nickname = !string.IsNullOrWhiteSpace(request.Nickname)
             ? request.Nickname.Trim()
             : request.Email.Split('@')[0];
-        if (!request.OrganizationId.HasValue
-            || !await _context.Organizations.AnyAsync(o => o.Id == request.OrganizationId))
-            return BadRequest(new { message = "A valid organizationId is required." });
         if (await _userManager.Users.AnyAsync(u => u.Nickname.ToLower() == nickname.ToLower()))
             return BadRequest(new { message = "A user with this nickname already exists." });
+        if (await _context.Organizations.AnyAsync(o => o.Name.ToLower() == organizationName.ToLower()))
+            return Conflict(new { message = "An organization with this name already exists." });
 
-        var user = new AppUser(request.Email, nickname) { OrganizationId = request.OrganizationId };
-        var result = await _userManager.CreateAsync(user, request.Password);
-        if (!result.Succeeded)
-            return BadRequest(result.Errors);
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            var organization = new Organization { Name = organizationName };
+            _context.Organizations.Add(organization);
+            await _context.SaveChangesAsync();
 
-        await _userManager.AddToRoleAsync(user, Roles.StandardUser);
+            var user = new AppUser(request.Email, nickname) { OrganizationId = organization.Id };
+            var result = await _userManager.CreateAsync(user, request.Password);
+            if (!result.Succeeded)
+            {
+                await transaction.RollbackAsync();
+                return BadRequest(result.Errors);
+            }
 
-        return Ok(await BuildAuthResponseAsync(user, Roles.StandardUser));
+            var roleResult = await _userManager.AddToRoleAsync(user, Roles.Manager);
+            if (!roleResult.Succeeded)
+            {
+                await transaction.RollbackAsync();
+                return BadRequest(roleResult.Errors);
+            }
+
+            await transaction.CommitAsync();
+            return Ok(await BuildAuthResponseAsync(user, Roles.Manager));
+        }
+        catch (DbUpdateException ex) when (IsOrganizationNameUniqueViolation(ex))
+        {
+            await transaction.RollbackAsync();
+            return Conflict(new { message = "An organization with this name already exists." });
+        }
     }
 
     /// <summary>Authenticates a user and returns a JWT token.</summary>
@@ -83,22 +127,16 @@ public class AuthController : ControllerBase
         return Ok(await BuildAuthResponseAsync(user, role));
     }
 
-    /// <summary>Starts forgot password flow and returns a reset token for the provided email.</summary>
+    /// <summary>Starts forgot password flow by emailing a reset link valid for 30 minutes.</summary>
     [HttpPost("forgot-password")]
     [ProducesResponseType(typeof(ForgotPasswordResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
     {
         var user = await _userManager.FindByEmailAsync(request.Email);
-        if (user is null)
-            return Ok(new ForgotPasswordResponse("If the account exists, reset instructions were generated.", null));
+        if (user is not null)
+            await TrySendPasswordResetEmailAsync(user);
 
-        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-        var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-
-        return Ok(new ForgotPasswordResponse(
-            "Reset token generated. Use it to set a new password.",
-            encodedToken
-        ));
+        return Ok(new ForgotPasswordResponse(ForgotPasswordMessage));
     }
 
     /// <summary>Completes forgot password flow by setting a new password using a reset token.</summary>
@@ -109,11 +147,11 @@ public class AuthController : ControllerBase
     {
         var user = await _userManager.FindByEmailAsync(request.Email);
         if (user is null)
-            return BadRequest(new { message = "Invalid reset request." });
+            return BadRequest(new { message = "Invalid or expired reset link." });
 
         var tokenInput = request.Token?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(tokenInput))
-            return BadRequest(new { message = "Reset token is required." });
+            return BadRequest(new { message = "Invalid or expired reset link." });
 
         string decodedToken;
         try
@@ -122,13 +160,16 @@ public class AuthController : ControllerBase
         }
         catch
         {
-            // Backward compatibility: allow clients that submit the raw token directly.
-            decodedToken = tokenInput;
+            return BadRequest(new { message = "Invalid or expired reset link." });
         }
 
         var result = await _userManager.ResetPasswordAsync(user, decodedToken, request.NewPassword);
         if (!result.Succeeded)
+        {
+            if (result.Errors.Any(e => e.Code == "InvalidToken"))
+                return BadRequest(new { message = "Invalid or expired reset link." });
             return BadRequest(result.Errors);
+        }
 
         var mustChangePasswordClaims = (await _userManager.GetClaimsAsync(user))
             .Where(c => c.Type == AuthClaims.MustChangePassword)
@@ -176,46 +217,22 @@ public class AuthController : ControllerBase
         return Ok(await BuildAuthResponseAsync(user, role));
     }
 
-    /// <summary>Registers a new super user. Requires an existing super user.</summary>
-    /// <param name="request">Email and password for the new super user account.</param>
-    /// <returns>Confirmation of the created super user.</returns>
-    [HttpPost("register-superuser")]
-    [Authorize(Roles = Roles.Admin)]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> RegisterSuperUser([FromBody] RegisterRequest request)
+    private async Task TrySendPasswordResetEmailAsync(AppUser user)
     {
-        var user = new AppUser(request.Email, request.Nickname);
-        var result = await _userManager.CreateAsync(user, request.Password);
-        if (!result.Succeeded)
-            return BadRequest(result.Errors);
-
-        await _userManager.AddToRoleAsync(user, Roles.Admin);
-        return Ok(new { message = $"SuperUser '{user.Email}' created." });
-    }
-
-    /// <summary>Registers a new manager. Requires an existing admin.</summary>
-    /// <param name="request">Email and password for the new manager account.</param>
-    /// <returns>Confirmation of the created manager.</returns>
-    [HttpPost("register-manager")]
-    [Authorize(Roles = Roles.Admin)]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> RegisterManager([FromBody] RegisterRequest request)
-    {
-        if (!request.OrganizationId.HasValue
-            || !await _context.Organizations.AnyAsync(o => o.Id == request.OrganizationId))
-            return BadRequest(new { message = "A valid organizationId is required." });
-        if (await _userManager.Users.AnyAsync(u => u.Nickname.ToLower() == request.Nickname.ToLower()))
-            return BadRequest(new { message = "A user with this nickname already exists." });
-
-        var user = new AppUser(request.Email, request.Nickname) { OrganizationId = request.OrganizationId };
-        var result = await _userManager.CreateAsync(user, request.Password);
-        if (!result.Succeeded)
-            return BadRequest(result.Errors);
-
-        await _userManager.AddToRoleAsync(user, Roles.Manager);
-        return Ok(new { message = $"Manager '{user.Email}' created." });
+        try
+        {
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+            var resetUrl = PasswordResetEmail.BuildResetUrl(_emailOptions.FrontendBaseUrl, user.Email!, encodedToken);
+            await _emailSender.SendAsync(
+                user.Email!,
+                PasswordResetEmail.Subject,
+                PasswordResetEmail.HtmlBody(resetUrl));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send password reset email");
+        }
     }
 
     private async Task<AuthTokenResponse> BuildAuthResponseAsync(AppUser user, string role)
@@ -269,4 +286,7 @@ public class AuthController : ControllerBase
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
+
+    private static bool IsOrganizationNameUniqueViolation(DbUpdateException ex) =>
+        ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
 }

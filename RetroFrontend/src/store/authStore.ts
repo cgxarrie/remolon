@@ -31,15 +31,11 @@ interface AuthState {
     userId: string | null;
     organizationId: string | null;
     organizationName: string | null;
-    selectedOrganizationId: string | null;
-    selectedOrganizationName: string | null;
     email: string | null;
     role: Role | null;
     nickname: string | null;
     setAuth: (token: string, email: string, role: string, nickname: string, organizationName?: string | null) => void;
     setOrganizationName: (name: string) => void;
-    setSelectedOrganization: (id: string, name: string) => void;
-    clearSelectedOrganization: () => void;
     clearAuth: () => void;
 }
 
@@ -50,8 +46,6 @@ export const useAuthStore = create<AuthState>()(
             userId: null,
             organizationId: null,
             organizationName: null,
-            selectedOrganizationId: null,
-            selectedOrganizationName: null,
             email: null,
             role: null,
             nickname: null,
@@ -62,29 +56,17 @@ export const useAuthStore = create<AuthState>()(
                     userId: claims.userId,
                     organizationId: claims.organizationId,
                     organizationName: organizationName ?? claims.organizationName,
-                    selectedOrganizationId: null,
-                    selectedOrganizationName: null,
                     email,
                     role: role as Role,
                     nickname,
                 });
             },
             setOrganizationName: (name) => set({ organizationName: name }),
-            setSelectedOrganization: (id, name) => set({
-                selectedOrganizationId: id,
-                selectedOrganizationName: name,
-            }),
-            clearSelectedOrganization: () => set({
-                selectedOrganizationId: null,
-                selectedOrganizationName: null,
-            }),
             clearAuth: () => set({
                 token: null,
                 userId: null,
                 organizationId: null,
                 organizationName: null,
-                selectedOrganizationId: null,
-                selectedOrganizationName: null,
                 email: null,
                 role: null,
                 nickname: null,

@@ -3,11 +3,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { RetrospectivesPage } from './pages/RetrospectivesPage';
 import { RetrospectiveDetailPage } from './pages/RetrospectiveDetailPage';
 import { UsersPage } from './pages/UsersPage';
 import { OrganizationsPage } from './pages/OrganizationsPage';
-import { OrganizationSelectorPage } from './pages/OrganizationSelectorPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { OrganizationThemeProvider } from './theme';
 
@@ -29,13 +29,10 @@ export default function App() {
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/register" element={<RegisterPage />} />
                     <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                    <Route path="/reset-password" element={<ResetPasswordPage />} />
                     <Route
                         path="/"
-                        element={
-                            <ProtectedRoute allowAdminWithoutOrganization>
-                                <OrganizationSelectorPage />
-                            </ProtectedRoute>
-                        }
+                        element={<Navigate to="/retrospectives" replace />}
                     />
                     <Route
                         path="/retrospectives"
@@ -64,7 +61,7 @@ export default function App() {
                     <Route
                         path="/organizations"
                         element={
-                            <ProtectedRoute allowAdminWithoutOrganization>
+                            <ProtectedRoute>
                                 <OrganizationsPage />
                             </ProtectedRoute>
                         }

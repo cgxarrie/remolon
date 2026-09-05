@@ -18,10 +18,8 @@ export function CreateRetroModal({ onClose }: Props) {
     const [managerUserIds, setManagerUserIds] = useState<Set<string>>(new Set());
     const role = useAuthStore((s) => s.role);
     const ownOrganizationId = useAuthStore((s) => s.organizationId);
-    const adminOrganizationId = useAuthStore((s) => s.selectedOrganizationId);
-    const adminOrganizationName = useAuthStore((s) => s.selectedOrganizationName);
     const currentUserId = useAuthStore((s) => s.userId);
-    const selectedOrganizationId = role === 'Admin' ? adminOrganizationId ?? '' : ownOrganizationId ?? '';
+    const selectedOrganizationId = ownOrganizationId ?? '';
     const managersQuery = useQuery({
         queryKey: ['organizationManagers', selectedOrganizationId],
         queryFn: () => usersApi.getAll(selectedOrganizationId, 1, 100),
@@ -43,7 +41,6 @@ export function CreateRetroModal({ onClose }: Props) {
         mutationFn: () =>
             retrospectivesApi.create({
                 title,
-                organizationId: role === 'Admin' ? selectedOrganizationId : undefined,
                 managerUserIds: [...managerUserIds],
                 columns: columns.map((c, i) => ({ title: c, position: i })),
             }),
@@ -94,14 +91,6 @@ export function CreateRetroModal({ onClose }: Props) {
                             className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                     </div>
-                    {role === 'Admin' && adminOrganizationName && (
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Organization</label>
-                            <p className="w-full bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700">
-                                {adminOrganizationName}
-                            </p>
-                        </div>
-                    )}
                     {selectedOrganizationId && (
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-2">

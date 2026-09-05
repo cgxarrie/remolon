@@ -2,11 +2,11 @@ using System.ComponentModel.DataAnnotations;
 
 namespace RetroBackend.Dtos;
 
-public record RegisterRequest(
+public record PublicRegisterRequest(
     [Required, EmailAddress] string Email,
     [Required, MinLength(8)] string Password,
-    [Required, MaxLength(50)] string Nickname,
-    Guid? OrganizationId
+    [MaxLength(50)] string? Nickname,
+    [Required, MaxLength(200)] string OrganizationName
 );
 
 public record LoginRequest(
@@ -18,7 +18,7 @@ public record ForgotPasswordRequest(
     [Required, EmailAddress] string Email
 );
 
-public record ForgotPasswordResponse(string Message, string? ResetToken);
+public record ForgotPasswordResponse(string Message);
 
 public record ResetPasswordRequest(
     [Required, EmailAddress] string Email,

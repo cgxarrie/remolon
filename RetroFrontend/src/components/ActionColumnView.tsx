@@ -12,7 +12,6 @@ interface Props {
     canAddItems: boolean;
     assigneeOptions: string[];
     currentUserId: string;
-    isAdmin: boolean;
     isManager: boolean;
 }
 
@@ -23,7 +22,6 @@ export function ActionColumnView({
     canAddItems,
     assigneeOptions,
     currentUserId,
-    isAdmin,
     isManager,
 }: Props) {
     const queryClient = useQueryClient();
@@ -95,8 +93,8 @@ export function ActionColumnView({
                         retroId={retroId}
                         assigneeOptions={participantAssignees}
                         isClosed={isClosed}
-                        canEdit={isAdmin || isManager || item.createdBy === currentUserId}
-                        canDelete={isAdmin || isManager || item.createdBy === currentUserId}
+                        canEdit={isManager || item.createdBy === currentUserId}
+                        canDelete={isManager || item.createdBy === currentUserId}
                         canComplete={!isActionItemsColumn}
                     />
                 ))}

@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using RetroBackend.Auth;
+using RetroBackend.Config;
 using RetroBackend.Data;
 using RetroBackend.Hubs;
 using RetroBackend.Models;
@@ -72,9 +74,17 @@ builder.Services
         options.Password.RequireNonAlphanumeric = false;
         options.Password.RequireUppercase = false;
         options.Password.RequireLowercase = false;
+        options.Tokens.PasswordResetTokenProvider = PasswordResetTokenProviderOptions.ProviderName;
     })
     .AddEntityFrameworkStores<RetroDbContext>()
-    .AddDefaultTokenProviders();
+    .AddDefaultTokenProviders()
+    .AddTokenProvider<PasswordResetTokenProvider<AppUser>>(PasswordResetTokenProviderOptions.ProviderName);
+
+builder.Services.Configure<PasswordResetTokenProviderOptions>(options =>
+{
+    options.Name = PasswordResetTokenProviderOptions.ProviderName;
+    options.TokenLifespan = TimeSpan.FromMinutes(30);
+});
 
 builder.Services
     .AddAuthentication(options =>
@@ -140,6 +150,9 @@ builder.Services
 builder.Services.AddAuthorization();
 builder.Services.AddSignalR();
 
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
+builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+
 builder.Services.AddScoped<IRetrospectiveRepository, EfRetrospectiveRepository>();
 builder.Services.AddScoped<IRetrospectiveService, RetrospectiveService>();
 builder.Services.AddScoped<IItemRepository, EfItemRepository>();
@@ -154,7 +167,6 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<RetroDbContext>();
     await db.Database.MigrateAsync();
-    await DemoDataSeeder.SeedAsync(scope.ServiceProvider, app.Configuration);
 }
 
 if (app.Environment.IsDevelopment())

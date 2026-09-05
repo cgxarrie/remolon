@@ -39,13 +39,10 @@ public class ActionItemsController : ControllerBase
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
-        if (!User.HasRole(Roles.Admin))
-        {
-            var allowed = await _authzService.IsAssignedToRetrospectiveByColumnAsync(userId, request.ColumnId)
-                || await _authzService.IsRetrospectiveOwnerByColumnAsync(userId, request.ColumnId);
+        var allowed = await _authzService.IsAssignedToRetrospectiveByColumnAsync(userId, request.ColumnId)
+            || await _authzService.IsRetrospectiveOwnerByColumnAsync(userId, request.ColumnId);
 
-            if (!allowed) return Forbid();
-        }
+        if (!allowed) return Forbid();
 
         var svcReq = request.ToServiceRequest();
         svcReq.CreatedBy = userId;
@@ -67,14 +64,11 @@ public class ActionItemsController : ControllerBase
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
-        if (!User.HasRole(Roles.Admin))
-        {
-            var allowed = User.HasRole(Roles.Manager)
-                ? await _authzService.IsRetrospectiveOwnerByItemAsync(userId, id)
-                : await _authzService.IsItemOwnerAsync(userId, id);
+        var allowed = User.HasRole(Roles.Manager)
+            ? await _authzService.IsRetrospectiveOwnerByItemAsync(userId, id)
+            : await _authzService.IsItemOwnerAsync(userId, id);
 
-            if (!allowed) return Forbid();
-        }
+        if (!allowed) return Forbid();
 
         var item = await _service.UpdateActionItemAsync(id, request.ToServiceRequest());
         if (item is null) return NotFound();
@@ -110,14 +104,11 @@ public class ActionItemsController : ControllerBase
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
-        if (!User.HasRole(Roles.Admin))
-        {
-            var allowed = User.HasRole(Roles.Manager)
-                ? await _authzService.IsRetrospectiveOwnerByItemAsync(userId, id)
-                : await _authzService.IsItemOwnerAsync(userId, id);
+        var allowed = User.HasRole(Roles.Manager)
+            ? await _authzService.IsRetrospectiveOwnerByItemAsync(userId, id)
+            : await _authzService.IsItemOwnerAsync(userId, id);
 
-            if (!allowed) return Forbid();
-        }
+        if (!allowed) return Forbid();
 
         var retrospectiveId = await _authzService.GetRetrospectiveIdByItemAsync(id);
         var deleted = await _service.DeleteAsync(id);

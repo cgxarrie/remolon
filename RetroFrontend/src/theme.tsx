@@ -82,20 +82,17 @@ function applyTheme(palette: ThemePalette) {
 
 export function OrganizationThemeProvider({ children }: { children: React.ReactNode }) {
     const token = useAuthStore((state) => state.token);
-    const role = useAuthStore((state) => state.role);
     const organizationId = useAuthStore((state) => state.organizationId);
-    const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
-    const activeOrganizationId = role === 'Admin' ? selectedOrganizationId : organizationId;
     const { data: organization } = useQuery({
-        queryKey: ['organizationTheme', activeOrganizationId],
-        queryFn: () => organizationsApi.getById(activeOrganizationId!),
-        enabled: !!token && !!activeOrganizationId,
+        queryKey: ['organizationTheme', organizationId],
+        queryFn: () => organizationsApi.getById(organizationId!),
+        enabled: !!token && !!organizationId,
         staleTime: 30_000,
     });
 
     useEffect(() => {
-        applyTheme(activeOrganizationId ? resolveTheme(organization?.theme) : themePresets.default);
-    }, [activeOrganizationId, organization?.theme]);
+        applyTheme(organizationId ? resolveTheme(organization?.theme) : themePresets.default);
+    }, [organizationId, organization?.theme]);
 
     return children;
 }

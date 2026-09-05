@@ -40,13 +40,10 @@ public class ItemsController : ControllerBase
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
-        if (!User.HasRole(Roles.Admin))
-        {
-            var allowed = await _authzService.IsAssignedToRetrospectiveByColumnAsync(userId, request.ColumnId)
-                || await _authzService.IsRetrospectiveOwnerByColumnAsync(userId, request.ColumnId);
+        var allowed = await _authzService.IsAssignedToRetrospectiveByColumnAsync(userId, request.ColumnId)
+            || await _authzService.IsRetrospectiveOwnerByColumnAsync(userId, request.ColumnId);
 
-            if (!allowed) return Forbid();
-        }
+        if (!allowed) return Forbid();
 
         var svcReq = request.ToServiceRequest();
         svcReq.CreatedBy = userId;
@@ -56,7 +53,7 @@ public class ItemsController : ControllerBase
         return StatusCode(StatusCodes.Status201Created, item.Id);
     }
 
-    /// <summary>Updates an existing item. Creators can update their own; managers/admins can update any after reveal.</summary>
+    /// <summary>Updates an existing item. Creators can update their own; managers can update any after reveal.</summary>
     /// <param name="id">The item's unique identifier.</param>
     /// <param name="request">The fields to update.</param>
     /// <returns>The updated item data.</returns>
@@ -76,7 +73,7 @@ public class ItemsController : ControllerBase
         return Ok(item.ToDto());
     }
 
-    /// <summary>Deletes an item. Creators can delete their own; managers/admins can delete any after reveal.</summary>
+    /// <summary>Deletes an item. Creators can delete their own; managers can delete any after reveal.</summary>
     /// <param name="id">The item's unique identifier.</param>
     /// <returns>No content if deleted, or not found if the item does not exist.</returns>
     [HttpDelete("{id:guid}")]
@@ -97,7 +94,7 @@ public class ItemsController : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Unlinks an item from its group. Managers/admins after the retrospective is revealed.</summary>
+    /// <summary>Unlinks an item from its group. Managers after the retrospective is revealed.</summary>
     /// <param name="id">The item's unique identifier.</param>
     /// <returns>The updated item with GroupId cleared.</returns>
     [HttpDelete("{id:guid}/group")]
@@ -116,7 +113,7 @@ public class ItemsController : ControllerBase
         return Ok(item.ToDto());
     }
 
-    /// <summary>Merges two items. Managers/admins after the retrospective is revealed.</summary>
+    /// <summary>Merges two items. Managers after the retrospective is revealed.</summary>
     /// <param name="id">The source item's unique identifier.</param>
     /// <param name="request">The target item to merge with.</param>
     /// <returns>The merged group of items.</returns>
@@ -155,9 +152,6 @@ public class ItemsController : ControllerBase
     {
         if (!await _authzService.IsRetrospectiveRevealedByItemAsync(itemId))
             return false;
-
-        if (User.HasRole(Roles.Admin))
-            return true;
 
         if (!User.HasRole(Roles.Manager))
             return false;

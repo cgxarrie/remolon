@@ -12,7 +12,7 @@ export interface RegisterRequest {
     email: string;
     password: string;
     nickname?: string;
-    organizationId: string;
+    organizationName: string;
 }
 
 export interface LoginRequest {
@@ -26,7 +26,6 @@ export interface ForgotPasswordRequest {
 
 export interface ForgotPasswordResponse {
     message: string;
-    resetToken: string | null;
 }
 
 export interface ResetPasswordRequest {
@@ -171,7 +170,7 @@ export interface BatchAssignUsersResponse {
     removedCount: number;
 }
 
-export type Role = 'Admin' | 'Manager' | 'StandardUser';
+export type Role = 'Manager' | 'StandardUser';
 
 export interface UserSummaryDto {
     id: string;
@@ -233,5 +232,6 @@ export interface CreateUserResponse {
     email: string;
     nickname: string;
     role: Role;
-    temporaryPassword: string;
+    invitationEmailSent: boolean;
+    temporaryPassword?: string | null;
 }

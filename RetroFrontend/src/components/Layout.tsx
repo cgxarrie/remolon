@@ -44,10 +44,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         role,
         organizationId,
         organizationName,
-        selectedOrganizationId,
-        selectedOrganizationName,
         setOrganizationName,
-        clearSelectedOrganization,
         clearAuth,
     } = useAuthStore();
     const navigate = useNavigate();
@@ -55,9 +52,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
     const [menuOpen, setMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement | null>(null);
 
-    // Non-admins get their organization name from the auth response, so this only runs for
-    // sessions that were persisted before the name was part of that response.
-    const needsOrganizationName = role !== null && role !== 'Admin' && !organizationName && !!organizationId;
+    // Sessions persisted before the organization name was part of the auth response
+    // still need a one-time fetch of the current organization.
+    const needsOrganizationName = role !== null && !organizationName && !!organizationId;
     const { data: ownOrganizations } = useQuery({
         queryKey: ['organizations', 'current', organizationId],
         queryFn: () => organizationsApi.getAll(1, 1),
@@ -96,30 +93,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
         navigate('/login');
     }
 
-    function handleChangeOrganization() {
-        clearOrganizationQueries(queryClient);
-        clearSelectedOrganization();
-        navigate('/');
-    }
-
     const menuItems = [
-        { to: '/users', label: 'Users', visible: role === 'Manager' || (role === 'Admin' && !!selectedOrganizationId), icon: usersIcon },
+        { to: '/users', label: 'Users', visible: role === 'Manager', icon: usersIcon },
         {
             to: '/organizations',
-            label: role === 'Manager' ? 'Organization' : 'Organizations',
-            visible: role === 'Admin' || role === 'Manager',
+            label: 'Organization',
+            visible: role === 'Manager',
             icon: organizationsIcon,
         },
     ].filter((item) => item.visible);
 
-    const homePath = role === 'Admin' && selectedOrganizationId ? '/retrospectives' : '/';
-    const currentOrganizationName = role === 'Admin' ? selectedOrganizationName : organizationName;
-    const brand = currentOrganizationName ? `ReMolon - ${currentOrganizationName}` : 'ReMolon';
+    const homePath = '/retrospectives';
+    const brand = organizationName ? `ReMolon - ${organizationName}` : 'ReMolon';
     // Sessions persisted before the nickname was stored fall back to the email.
     const displayName = nickname ?? email;
 
-    // Only single-organization users (everyone but Admin) get the org name in the page title.
-    const singleOrganizationName = role !== null && role !== 'Admin' ? organizationName : null;
+    const singleOrganizationName = role !== null ? organizationName : null;
     useEffect(() => {
         document.title = singleOrganizationName ? `ReMolon - ${singleOrganizationName}` : 'ReMolon';
         return () => {
@@ -184,16 +173,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         </Link>
                     </div>
                     <div className="flex items-center gap-4 text-sm">
-                        {role === 'Admin' && selectedOrganizationName && (
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={handleChangeOrganization}
-                                    className="underline underline-offset-2 hover:opacity-80"
-                                >
-                                    Change organization
-                                </button>
-                            </div>
-                        )}
                         <div className="flex flex-col items-end leading-tight pl-4 border-l border-white/25">
                             <span className="opacity-90">{displayName}</span>
                             <span className="text-xs font-medium opacity-75">{role}</span>

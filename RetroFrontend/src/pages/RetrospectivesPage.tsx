@@ -70,7 +70,7 @@ function OrganizationRetrospectives({ organization }: { organization: SelectedOr
                             </span>
                         )}
                     </button>
-                    {(role === 'Admin' || role === 'Manager') && (
+                    {role === 'Manager' && (
                         <button
                             type="button"
                             className="p-1.5 text-slate-400 hover:text-red-600 rounded-md transition-colors"
@@ -100,7 +100,7 @@ function OrganizationRetrospectives({ organization }: { organization: SelectedOr
                         </button>
                     )}
                 </div>)}
-                {open && !hasOpenIteration && latestClosed && (role === 'Admin' || role === 'Manager') && (
+                {open && !hasOpenIteration && latestClosed && role === 'Manager' && (
                     <div className="border-t p-3">
                         <button
                             className="theme-primary text-white rounded px-3 py-1.5 text-sm disabled:opacity-50"
@@ -121,14 +121,13 @@ function OrganizationRetrospectives({ organization }: { organization: SelectedOr
 }
 
 export function RetrospectivesPage() {
-    const { role, organizationId, selectedOrganizationId, selectedOrganizationName } = useAuthStore();
+    const { role, organizationId, organizationName } = useAuthStore();
     const [showCreate, setShowCreate] = useState(false);
-    const canManage = role === 'Admin' || role === 'Manager';
-    const activeOrganizationId = role === 'Admin' ? selectedOrganizationId : organizationId;
-    const activeOrganization: SelectedOrganization | null = activeOrganizationId
+    const canManage = role === 'Manager';
+    const activeOrganization: SelectedOrganization | null = organizationId
         ? {
-            id: activeOrganizationId,
-            name: role === 'Admin' ? selectedOrganizationName ?? 'Selected organization' : 'Your organization',
+            id: organizationId,
+            name: organizationName ?? 'Your organization',
         }
         : null;
 

@@ -41,22 +41,22 @@ RetroBackend/
 
 | Resource            | Method   | Route                                    | Auth             |
 |---------------------|----------|------------------------------------------|------------------|
-| Auth                | POST     | `/api/auth/register`                     | Public           |
+| Auth                | POST     | `/api/auth/register`                     | Public (creates org + Manager) |
 | Auth                | POST     | `/api/auth/login`                        | Public           |
-| Users               | GET      | `/api/users`                             | Admin            |
-| Users               | PUT      | `/api/users/{id}/role`                   | Admin / Manager  |
+| Users               | POST     | `/api/users`                             | Manager          |
+| Users               | PATCH    | `/api/users/{id}/role`                   | Manager          |
 | Retrospectives      | GET      | `/api/retrospectives`                    | Authenticated    |
 | Retrospectives      | GET      | `/api/retrospectives/{id}`               | Authenticated    |
-| Retrospectives      | POST     | `/api/retrospectives`                    | Admin / Manager  |
-| Retrospectives      | PUT      | `/api/retrospectives/{id}`               | Admin / Manager  |
-| Retrospectives      | DELETE   | `/api/retrospectives/{id}`               | Admin / Manager  |
-| Retrospectives      | POST     | `/api/retrospectives/{id}/close`         | Admin / Manager  |
+| Retrospectives      | POST     | `/api/retrospectives`                    | Manager          |
+| Retrospectives      | PUT      | `/api/retrospectives/{id}`               | Manager          |
+| Retrospectives      | DELETE   | `/api/retrospectives/{id}`               | Manager          |
+| Retrospectives      | POST     | `/api/retrospectives/{id}/close`         | Manager          |
 | Items               | POST     | `/api/items`                             | Authenticated    |
 | Items               | PUT      | `/api/items/{id}`                        | Role-dependent   |
 | Items               | DELETE   | `/api/items/{id}`                        | Role-dependent   |
 | Action Items        | GET      | `/api/actionitems/{retroId}`             | Authenticated    |
-| User Assignments    | POST     | `/api/userassignments`                   | Admin / Manager  |
-| User Assignments    | DELETE   | `/api/userassignments`                   | Admin / Manager  |
+| User Assignments    | POST     | `/api/userassignments`                   | Manager          |
+| User Assignments    | DELETE   | `/api/userassignments`                   | Manager          |
 
 Full interactive docs available at `/swagger` when running.
 
@@ -94,14 +94,11 @@ Edit `appsettings.Development.json` (or set environment variables):
     "Key": "your-secret-key-at-least-32-chars-long",
     "Issuer": "RetroBackend",
     "Audience": "RetroBackendClients"
-  },
-  "DefaultAdmin": {
-    "Email": "sa@ReMolon.com",
-    "Password": "Passw0rd!",
-    "Nickname": "sa"
   }
 }
 ```
+
+Invitation emails (when a Manager creates a user) are sent via SMTP. Local Docker uses [Mailpit](https://github.com/axllent/mailpit) at `http://localhost:8025`. Configure `Email` in `appsettings.json` for other environments.
 
 ### 3. Apply migrations
 
@@ -150,6 +147,4 @@ Obtain a token by calling `POST /api/auth/login` with valid credentials. Tokens 
 | `Jwt:Key`                        | Signing key (min 32 characters)              |
 | `Jwt:Issuer`                     | Token issuer                                 |
 | `Jwt:Audience`                   | Token audience                               |
-| `DefaultAdmin:Email`             | Seed admin email (first run only)            |
-| `DefaultAdmin:Password`          | Seed admin password (first run only)         |
 | `Cors:AllowedOrigins`            | Array of allowed frontend origins            |

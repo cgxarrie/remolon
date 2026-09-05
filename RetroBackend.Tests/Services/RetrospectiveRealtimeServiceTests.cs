@@ -67,13 +67,13 @@ public class RetrospectiveRealtimeServiceTests
     }
 
     [Fact]
-    public async Task CanAccess_AdminCanJoinAnyRetrospective()
+    public async Task CanAccess_ManagerFromAnotherOrganizationCannotJoin()
     {
         var setup = await SeedAsync();
         var service = CreateService(setup.Context);
-        var admin = Principal("admin", Roles.Admin, Guid.NewGuid());
+        var manager = Principal("other-manager", Roles.Manager, Guid.NewGuid());
 
-        Assert.True(await service.CanAccessAsync(admin, setup.RetrospectiveId));
+        Assert.False(await service.CanAccessAsync(manager, setup.RetrospectiveId));
     }
 
     private static IRetrospectiveRealtimeService CreateService(RetroDbContext context)

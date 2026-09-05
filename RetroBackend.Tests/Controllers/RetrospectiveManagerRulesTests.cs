@@ -34,7 +34,7 @@ public class RetrospectiveManagerRulesTests
             context,
             new RecordingLiveNotifier())
         {
-            ControllerContext = ControllerContext(Roles.Admin),
+            ControllerContext = ControllerContext(Roles.Manager, organization.Id),
         };
 
         var result = await controller.Create(new RetroBackend.Dtos.CreateRetrospectiveRequest
@@ -74,7 +74,7 @@ public class RetrospectiveManagerRulesTests
         using var userManager = CreateUserManager(context);
         var controller = new UserAssignmentsController(context, userManager, new RetroAuthorizationService(context))
         {
-            ControllerContext = ControllerContext(Roles.Admin),
+            ControllerContext = ControllerContext(Roles.Manager, organization.Id),
         };
 
         var result = await controller.UnassignUser(new AssignUserRequest(manager.Email!, retro.Id));
@@ -89,7 +89,7 @@ public class RetrospectiveManagerRulesTests
     {
         await using var context = CreateContext();
         var organization = new Organization { Name = "Acme" };
-        var retro = Retrospective.CreateNew("manager-1", "Sprint", organization.Id);
+        var retro = Retrospective.CreateNew("actor", "Sprint", organization.Id);
         context.AddRange(organization, retro);
         await context.SaveChangesAsync();
 
@@ -100,7 +100,7 @@ public class RetrospectiveManagerRulesTests
             context,
             notifier)
         {
-            ControllerContext = ControllerContext(Roles.Admin),
+            ControllerContext = ControllerContext(Roles.Manager, organization.Id),
         };
 
         var result = await controller.Reveal(retro.Id);
@@ -121,7 +121,7 @@ public class RetrospectiveManagerRulesTests
             context,
             notifier)
         {
-            ControllerContext = ControllerContext(Roles.Admin),
+            ControllerContext = ControllerContext(Roles.Manager),
         };
 
         var result = await controller.Reveal(Guid.NewGuid());
@@ -135,7 +135,7 @@ public class RetrospectiveManagerRulesTests
     {
         await using var context = CreateContext();
         var organization = new Organization { Name = "Acme" };
-        var retro = Retrospective.CreateNew("manager-1", "Sprint", organization.Id);
+        var retro = Retrospective.CreateNew("actor", "Sprint", organization.Id);
         retro.Reveal();
         context.AddRange(organization, retro);
         await context.SaveChangesAsync();
@@ -147,7 +147,7 @@ public class RetrospectiveManagerRulesTests
             context,
             notifier)
         {
-            ControllerContext = ControllerContext(Roles.Admin),
+            ControllerContext = ControllerContext(Roles.Manager, organization.Id),
         };
 
         var result = await controller.Close(retro.Id, new RetroBackend.Dtos.CloseRetrospectiveRequest());
@@ -162,7 +162,7 @@ public class RetrospectiveManagerRulesTests
     {
         await using var context = CreateContext();
         var organization = new Organization { Name = "Acme" };
-        var retro = Retrospective.CreateNew("manager-1", "Sprint", organization.Id);
+        var retro = Retrospective.CreateNew("actor", "Sprint", organization.Id);
         context.AddRange(organization, retro);
         await context.SaveChangesAsync();
 
@@ -173,7 +173,7 @@ public class RetrospectiveManagerRulesTests
             context,
             notifier)
         {
-            ControllerContext = ControllerContext(Roles.Admin),
+            ControllerContext = ControllerContext(Roles.Manager, organization.Id),
         };
 
         var result = await controller.Delete(retro.Id);
@@ -187,14 +187,14 @@ public class RetrospectiveManagerRulesTests
     {
         await using var context = CreateContext();
         var organization = new Organization { Name = "Acme" };
-        var retro = Retrospective.CreateNew("manager-1", "Sprint", organization.Id);
+        var retro = Retrospective.CreateNew("actor", "Sprint", organization.Id);
         retro.Reveal();
         retro.Close();
         context.AddRange(organization, retro);
         await context.SaveChangesAsync();
 
         var dto = Assert.IsType<GetRetrospectiveDto>(
-            Assert.IsType<OkObjectResult>(await CreateController(context).GetById(retro.Id)).Value);
+            Assert.IsType<OkObjectResult>(await CreateController(context, organization.Id).GetById(retro.Id)).Value);
 
         Assert.True(dto.IsClosed);
         Assert.True(dto.CanStartNextIteration);
@@ -205,15 +205,15 @@ public class RetrospectiveManagerRulesTests
     {
         await using var context = CreateContext();
         var organization = new Organization { Name = "Acme" };
-        var closed = Retrospective.CreateNew("manager-1", "Sprint", organization.Id);
+        var closed = Retrospective.CreateNew("actor", "Sprint", organization.Id);
         closed.Reveal();
         closed.Close();
-        var open = Retrospective.CreateNew("manager-1", "Sprint", organization.Id);
+        var open = Retrospective.CreateNew("actor", "Sprint", organization.Id);
         context.AddRange(organization, closed, open);
         await context.SaveChangesAsync();
 
         var dto = Assert.IsType<GetRetrospectiveDto>(
-            Assert.IsType<OkObjectResult>(await CreateController(context).GetById(closed.Id)).Value);
+            Assert.IsType<OkObjectResult>(await CreateController(context, organization.Id).GetById(closed.Id)).Value);
 
         Assert.False(dto.CanStartNextIteration);
     }
@@ -223,24 +223,24 @@ public class RetrospectiveManagerRulesTests
     {
         await using var context = CreateContext();
         var organization = new Organization { Name = "Acme" };
-        var retro = Retrospective.CreateNew("manager-1", "Sprint", organization.Id);
+        var retro = Retrospective.CreateNew("actor", "Sprint", organization.Id);
         context.AddRange(organization, retro);
         await context.SaveChangesAsync();
 
         var dto = Assert.IsType<GetRetrospectiveDto>(
-            Assert.IsType<OkObjectResult>(await CreateController(context).GetById(retro.Id)).Value);
+            Assert.IsType<OkObjectResult>(await CreateController(context, organization.Id).GetById(retro.Id)).Value);
 
         Assert.False(dto.CanStartNextIteration);
     }
 
-    private static RetrospectivesController CreateController(RetroDbContext context) =>
+    private static RetrospectivesController CreateController(RetroDbContext context, Guid organizationId) =>
         new(
             new RetrospectiveService(new EfRetrospectiveRepository(context)),
             new RetroAuthorizationService(context),
             context,
             new RecordingLiveNotifier())
         {
-            ControllerContext = ControllerContext(Roles.Admin),
+            ControllerContext = ControllerContext(Roles.Manager, organizationId),
         };
 
     private static RetroDbContext CreateContext() =>
@@ -260,17 +260,22 @@ public class RetrospectiveManagerRulesTests
             null!,
             NullLogger<UserManager<AppUser>>.Instance);
 
-    private static ControllerContext ControllerContext(string role) =>
-        new()
+    private static ControllerContext ControllerContext(string role, Guid? organizationId = null)
+    {
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, "actor"),
+            new(ClaimTypes.Role, role),
+        };
+        if (organizationId.HasValue)
+            claims.Add(new Claim(AuthClaims.OrganizationId, organizationId.Value.ToString()));
+
+        return new()
         {
             HttpContext = new DefaultHttpContext
             {
-                User = new ClaimsPrincipal(new ClaimsIdentity(
-                    [
-                        new Claim(ClaimTypes.NameIdentifier, "actor"),
-                        new Claim(ClaimTypes.Role, role),
-                    ],
-                    "test")),
+                User = new ClaimsPrincipal(new ClaimsIdentity(claims, "test")),
             },
         };
+    }
 }
