@@ -25,7 +25,7 @@ public record ForgotPasswordRequest(
     [Required, EmailAddress] string Email
 );
 
-public record ForgotPasswordResponse(string Message, string? ResetToken);
+public record ForgotPasswordResponse(string Message);
 
 public record ResetPasswordRequest(
     [Required, EmailAddress] string Email,

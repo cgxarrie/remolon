@@ -5,11 +5,14 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using RetroBackend.Dtos;
 using RetroBackend.Auth;
+using RetroBackend.Config;
 using RetroBackend.Models;
 using RetroBackend.Data;
+using RetroBackend.Services;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -20,15 +23,30 @@ namespace RetroBackend.Controllers;
 [Produces("application/json")]
 public class AuthController : ControllerBase
 {
+    private const string ForgotPasswordMessage =
+        "If an account exists for that email, a password reset link has been sent. The link expires in 30 minutes.";
+
     private readonly UserManager<AppUser> _userManager;
     private readonly IConfiguration _configuration;
     private readonly RetroDbContext _context;
+    private readonly IEmailSender _emailSender;
+    private readonly EmailOptions _emailOptions;
+    private readonly ILogger<AuthController> _logger;
 
-    public AuthController(UserManager<AppUser> userManager, IConfiguration configuration, RetroDbContext context)
+    public AuthController(
+        UserManager<AppUser> userManager,
+        IConfiguration configuration,
+        RetroDbContext context,
+        IEmailSender emailSender,
+        IOptions<EmailOptions> emailOptions,
+        ILogger<AuthController> logger)
     {
         _userManager = userManager;
         _configuration = configuration;
         _context = context;
+        _emailSender = emailSender;
+        _emailOptions = emailOptions.Value;
+        _logger = logger;
     }
 
     /// <summary>Registers a new manager and creates their organization.</summary>
@@ -110,22 +128,16 @@ public class AuthController : ControllerBase
         return Ok(await BuildAuthResponseAsync(user, role));
     }
 
-    /// <summary>Starts forgot password flow and returns a reset token for the provided email.</summary>
+    /// <summary>Starts forgot password flow by emailing a reset link valid for 30 minutes.</summary>
     [HttpPost("forgot-password")]
     [ProducesResponseType(typeof(ForgotPasswordResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
     {
         var user = await _userManager.FindByEmailAsync(request.Email);
-        if (user is null)
-            return Ok(new ForgotPasswordResponse("If the account exists, reset instructions were generated.", null));
+        if (user is not null)
+            await TrySendPasswordResetEmailAsync(user);
 
-        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-        var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-
-        return Ok(new ForgotPasswordResponse(
-            "Reset token generated. Use it to set a new password.",
-            encodedToken
-        ));
+        return Ok(new ForgotPasswordResponse(ForgotPasswordMessage));
     }
 
     /// <summary>Completes forgot password flow by setting a new password using a reset token.</summary>
@@ -136,11 +148,11 @@ public class AuthController : ControllerBase
     {
         var user = await _userManager.FindByEmailAsync(request.Email);
         if (user is null)
-            return BadRequest(new { message = "Invalid reset request." });
+            return BadRequest(new { message = "Invalid or expired reset link." });
 
         var tokenInput = request.Token?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(tokenInput))
-            return BadRequest(new { message = "Reset token is required." });
+            return BadRequest(new { message = "Invalid or expired reset link." });
 
         string decodedToken;
         try
@@ -149,13 +161,16 @@ public class AuthController : ControllerBase
         }
         catch
         {
-            // Backward compatibility: allow clients that submit the raw token directly.
-            decodedToken = tokenInput;
+            return BadRequest(new { message = "Invalid or expired reset link." });
         }
 
         var result = await _userManager.ResetPasswordAsync(user, decodedToken, request.NewPassword);
         if (!result.Succeeded)
+        {
+            if (result.Errors.Any(e => e.Code == "InvalidToken"))
+                return BadRequest(new { message = "Invalid or expired reset link." });
             return BadRequest(result.Errors);
+        }
 
         var mustChangePasswordClaims = (await _userManager.GetClaimsAsync(user))
             .Where(c => c.Type == AuthClaims.MustChangePassword)
@@ -243,6 +258,24 @@ public class AuthController : ControllerBase
 
         await _userManager.AddToRoleAsync(user, Roles.Manager);
         return Ok(new { message = $"Manager '{user.Email}' created." });
+    }
+
+    private async Task TrySendPasswordResetEmailAsync(AppUser user)
+    {
+        try
+        {
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+            var resetUrl = PasswordResetEmail.BuildResetUrl(_emailOptions.FrontendBaseUrl, user.Email!, encodedToken);
+            await _emailSender.SendAsync(
+                user.Email!,
+                PasswordResetEmail.Subject,
+                PasswordResetEmail.HtmlBody(resetUrl));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send password reset email");
+        }
     }
 
     private async Task<AuthTokenResponse> BuildAuthResponseAsync(AppUser user, string role)

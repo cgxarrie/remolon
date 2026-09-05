@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using RetroBackend.Auth;
 using RetroBackend.Config;
 using RetroBackend.Data;
 using RetroBackend.Hubs;
@@ -73,9 +74,17 @@ builder.Services
         options.Password.RequireNonAlphanumeric = false;
         options.Password.RequireUppercase = false;
         options.Password.RequireLowercase = false;
+        options.Tokens.PasswordResetTokenProvider = PasswordResetTokenProviderOptions.ProviderName;
     })
     .AddEntityFrameworkStores<RetroDbContext>()
-    .AddDefaultTokenProviders();
+    .AddDefaultTokenProviders()
+    .AddTokenProvider<PasswordResetTokenProvider<AppUser>>(PasswordResetTokenProviderOptions.ProviderName);
+
+builder.Services.Configure<PasswordResetTokenProviderOptions>(options =>
+{
+    options.Name = PasswordResetTokenProviderOptions.ProviderName;
+    options.TokenLifespan = TimeSpan.FromMinutes(30);
+});
 
 builder.Services
     .AddAuthentication(options =>

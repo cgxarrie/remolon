@@ -1,0 +1,142 @@
+import { useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { authApi } from '../api/auth';
+
+function extractApiErrorMessage(err: unknown, fallback: string): string {
+    const axiosErr = err as {
+        response?: {
+            data?: { message?: string } | Array<{ code?: string; description?: string }>;
+        };
+    };
+
+    const data = axiosErr.response?.data;
+    if (Array.isArray(data)) {
+        const description = data
+            .map((e) => e.description)
+            .filter((d): d is string => Boolean(d))
+            .join(' ');
+        if (description) return description;
+    }
+
+    if (data && typeof data === 'object' && 'message' in data && typeof data.message === 'string') {
+        return data.message;
+    }
+
+    return fallback;
+}
+
+export function ResetPasswordPage() {
+    const [searchParams] = useSearchParams();
+    const email = (searchParams.get('email') ?? '').trim();
+    const token = (searchParams.get('token') ?? '').trim();
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [message, setMessage] = useState('');
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+    const linkValid = Boolean(email && token);
+
+    async function handleResetPassword(e: React.FormEvent) {
+        e.preventDefault();
+        setError('');
+        setMessage('');
+
+        if (!linkValid) {
+            setError('This reset link is invalid. Request a new one from the forgot password page.');
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            setError('New password and confirmation do not match.');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await authApi.resetPassword({
+                email,
+                token,
+                newPassword,
+            });
+            setMessage('Password reset successfully. You can sign in now.');
+            setNewPassword('');
+            setConfirmPassword('');
+        } catch (err: unknown) {
+            setError(extractApiErrorMessage(err, 'Failed to reset password. The link may be invalid or expired.'));
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
+            <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
+                <h1 className="text-2xl font-bold text-indigo-700 mb-6 text-center">Reset Password</h1>
+
+                {message && (
+                    <p className="mb-4 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md p-3">
+                        {message}
+                    </p>
+                )}
+                {error && (
+                    <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">
+                        {error}
+                    </p>
+                )}
+
+                {!linkValid ? (
+                    <p className="text-sm text-slate-600">
+                        This reset link is missing required information. Request a new email from{' '}
+                        <Link to="/forgot-password" className="text-indigo-600 hover:underline">
+                            Forgot Password
+                        </Link>
+                        .
+                    </p>
+                ) : message ? null : (
+                    <form onSubmit={handleResetPassword} className="space-y-4">
+                        <p className="text-sm text-slate-600">
+                            Choose a new password for <span className="font-medium">{email}</span>. This link expires 30
+                            minutes after it was sent.
+                        </p>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">New Password</label>
+                            <input
+                                type="password"
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                required
+                                minLength={8}
+                                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Confirm New Password</label>
+                            <input
+                                type="password"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                required
+                                minLength={8}
+                                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                        </div>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium py-2 rounded-md transition-colors"
+                        >
+                            {loading ? 'Resetting…' : 'Reset Password'}
+                        </button>
+                    </form>
+                )}
+
+                <p className="mt-4 text-center text-sm text-slate-500">
+                    Back to{' '}
+                    <Link to="/login" className="text-indigo-600 hover:underline">
+                        Sign In
+                    </Link>
+                </p>
+            </div>
+        </div>
+    );
+}
