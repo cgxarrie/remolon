@@ -28,10 +28,9 @@ interface Props {
 export function RetroBoard({ retro, assigneeOptions }: Props) {
     const queryClient = useQueryClient();
     const { userId, role } = useAuthStore();
-    const isAdmin = role === 'Admin';
     const isManager = role === 'Manager';
-    const canManage = (isAdmin || isManager) && !retro.isClosed;
-    const canMergeItems = retro.isRevealed && (isAdmin || isManager) && !retro.isClosed;
+    const canManage = isManager && !retro.isClosed;
+    const canMergeItems = retro.isRevealed && isManager && !retro.isClosed;
     const currentUserId = userId ?? '';
 
     const [activeItem, setActiveItem] = useState<GetItemDto | null>(null);
@@ -215,7 +214,6 @@ export function RetroBoard({ retro, assigneeOptions }: Props) {
                         canAddItems={true}
                         assigneeOptions={assigneeOptions}
                         currentUserId={currentUserId}
-                        isAdmin={isAdmin}
                         isManager={isManager}
                     />
                 )}
@@ -236,7 +234,6 @@ export function RetroBoard({ retro, assigneeOptions }: Props) {
                                 canMergeItems={canMergeItems}
                                 isRevealed={retro.isRevealed}
                                 currentUserId={currentUserId}
-                                isAdmin={isAdmin}
                                 isManager={isManager}
                                 overItemId={overItemId}
                                 onDelete={() => deleteColumnMutation.mutate(col.id)}
@@ -298,7 +295,6 @@ export function RetroBoard({ retro, assigneeOptions }: Props) {
                         canAddItems={true}
                         assigneeOptions={assigneeOptions}
                         currentUserId={currentUserId}
-                        isAdmin={isAdmin}
                         isManager={isManager}
                     />
                 )}

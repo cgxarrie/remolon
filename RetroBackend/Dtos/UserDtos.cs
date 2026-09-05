@@ -30,7 +30,8 @@ public record CreateUserResponse(
 
 public record UpdateUserRoleRequest(
     [Required]
-    [RegularExpression($"^({Roles.Admin}|{Roles.Manager}|{Roles.StandardUser})$",
-        ErrorMessage = "Role must be Admin, Manager, or StandardUser.")]
+    [RegularExpression($"^({Roles.Manager}|{Roles.StandardUser})$",
+        ErrorMessage = "Role must be Manager or StandardUser.")]
     string Role
 );
+

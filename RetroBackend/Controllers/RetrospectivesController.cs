@@ -42,26 +42,16 @@ public class RetrospectivesController : ControllerBase
     {
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
-        var isAdmin = User.HasRole(Roles.Admin);
-        if (isAdmin)
-        {
-            if (!organizationId.HasValue)
-                return BadRequest(new { message = "organizationId is required." });
-        }
-        else
-        {
-            if (!Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var ownOrganizationId))
-                return Forbid();
-            if (organizationId.HasValue && organizationId != ownOrganizationId) return Forbid();
-            organizationId = ownOrganizationId;
-        }
+        if (!Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var ownOrganizationId))
+            return Forbid();
+        if (organizationId.HasValue && organizationId != ownOrganizationId) return Forbid();
+        organizationId = ownOrganizationId;
 
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var query = _context.Retrospectives.Include(r => r.Organization)
             .Where(r => r.OrganizationId == organizationId);
-        if (!isAdmin)
-            query = query.Where(r => r.CreatedBy == userId
-                || _context.UserRetrospectives.Any(ur => ur.RetrospectiveId == r.Id && ur.UserId == userId));
+        query = query.Where(r => r.CreatedBy == userId
+            || _context.UserRetrospectives.Any(ur => ur.RetrospectiveId == r.Id && ur.UserId == userId));
 
         var totalCount = await query.CountAsync();
         var items = await query.OrderBy(r => r.Title.ToLower()).ThenByDescending(r => r.CreatedAt)
@@ -80,16 +70,13 @@ public class RetrospectivesController : ControllerBase
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
-        if (!User.HasRole(Roles.Admin))
-        {
-            var isOwner = await _authzService.IsRetrospectiveOwnerAsync(userId, id);
-            var isAssigned = await _authzService.IsAssignedToRetrospectiveAsync(userId, id);
-            if (!isOwner && !isAssigned) return Forbid();
-        }
+        var isOwner = await _authzService.IsRetrospectiveOwnerAsync(userId, id);
+        var isAssigned = await _authzService.IsAssignedToRetrospectiveAsync(userId, id);
+        if (!isOwner && !isAssigned) return Forbid();
 
         var retro = await _service.GetByIdAsync(id);
         if (retro is null) return NotFound();
-        if (!User.HasRole(Roles.Admin) && !IsSameOrganization(retro.OrganizationId))
+        if (!IsSameOrganization(retro.OrganizationId))
             return Forbid();
 
         var dto = retro.ToGetDto(userId);
@@ -98,11 +85,11 @@ public class RetrospectivesController : ControllerBase
         return Ok(dto);
     }
 
-    /// <summary>Creates a new retrospective. Admin or Manager.</summary>
+    /// <summary>Creates a new retrospective. Manager.</summary>
     /// <param name="request">The retrospective data.</param>
     /// <returns>The ID of the newly created retrospective.</returns>
     [HttpPost]
-    [Authorize(Roles = Roles.Admin + "," + Roles.Manager)]
+    [Authorize(Roles = Roles.Manager)]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Create([FromBody] Dtos.CreateRetrospectiveRequest request)
@@ -110,19 +97,9 @@ public class RetrospectivesController : ControllerBase
         var createdBy = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         var svcReq = request.ToServiceRequest();
         svcReq.CurrentUser = createdBy;
-        if (User.HasRole(Roles.Admin))
-        {
-            if (!request.OrganizationId.HasValue
-                || !await _context.Organizations.AnyAsync(o => o.Id == request.OrganizationId))
-                return BadRequest(new { message = "A valid organizationId is required." });
-            svcReq.OrganizationId = request.OrganizationId.Value;
-        }
-        else
-        {
-            if (!Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var organizationId))
-                return Forbid();
-            svcReq.OrganizationId = organizationId;
-        }
+        if (!Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var organizationId))
+            return Forbid();
+        svcReq.OrganizationId = organizationId;
 
         var managerUserIds = request.ManagerUserIds
             .Where(id => !string.IsNullOrWhiteSpace(id))
@@ -160,12 +137,12 @@ public class RetrospectivesController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = retro.Id }, retro.Id);
     }
 
-    /// <summary>Partially updates an existing retrospective. Admin always; Manager for own or assigned retrospectives.</summary>
+    /// <summary>Partially updates an existing retrospective. Manager for own or assigned retrospectives.</summary>
     /// <param name="id">The retrospective's unique identifier.</param>
     /// <param name="request">Fields to update.</param>
     /// <returns>The ID of the updated retrospective.</returns>
     [HttpPatch("{id:guid}")]
-    [Authorize(Roles = Roles.Admin + "," + Roles.Manager)]
+    [Authorize(Roles = Roles.Manager)]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -174,15 +151,12 @@ public class RetrospectivesController : ControllerBase
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
-        if (User.HasRole(Roles.Manager) && !User.HasRole(Roles.Admin))
-        {
-            var existing = await _service.GetByIdAsync(id);
-            if (existing is null) return NotFound();
-            if (!IsSameOrganization(existing.OrganizationId)) return Forbid();
-            var isOwner = await _authzService.IsRetrospectiveOwnerAsync(userId, id);
-            var isAssigned = await _authzService.IsAssignedToRetrospectiveAsync(userId, id);
-            if (!isOwner && !isAssigned) return Forbid();
-        }
+        var existing = await _service.GetByIdAsync(id);
+        if (existing is null) return NotFound();
+        if (!IsSameOrganization(existing.OrganizationId)) return Forbid();
+        var isOwner = await _authzService.IsRetrospectiveOwnerAsync(userId, id);
+        var isAssigned = await _authzService.IsAssignedToRetrospectiveAsync(userId, id);
+        if (!isOwner && !isAssigned) return Forbid();
 
         var svcReq = request.ToServiceRequest();
         svcReq.CurrentUser = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -190,11 +164,11 @@ public class RetrospectivesController : ControllerBase
         return retro is null ? NotFound() : Ok(retro.Id);
     }
 
-    /// <summary>Deletes a retrospective. Admin always; Manager for own or assigned retrospectives.</summary>
+    /// <summary>Deletes a retrospective. Manager for own or assigned retrospectives.</summary>
     /// <param name="id">The retrospective's unique identifier.</param>
     /// <returns>No content if deleted, or not found if the retrospective does not exist.</returns>
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = Roles.Admin + "," + Roles.Manager)]
+    [Authorize(Roles = Roles.Manager)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -202,15 +176,12 @@ public class RetrospectivesController : ControllerBase
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
-        if (User.HasRole(Roles.Manager) && !User.HasRole(Roles.Admin))
-        {
-            var existing = await _service.GetByIdAsync(id);
-            if (existing is null) return NotFound();
-            if (!IsSameOrganization(existing.OrganizationId)) return Forbid();
-            var isOwner = await _authzService.IsRetrospectiveOwnerAsync(userId, id);
-            var isAssigned = await _authzService.IsAssignedToRetrospectiveAsync(userId, id);
-            if (!isOwner && !isAssigned) return Forbid();
-        }
+        var existing = await _service.GetByIdAsync(id);
+        if (existing is null) return NotFound();
+        if (!IsSameOrganization(existing.OrganizationId)) return Forbid();
+        var isOwner = await _authzService.IsRetrospectiveOwnerAsync(userId, id);
+        var isAssigned = await _authzService.IsAssignedToRetrospectiveAsync(userId, id);
+        if (!isOwner && !isAssigned) return Forbid();
 
         var deleted = await _service.DeleteAsync(id);
         if (!deleted) return NotFound();
@@ -219,12 +190,12 @@ public class RetrospectivesController : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Closes a retrospective and creates the next iteration. Admin always; Manager for own or assigned retrospectives.</summary>
+    /// <summary>Closes a retrospective and creates the next iteration. Manager for own or assigned retrospectives.</summary>
     /// <param name="id">The retrospective's unique identifier.</param>
     /// <param name="request">Close request data.</param>
     /// <returns>The ID of the newly created iteration.</returns>
     [HttpPost("{id:guid}/close")]
-    [Authorize(Roles = Roles.Admin + "," + Roles.Manager)]
+    [Authorize(Roles = Roles.Manager)]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -235,13 +206,10 @@ public class RetrospectivesController : ControllerBase
         var existingRetro = await _service.GetByIdAsync(id);
         if (existingRetro is null) return NotFound();
 
-        if (User.HasRole(Roles.Manager) && !User.HasRole(Roles.Admin))
-        {
-            if (!IsSameOrganization(existingRetro.OrganizationId)) return Forbid();
-            var isOwner = await _authzService.IsRetrospectiveOwnerAsync(userId, id);
-            var isAssigned = await _authzService.IsAssignedToRetrospectiveAsync(userId, id);
-            if (!isOwner && !isAssigned) return Forbid();
-        }
+        if (!IsSameOrganization(existingRetro.OrganizationId)) return Forbid();
+        var isOwner = await _authzService.IsRetrospectiveOwnerAsync(userId, id);
+        var isAssigned = await _authzService.IsAssignedToRetrospectiveAsync(userId, id);
+        if (!isOwner && !isAssigned) return Forbid();
 
         if (!existingRetro.IsRevealed)
             return Conflict(new { message = "Retrospective must be revealed before it can be closed." });
@@ -267,7 +235,7 @@ public class RetrospectivesController : ControllerBase
 
     /// <summary>Creates a new open iteration from a closed retrospective. Copies columns, assignments, and action items as pending.</summary>
     [HttpPost("{id:guid}/next-iteration")]
-    [Authorize(Roles = Roles.Admin + "," + Roles.Manager)]
+    [Authorize(Roles = Roles.Manager)]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -278,13 +246,10 @@ public class RetrospectivesController : ControllerBase
         var existing = await _service.GetByIdAsync(id);
         if (existing is null) return NotFound();
 
-        if (User.HasRole(Roles.Manager) && !User.HasRole(Roles.Admin))
-        {
-            if (!IsSameOrganization(existing.OrganizationId)) return Forbid();
-            var isOwner = await _authzService.IsRetrospectiveOwnerAsync(userId, id);
-            var isAssigned = await _authzService.IsAssignedToRetrospectiveAsync(userId, id);
-            if (!isOwner && !isAssigned) return Forbid();
-        }
+        if (!IsSameOrganization(existing.OrganizationId)) return Forbid();
+        var isOwner = await _authzService.IsRetrospectiveOwnerAsync(userId, id);
+        var isAssigned = await _authzService.IsAssignedToRetrospectiveAsync(userId, id);
+        if (!isOwner && !isAssigned) return Forbid();
 
         if (!existing.IsClosed)
             return Conflict(new { message = "Only a closed retrospective can start the next iteration." });
@@ -302,22 +267,19 @@ public class RetrospectivesController : ControllerBase
     /// <param name="id">The retrospective's unique identifier.</param>
     /// <returns>The ID of the revealed retrospective.</returns>
     [HttpPost("{id:guid}/reveal")]
-    [Authorize(Roles = Roles.Admin + "," + Roles.Manager)]
+    [Authorize(Roles = Roles.Manager)]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Reveal(Guid id)
     {
-        if (User.HasRole(Roles.Manager) && !User.HasRole(Roles.Admin))
-        {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-            var existing = await _service.GetByIdAsync(id);
-            if (existing is null) return NotFound();
-            if (!IsSameOrganization(existing.OrganizationId)) return Forbid();
-            var isOwner = await _authzService.IsRetrospectiveOwnerAsync(userId, id);
-            var isAssigned = await _authzService.IsAssignedToRetrospectiveAsync(userId, id);
-            if (!isOwner && !isAssigned) return Forbid();
-        }
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var existing = await _service.GetByIdAsync(id);
+        if (existing is null) return NotFound();
+        if (!IsSameOrganization(existing.OrganizationId)) return Forbid();
+        var isOwner = await _authzService.IsRetrospectiveOwnerAsync(userId, id);
+        var isAssigned = await _authzService.IsAssignedToRetrospectiveAsync(userId, id);
+        if (!isOwner && !isAssigned) return Forbid();
 
         var revealed = await _service.RevealAsync(id);
         if (revealed is null) return NotFound();

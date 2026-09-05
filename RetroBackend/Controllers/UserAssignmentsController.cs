@@ -28,11 +28,11 @@ public class UserAssignmentsController : ControllerBase
         _authzService = authzService;
     }
 
-    /// <summary>Assigns a user to a retrospective. Admin and Manager.</summary>
+    /// <summary>Assigns a user to a retrospective. Manager.</summary>
     /// <param name="request">The user email and retrospective ID.</param>
     /// <returns>Confirmation message.</returns>
     [HttpPost]
-    [Authorize(Roles = Roles.Admin + "," + Roles.Manager)]
+    [Authorize(Roles = Roles.Manager)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -46,7 +46,7 @@ public class UserAssignmentsController : ControllerBase
         if (retro is null) return NotFound(new { message = "Retrospective not found." });
         if (user.OrganizationId is null || user.OrganizationId != retro.OrganizationId)
             return BadRequest(new { message = "User and retrospective must belong to the same organization." });
-        if (User.HasRole(Roles.Manager) && !User.HasRole(Roles.Admin)
+        if (User.HasRole(Roles.Manager)
             && (!Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var organizationId)
                 || organizationId != retro.OrganizationId))
             return Forbid();
@@ -70,7 +70,7 @@ public class UserAssignmentsController : ControllerBase
     /// <param name="request">The complete desired set of user IDs and retrospective ID.</param>
     /// <returns>The numbers of assigned and removed users.</returns>
     [HttpPost("batch")]
-    [Authorize(Roles = Roles.Admin + "," + Roles.Manager)]
+    [Authorize(Roles = Roles.Manager)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -127,11 +127,11 @@ public class UserAssignmentsController : ControllerBase
         return Ok(new { assignedCount = assignments.Count, removedCount = removals.Count });
     }
 
-    /// <summary>Removes a user's assignment from a retrospective. Admin and Manager.</summary>
+    /// <summary>Removes a user's assignment from a retrospective. Manager.</summary>
     /// <param name="request">The user email and retrospective ID.</param>
     /// <returns>No content if removed.</returns>
     [HttpDelete]
-    [Authorize(Roles = Roles.Admin + "," + Roles.Manager)]
+    [Authorize(Roles = Roles.Manager)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -146,7 +146,7 @@ public class UserAssignmentsController : ControllerBase
         var retro = await _context.Retrospectives.FindAsync(request.RetrospectiveId);
         if (retro is null || user.OrganizationId != retro.OrganizationId)
             return BadRequest(new { message = "User and retrospective must belong to the same organization." });
-        if (User.HasRole(Roles.Manager) && !User.HasRole(Roles.Admin)
+        if (User.HasRole(Roles.Manager)
             && (!Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var organizationId)
                 || organizationId != retro.OrganizationId))
             return Forbid();
@@ -176,40 +176,19 @@ public class UserAssignmentsController : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Lists all retrospectives a user is assigned to. Admin only.</summary>
-    /// <param name="userEmail">The user's email address.</param>
-    /// <returns>List of retrospective IDs.</returns>
-    [HttpGet("{userEmail}")]
-    [Authorize(Roles = Roles.Admin)]
-    [ProducesResponseType(typeof(IEnumerable<Guid>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetUserAssignments(string userEmail)
-    {
-        var user = await _userManager.FindByEmailAsync(userEmail);
-        if (user is null) return NotFound(new { message = "User not found." });
-
-        var assignments = await _context.UserRetrospectives
-            .Where(ur => ur.UserId == user.Id)
-            .Select(ur => ur.RetrospectiveId)
-            .ToListAsync();
-
-        return Ok(assignments);
-    }
-
     /// <summary>Lists users assigned to a specific retrospective.</summary>
     /// <param name="retrospectiveId">The retrospective's unique identifier.</param>
     /// <returns>List of assigned participants.</returns>
     [HttpGet("retrospective/{retrospectiveId:guid}/participants")]
-    [Authorize(Roles = Roles.Admin + "," + Roles.Manager + "," + Roles.StandardUser)]
+    [Authorize(Roles = Roles.Manager + "," + Roles.StandardUser)]
     [ProducesResponseType(typeof(IEnumerable<UserSummaryDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetRetrospectiveParticipants(Guid retrospectiveId)
     {
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-        var isAdmin = User.HasRole(Roles.Admin);
         var isManager = User.HasRole(Roles.Manager);
 
-        if (!isAdmin && !isManager)
+        if (!isManager)
         {
             var isOwner = await _authzService.IsRetrospectiveOwnerAsync(currentUserId, retrospectiveId);
             var isAssigned = await _context.UserRetrospectives
@@ -248,7 +227,7 @@ public class UserAssignmentsController : ControllerBase
     /// <param name="retrospectiveId">The retrospective's unique identifier.</param>
     /// <returns>All users in the retrospective's organization.</returns>
     [HttpGet("retrospective/{retrospectiveId:guid}/users")]
-    [Authorize(Roles = Roles.Admin + "," + Roles.Manager)]
+    [Authorize(Roles = Roles.Manager)]
     [ProducesResponseType(typeof(IEnumerable<UserSummaryDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -283,8 +262,7 @@ public class UserAssignmentsController : ControllerBase
     }
 
     private bool CanManage(Guid organizationId) =>
-        User.HasRole(Roles.Admin)
-        || (User.HasRole(Roles.Manager)
-            && Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var managerOrganizationId)
-            && managerOrganizationId == organizationId);
+        User.HasRole(Roles.Manager)
+        && Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var managerOrganizationId)
+        && managerOrganizationId == organizationId;
 }

@@ -2,7 +2,7 @@
 
 > A full-stack retrospective board application for agile teams.
 
-ReMolon lets teams create and run structured retrospectives. Participants can add items to columns, drag-and-drop to reorder, merge, or move items across columns, and close the session when done. Role-based access control keeps things tidy — Admins manage everything, Managers own retrospectives, and Standard Users contribute their feedback.
+ReMolon lets teams create and run structured retrospectives. Participants can add items to columns, drag-and-drop to reorder, merge, or move items across columns, and close the session when done. Role-based access control keeps things tidy — Managers own retrospectives, and Standard Users contribute their feedback.
 
 ---
 
@@ -47,11 +47,7 @@ docker compose up --build
 | Swagger  | http://localhost:5145/swagger|
 | Mailpit  | http://localhost:8025        |
 
-A default admin account is created on first run:
-- **Email:** `sa@ReMolon.com`
-- **Password:** `Passw0rd!`
-
-> Change these defaults in `docker-compose.yml` before deploying to production.
+Register a Manager account from the frontend to create an organization.
 
 ---
 
@@ -73,8 +69,7 @@ ReMolon/
 
 | Role         | Capabilities                                                  |
 |--------------|---------------------------------------------------------------|
-| Admin        | Full access — manage users, retrospectives, and all items     |
-| Manager      | Create, edit, and close retrospectives; manage all items      |
+| Manager      | Create, edit, and close retrospectives; manage users and items |
 | StandardUser | Participate in assigned retrospectives; manage own items only |
 
 ---

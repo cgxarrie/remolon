@@ -55,13 +55,12 @@ export function RetrospectiveDetailPage() {
     const queryClient = useQueryClient();
     const role = useAuthStore((s) => s.role);
     const organizationId = useAuthStore((s) => s.organizationId);
-    const selectedOrganizationId = useAuthStore((s) => s.selectedOrganizationId);
     const userId = useAuthStore((s) => s.userId);
     const token = useAuthStore((s) => s.token);
     const email = useAuthStore((s) => s.email);
     const nickname = useAuthStore((s) => s.nickname);
-    const canManage = role === 'Admin' || role === 'Manager';
-    const activeOrganizationId = role === 'Admin' ? selectedOrganizationId : organizationId;
+    const canManage = role === 'Manager';
+    const activeOrganizationId = organizationId;
     const throwablePreferenceKey = `retro-throwable:${userId ?? email ?? 'anonymous'}`;
 
     const [editingTitle, setEditingTitle] = useState(false);

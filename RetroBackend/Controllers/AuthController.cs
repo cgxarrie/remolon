@@ -1,7 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
@@ -216,48 +215,6 @@ public class AuthController : ControllerBase
         var roles = await _userManager.GetRolesAsync(user);
         var role = roles.FirstOrDefault() ?? Roles.StandardUser;
         return Ok(await BuildAuthResponseAsync(user, role));
-    }
-
-    /// <summary>Registers a new super user. Requires an existing super user.</summary>
-    /// <param name="request">Email and password for the new super user account.</param>
-    /// <returns>Confirmation of the created super user.</returns>
-    [HttpPost("register-superuser")]
-    [Authorize(Roles = Roles.Admin)]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> RegisterSuperUser([FromBody] RegisterRequest request)
-    {
-        var user = new AppUser(request.Email, request.Nickname);
-        var result = await _userManager.CreateAsync(user, request.Password);
-        if (!result.Succeeded)
-            return BadRequest(result.Errors);
-
-        await _userManager.AddToRoleAsync(user, Roles.Admin);
-        return Ok(new { message = $"SuperUser '{user.Email}' created." });
-    }
-
-    /// <summary>Registers a new manager. Requires an existing admin.</summary>
-    /// <param name="request">Email and password for the new manager account.</param>
-    /// <returns>Confirmation of the created manager.</returns>
-    [HttpPost("register-manager")]
-    [Authorize(Roles = Roles.Admin)]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> RegisterManager([FromBody] RegisterRequest request)
-    {
-        if (!request.OrganizationId.HasValue
-            || !await _context.Organizations.AnyAsync(o => o.Id == request.OrganizationId))
-            return BadRequest(new { message = "A valid organizationId is required." });
-        if (await _userManager.Users.AnyAsync(u => u.Nickname.ToLower() == request.Nickname.ToLower()))
-            return BadRequest(new { message = "A user with this nickname already exists." });
-
-        var user = new AppUser(request.Email, request.Nickname) { OrganizationId = request.OrganizationId };
-        var result = await _userManager.CreateAsync(user, request.Password);
-        if (!result.Succeeded)
-            return BadRequest(result.Errors);
-
-        await _userManager.AddToRoleAsync(user, Roles.Manager);
-        return Ok(new { message = $"Manager '{user.Email}' created." });
     }
 
     private async Task TrySendPasswordResetEmailAsync(AppUser user)

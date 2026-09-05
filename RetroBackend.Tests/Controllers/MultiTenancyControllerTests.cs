@@ -50,7 +50,7 @@ public class MultiTenancyControllerTests
         context.Users.Add(new AppUser("alice@acme.test", "Alice") { OrganizationId = organization.Id });
         await context.SaveChangesAsync();
         using var userManager = CreateUserManager(context);
-        var controller = CreateUsersController(userManager, context, Roles.Admin, null);
+        var controller = CreateUsersController(userManager, context, Roles.Manager, organization.Id);
 
         var result = await controller.Create(new CreateUserRequest(
             "alice2@acme.test", "alice", Roles.StandardUser, organization.Id));
@@ -59,7 +59,7 @@ public class MultiTenancyControllerTests
     }
 
     [Fact]
-    public async Task CreateUser_ManagerCannotAssignAdminRole()
+    public async Task CreateUser_ManagerCannotAssignManagerRole()
     {
         await using var context = CreateContext();
         var organization = new Organization { Name = "Acme" };
@@ -69,44 +69,66 @@ public class MultiTenancyControllerTests
         var controller = CreateUsersController(userManager, context, Roles.Manager, organization.Id);
 
         var result = await controller.Create(new CreateUserRequest(
-            "admin@acme.test", "admin.acme", Roles.Admin, organization.Id));
+            "manager2@acme.test", "manager.acme", Roles.Manager, organization.Id));
 
         Assert.IsType<ForbidResult>(result);
         Assert.Empty(context.Users);
     }
 
     [Fact]
-    public async Task UpdateUserRole_ManagerCannotAssignAdminRole()
+    public async Task UpdateUserRole_ManagerCannotChangeOwnRole()
     {
         await using var context = CreateContext();
         using var userManager = CreateUserManager(context);
         var controller = CreateUsersController(userManager, context, Roles.Manager, Guid.NewGuid());
 
-        var result = await controller.UpdateRole(
-            "target-user", new UpdateUserRoleRequest(Roles.Admin));
+        var result = await controller.UpdateRole("actor", new UpdateUserRoleRequest(Roles.StandardUser));
 
         Assert.IsType<ForbidResult>(result);
     }
 
     [Fact]
-    public async Task DeleteOrganization_RemovesUsersAndRetrospectives()
+    public async Task UpdateUserRole_ManagerCannotChangeUserInOtherOrganization()
+    {
+        await using var context = CreateContext();
+        var own = new Organization { Name = "Acme" };
+        var other = new Organization { Name = "Globex" };
+        var target = new AppUser("alice@globex.test", "Alice") { OrganizationId = other.Id };
+        context.AddRange(own, other, target);
+        await context.SaveChangesAsync();
+        using var userManager = CreateUserManager(context);
+        var controller = CreateUsersController(userManager, context, Roles.Manager, own.Id);
+
+        var result = await controller.UpdateRole(target.Id, new UpdateUserRoleRequest(Roles.Manager));
+
+        Assert.IsType<ForbidResult>(result);
+    }
+
+    [Fact]
+    public async Task UpdateUserRole_ManagerCanChangeRoleInOwnOrganization()
     {
         await using var context = CreateContext();
         var organization = new Organization { Name = "Acme" };
-        context.Organizations.Add(organization);
-        context.Users.Add(new AppUser("manager@acme.test", "manager.acme") { OrganizationId = organization.Id });
-        context.Retrospectives.Add(Retrospective.CreateNew("manager", "Sprint", organization.Id));
+        var target = new AppUser("alice@acme.test", "Alice") { OrganizationId = organization.Id };
+        var standardRole = new IdentityRole(Roles.StandardUser)
+        {
+            NormalizedName = Roles.StandardUser.ToUpperInvariant(),
+        };
+        var managerRole = new IdentityRole(Roles.Manager)
+        {
+            NormalizedName = Roles.Manager.ToUpperInvariant(),
+        };
+        context.AddRange(organization, target, standardRole, managerRole);
+        context.UserRoles.Add(new IdentityUserRole<string> { UserId = target.Id, RoleId = standardRole.Id });
         await context.SaveChangesAsync();
         using var userManager = CreateUserManager(context);
-        var controller = new OrganizationsController(context, userManager)
-        {
-            ControllerContext = ControllerContext(Roles.Admin, null),
-        };
+        var controller = CreateUsersController(userManager, context, Roles.Manager, organization.Id);
 
-        Assert.IsType<NoContentResult>(await controller.Delete(organization.Id));
-        Assert.Empty(context.Users);
-        Assert.Empty(context.Retrospectives);
-        Assert.Empty(context.Organizations);
+        var result = await controller.UpdateRole(target.Id, new UpdateUserRoleRequest(Roles.Manager));
+
+        var dto = Assert.IsType<UserSummaryDto>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Equal(Roles.Manager, dto.Role);
+        Assert.True(await userManager.IsInRoleAsync(target, Roles.Manager));
     }
 
     [Fact]
@@ -116,8 +138,7 @@ public class MultiTenancyControllerTests
         var organization = new Organization { Name = "Acme" };
         context.Organizations.Add(organization);
         await context.SaveChangesAsync();
-        using var userManager = CreateUserManager(context);
-        var controller = new OrganizationsController(context, userManager)
+        var controller = new OrganizationsController(context)
         {
             ControllerContext = ControllerContext(Roles.Manager, organization.Id),
         };
@@ -139,8 +160,7 @@ public class MultiTenancyControllerTests
         var other = new Organization { Name = "Globex" };
         context.Organizations.AddRange(own, other);
         await context.SaveChangesAsync();
-        using var userManager = CreateUserManager(context);
-        var controller = new OrganizationsController(context, userManager)
+        var controller = new OrganizationsController(context)
         {
             ControllerContext = ControllerContext(Roles.Manager, own.Id),
         };

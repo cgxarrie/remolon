@@ -8,7 +8,6 @@ import { RetrospectivesPage } from './pages/RetrospectivesPage';
 import { RetrospectiveDetailPage } from './pages/RetrospectiveDetailPage';
 import { UsersPage } from './pages/UsersPage';
 import { OrganizationsPage } from './pages/OrganizationsPage';
-import { OrganizationSelectorPage } from './pages/OrganizationSelectorPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { OrganizationThemeProvider } from './theme';
 
@@ -33,11 +32,7 @@ export default function App() {
                     <Route path="/reset-password" element={<ResetPasswordPage />} />
                     <Route
                         path="/"
-                        element={
-                            <ProtectedRoute allowAdminWithoutOrganization>
-                                <OrganizationSelectorPage />
-                            </ProtectedRoute>
-                        }
+                        element={<Navigate to="/retrospectives" replace />}
                     />
                     <Route
                         path="/retrospectives"
@@ -66,7 +61,7 @@ export default function App() {
                     <Route
                         path="/organizations"
                         element={
-                            <ProtectedRoute allowAdminWithoutOrganization>
+                            <ProtectedRoute>
                                 <OrganizationsPage />
                             </ProtectedRoute>
                         }

@@ -170,7 +170,7 @@ export interface BatchAssignUsersResponse {
     removedCount: number;
 }
 
-export type Role = 'Admin' | 'Manager' | 'StandardUser';
+export type Role = 'Manager' | 'StandardUser';
 
 export interface UserSummaryDto {
     id: string;

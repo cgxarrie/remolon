@@ -9,13 +9,6 @@ public record PublicRegisterRequest(
     [Required, MaxLength(200)] string OrganizationName
 );
 
-public record RegisterRequest(
-    [Required, EmailAddress] string Email,
-    [Required, MinLength(8)] string Password,
-    [Required, MaxLength(50)] string Nickname,
-    Guid? OrganizationId
-);
-
 public record LoginRequest(
     [Required, EmailAddress] string Email,
     [Required] string Password

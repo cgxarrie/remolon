@@ -64,17 +64,17 @@ RetroFrontend/
 | Register                | `/register`                  | Public              |
 | Retrospectives list     | `/`                          | Authenticated       |
 | Retrospective detail    | `/retrospectives/:id`        | Authenticated       |
-| Users management        | `/users`                     | Admin only          |
+| Users management        | `/users`                     | Manager             |
 
 ---
 
 ## Features
 
-- **Role-aware UI** — controls and actions are shown or hidden based on the logged-in user's role (Admin / Manager / StandardUser).
+- **Role-aware UI** — controls and actions are shown or hidden based on the logged-in user's role (Manager / StandardUser).
 - **Live board** — columns and items rendered in real time with TanStack Query cache invalidation.
 - **Drag & drop** — items can be reordered within a column, moved between columns, or merged onto another item using dnd-kit.
 - **Retrospective lifecycle** — create, edit, and close retrospectives; closed boards lock all items.
-- **User management** — Admins can view all users and promote/demote roles; role changes force re-login.
+- **User management** — Managers can view users in their organization, invite Standard Users, and change any user's role.
 
 ---
 

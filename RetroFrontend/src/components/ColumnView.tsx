@@ -19,7 +19,6 @@ interface Props {
     canMergeItems: boolean;
     isRevealed: boolean;
     currentUserId: string;
-    isAdmin: boolean;
     isManager: boolean;
     overItemId: string | null;
     onDelete: () => void;
@@ -37,7 +36,6 @@ export function ColumnView({
     canMergeItems,
     isRevealed,
     currentUserId,
-    isAdmin,
     isManager,
     overItemId,
     onDelete,
@@ -280,7 +278,7 @@ export function ColumnView({
                         const item = entry.item;
                         const canEditItem = !isClosed && (
                             item.createdBy === currentUserId ||
-                            (isRevealed && (isAdmin || isManager))
+                            (isRevealed && isManager)
                         );
                         const canMergeItem = canMergeItems && displayEntries.length > 1;
                         return (

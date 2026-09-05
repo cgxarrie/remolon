@@ -40,43 +40,22 @@ public class UsersController : ControllerBase
         _logger = logger;
     }
 
-    /// <summary>Creates a user with a temporary password. Admin and Manager.</summary>
+    /// <summary>Creates a user with a temporary password. Manager.</summary>
     [HttpPost]
-    [Authorize(Roles = $"{Roles.Admin},{Roles.Manager}")]
+    [Authorize(Roles = Roles.Manager)]
     [ProducesResponseType(typeof(CreateUserResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Create([FromBody] CreateUserRequest request)
     {
-        var isAdmin = User.HasRole(Roles.Admin);
         var role = string.IsNullOrWhiteSpace(request.Role) ? Roles.StandardUser : request.Role.Trim();
-
-        if (role == Roles.Admin && !isAdmin)
+        if (role != Roles.StandardUser)
             return Forbid();
 
-        if (!isAdmin && role != Roles.StandardUser)
+        if (!Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var organizationId))
             return Forbid();
-
-        if (role != Roles.Admin && role != Roles.Manager && role != Roles.StandardUser)
-            return BadRequest(new { message = "Role must be Admin, Manager, or StandardUser." });
-
-        Guid? organizationId = null;
-        if (role != Roles.Admin)
-        {
-            if (!isAdmin)
-            {
-                if (!Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var managerOrganizationId))
-                    return Forbid();
-                organizationId = managerOrganizationId;
-            }
-            else
-            {
-                organizationId = request.OrganizationId;
-            }
-
-            if (organizationId is null || !await _context.Organizations.AnyAsync(o => o.Id == organizationId))
-                return BadRequest(new { message = "A valid organizationId is required." });
-        }
+        if (!await _context.Organizations.AnyAsync(o => o.Id == organizationId))
+            return BadRequest(new { message = "A valid organizationId is required." });
 
         var existing = await _userManager.FindByEmailAsync(request.Email);
         if (existing is not null)
@@ -121,26 +100,18 @@ public class UsersController : ControllerBase
                 invitationEmailSent ? null : temporaryPassword));
     }
 
-    /// <summary>Returns all users with their assigned role. Admin and Manager.</summary>
+    /// <summary>Returns all users with their assigned role. Manager.</summary>
     [HttpGet]
-    [Authorize(Roles = $"{Roles.Admin},{Roles.Manager}")]
+    [Authorize(Roles = Roles.Manager)]
     [ProducesResponseType(typeof(PagedResponse<UserSummaryDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(Guid? organizationId, int page = 1, int pageSize = 20)
     {
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
-        var isAdmin = User.HasRole(Roles.Admin);
-        if (!isAdmin)
-        {
-            if (!Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var ownOrganizationId))
-                return Forbid();
-            if (organizationId.HasValue && organizationId != ownOrganizationId) return Forbid();
-            organizationId = ownOrganizationId;
-        }
-        else if (!organizationId.HasValue)
-        {
-            return BadRequest(new { message = "organizationId is required." });
-        }
+        if (!Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var ownOrganizationId))
+            return Forbid();
+        if (organizationId.HasValue && organizationId != ownOrganizationId) return Forbid();
+        organizationId = ownOrganizationId;
 
         var query = _userManager.Users.Include(u => u.Organization)
             .Where(u => u.OrganizationId == organizationId);
@@ -158,26 +129,29 @@ public class UsersController : ControllerBase
         return Ok(new PagedResponse<UserSummaryDto>(result, page, pageSize, totalCount));
     }
 
-    /// <summary>Changes the role of a user. Admin only. Cannot demote self.</summary>
+    /// <summary>Changes the role of a user in the manager's organization. Cannot change own role.</summary>
     [HttpPatch("{id}/role")]
-    [Authorize(Roles = Roles.Admin)]
+    [Authorize(Roles = Roles.Manager)]
     [ProducesResponseType(typeof(UserSummaryDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateRole(string id, [FromBody] UpdateUserRoleRequest request)
     {
-        if (request.Role == Roles.Admin && !User.HasRole(Roles.Admin))
-            return Forbid();
+        if (request.Role != Roles.Manager && request.Role != Roles.StandardUser)
+            return BadRequest(new { message = "Role must be Manager or StandardUser." });
 
-        var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (id == currentUserId)
             return Forbid();
 
-        var user = await _userManager.FindByIdAsync(id);
+        if (!Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var organizationId))
+            return Forbid();
+
+        var user = await _userManager.Users.Include(u => u.Organization).FirstOrDefaultAsync(u => u.Id == id);
         if (user is null) return NotFound();
-        if (request.Role != Roles.Admin && user.OrganizationId is null)
-            return BadRequest(new { message = "A Manager or StandardUser must belong to an organization." });
+        if (user.OrganizationId != organizationId)
+            return Forbid();
 
         var currentRoles = await _userManager.GetRolesAsync(user);
         await _userManager.RemoveFromRolesAsync(user, currentRoles);
@@ -185,18 +159,13 @@ public class UsersController : ControllerBase
         if (!addResult.Succeeded)
             return BadRequest(addResult.Errors);
 
-        if (request.Role == Roles.Admin)
-        {
-            user.OrganizationId = null;
-            await _userManager.UpdateAsync(user);
-        }
         return Ok(new UserSummaryDto(user.Id, user.Email!, user.Nickname, request.Role,
             user.OrganizationId, user.Organization?.Name));
     }
 
-    /// <summary>Deletes a user. Admin and Manager. Cannot delete self.</summary>
+    /// <summary>Deletes a user. Manager. Cannot delete self.</summary>
     [HttpDelete("{id}")]
-    [Authorize(Roles = $"{Roles.Admin},{Roles.Manager}")]
+    [Authorize(Roles = Roles.Manager)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -208,12 +177,9 @@ public class UsersController : ControllerBase
 
         var user = await _userManager.FindByIdAsync(id);
         if (user is null) return NotFound();
-        if (User.HasRole(Roles.Manager) && !User.HasRole(Roles.Admin))
-        {
-            if (!Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var organizationId)
-                || user.OrganizationId != organizationId)
-                return Forbid();
-        }
+        if (!Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var organizationId)
+            || user.OrganizationId != organizationId)
+            return Forbid();
 
         var result = await _userManager.DeleteAsync(user);
         if (!result.Succeeded)

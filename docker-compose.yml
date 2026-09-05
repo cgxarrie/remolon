@@ -32,9 +32,6 @@ services:
       Jwt__Key: "CHANGE_THIS_SECRET_KEY_MIN_32_CHARS_LONG_!!"
       Jwt__Issuer: RetroBackend
       Jwt__Audience: RetroBackendClients
-      DefaultAdmin__Email: "sa@ReMolon.com"
-      DefaultAdmin__Password: "Passw0rd!"
-      DefaultAdmin__Nickname: "sa"
       # frontend container is on port 3000 – allow it as CORS origin
       Cors__AllowedOrigins__0: "http://localhost:3000"
       Cors__AllowedOrigins__1: "http://localhost:5173"

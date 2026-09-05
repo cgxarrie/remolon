@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Layout } from '../components/Layout';
 import { organizationsApi } from '../api/organizations';
-import { clearOrganizationQueries } from '../query/organizationQueries';
 import { useAuthStore } from '../store/authStore';
 import { defaultCustomPalette, resolveTheme, themePresets } from '../theme';
 import type { Organization, SaveOrganizationRequest, ThemeKey } from '../types';
@@ -106,24 +105,12 @@ export function OrganizationsPage() {
     const {
         role,
         organizationId,
-        selectedOrganizationId,
         setOrganizationName,
-        setSelectedOrganization,
-        clearSelectedOrganization,
     } = useAuthStore();
-    const navigate = useNavigate();
     const queryClient = useQueryClient();
-    const [page, setPage] = useState(1);
     const [draft, setDraft] = useState<SaveOrganizationRequest>(emptyDraft);
-    const [editingId, setEditingId] = useState<string | null>(null);
     const [error, setError] = useState('');
-    const isAdmin = role === 'Admin';
     const isManager = role === 'Manager';
-    const { data } = useQuery({
-        queryKey: ['organizations', page],
-        queryFn: () => organizationsApi.getAll(page),
-        enabled: isAdmin,
-    });
     const { data: managerOrganization, isLoading: isManagerOrganizationLoading } = useQuery({
         queryKey: ['organizationEdit', organizationId],
         queryFn: () => organizationsApi.getById(organizationId!),
@@ -133,46 +120,31 @@ export function OrganizationsPage() {
     useEffect(() => {
         if (!isManager || !managerOrganization) return;
         setDraft(draftFromOrganization(managerOrganization));
-        setEditingId(managerOrganization.id);
     }, [isManager, managerOrganization]);
 
-    const refresh = () => queryClient.invalidateQueries({ queryKey: ['organizations'] });
     const mutation = useMutation({
         mutationFn: () => {
             const request = { ...draft, name: draft.name.trim() };
-            if (isManager && organizationId) return organizationsApi.update(organizationId, request);
-            return editingId
-                ? organizationsApi.update(editingId, request)
-                : organizationsApi.create(request);
+            return organizationsApi.update(organizationId!, request);
         },
         onSuccess: (organization) => {
-            if (isManager && organizationId === organization.id) {
-                setOrganizationName(organization.name);
-                setDraft(draftFromOrganization(organization));
-                queryClient.setQueryData(['organizationEdit', organizationId], organization);
-                queryClient.setQueryData(['organizationTheme', organization.id], organization);
-            }
-            if (selectedOrganizationId === organization.id) {
-                setSelectedOrganization(organization.id, organization.name);
-                queryClient.setQueryData(['organizationTheme', organization.id], organization);
-            }
-            if (isAdmin) {
-                setDraft(emptyDraft());
-                setEditingId(null);
-            }
+            setOrganizationName(organization.name);
+            setDraft(draftFromOrganization(organization));
+            queryClient.setQueryData(['organizationEdit', organizationId], organization);
+            queryClient.setQueryData(['organizationTheme', organization.id], organization);
+            queryClient.invalidateQueries({ queryKey: ['organizations'] });
             setError('');
-            refresh();
         },
         onError: (value: unknown) => {
             const e = value as { response?: { data?: { message?: string } } };
             setError(e.response?.data?.message ?? 'Unable to save organization.');
         },
     });
-    if (!isAdmin && !isManager) return <Navigate to="/" replace />;
-    if (isManager && !organizationId) return <Navigate to="/" replace />;
+    if (!isManager) return <Navigate to="/retrospectives" replace />;
+    if (!organizationId) return <Navigate to="/retrospectives" replace />;
 
     return <Layout><div className="max-w-4xl mx-auto space-y-5">
-        <h1 className="text-2xl font-bold">{isAdmin ? 'Organizations' : 'Organization'}</h1>
+        <h1 className="text-2xl font-bold">Organization</h1>
         <div className="bg-white rounded-xl shadow p-4 space-y-4">
             <input
                 className="border rounded p-2 w-full theme-focus"
@@ -182,62 +154,15 @@ export function OrganizationsPage() {
             />
             <ThemePicker draft={draft} onChange={setDraft} />
             <div className="flex justify-end gap-2">
-                {isAdmin && editingId && (
-                    <button className="px-4 py-2 text-slate-600" onClick={() => {
-                        setDraft(emptyDraft());
-                        setEditingId(null);
-                        setError('');
-                    }}>Cancel</button>
-                )}
                 <button
                     className="theme-primary rounded px-4 py-2 disabled:opacity-50"
-                    disabled={!draft.name.trim() || mutation.isPending || (isManager && isManagerOrganizationLoading)}
+                    disabled={!draft.name.trim() || mutation.isPending || isManagerOrganizationLoading}
                     onClick={() => mutation.mutate()}
                 >
-                    {isManager || editingId ? 'Save changes' : 'Create'}
+                    Save changes
                 </button>
             </div>
         </div>
         {error && <p className="text-red-600">{error}</p>}
-        {isAdmin && <div className="bg-white rounded-xl shadow overflow-hidden">
-            <table className="w-full"><thead><tr className="text-left border-b"><th className="p-3">Name</th><th /></tr></thead>
-                <tbody>{data?.items.map((organization) => <tr key={organization.id} className="border-b">
-                    <td className="p-3">
-                        <span className="font-medium">{organization.name}</span>
-                        <span className="ml-2 text-xs text-slate-500 capitalize">
-                            {resolveTheme(organization.theme).name}
-                        </span>
-                    </td>
-                    <td className="p-3 text-right space-x-3">
-                        <button className="theme-link" onClick={() => {
-                            clearOrganizationQueries(queryClient);
-                            setSelectedOrganization(organization.id, organization.name);
-                            navigate('/retrospectives');
-                        }}>Select</button>
-                        <button className="theme-link" onClick={() => {
-                            setEditingId(organization.id);
-                            setDraft(draftFromOrganization(organization));
-                            setError('');
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                        }}>Edit</button>
-                        <button className="text-red-600" onClick={async () => {
-                            if (confirm(`Delete ${organization.name}? All users, retrospectives, assignments, columns, and items in this organization will be permanently deleted.`)) {
-                                await organizationsApi.delete(organization.id);
-                                if (selectedOrganizationId === organization.id) {
-                                    clearOrganizationQueries(queryClient);
-                                    clearSelectedOrganization();
-                                }
-                                refresh();
-                            }
-                        }}>Delete</button>
-                    </td>
-                </tr>)}</tbody>
-            </table>
-        </div>}
-        {isAdmin && <div className="flex justify-center gap-4">
-            <button disabled={page === 1} onClick={() => setPage((p) => p - 1)}>Previous</button>
-            <span>Page {page}</span>
-            <button disabled={!data || page * data.pageSize >= data.totalCount} onClick={() => setPage((p) => p + 1)}>Next</button>
-        </div>}
     </div></Layout>;
 }

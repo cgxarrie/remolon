@@ -25,8 +25,6 @@ public class RetrospectiveRealtimeService : IRetrospectiveRealtimeService
         var retro = await _retrospectiveService.GetByIdAsync(retrospectiveId);
         if (retro is null) return false;
 
-        if (user.HasRole(Roles.Admin)) return true;
-
         var isOwner = await _authzService.IsRetrospectiveOwnerAsync(userId, retrospectiveId);
         var isAssigned = await _authzService.IsAssignedToRetrospectiveAsync(userId, retrospectiveId);
         if (!isOwner && !isAssigned) return false;

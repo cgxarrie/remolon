@@ -10,7 +10,6 @@ function OrganizationUsers({ organization }: { organization: SelectedOrganizatio
     const [page, setPage] = useState(1);
     const queryClient = useQueryClient();
     const currentUserId = useAuthStore((s) => s.userId);
-    const currentRole = useAuthStore((s) => s.role);
     const { data, isLoading } = useQuery({
         queryKey: ['users', organization.id, page],
         queryFn: () => usersApi.getAll(organization.id, page),
@@ -36,9 +35,9 @@ function OrganizationUsers({ organization }: { organization: SelectedOrganizatio
                     <tbody>{data?.items.map((user) => (
                         <tr key={user.id} className="border-b last:border-0">
                             <td className="p-3">{user.nickname}</td><td>{user.email}</td><td>
-                                {currentRole === 'Admin' && user.id !== currentUserId
+                                {user.id !== currentUserId
                                     ? <select value={user.role} onChange={(e) => updateRole.mutate({ id: user.id, role: e.target.value as Role })}>
-                                        <option>Admin</option><option>Manager</option><option>StandardUser</option>
+                                        <option>Manager</option><option>StandardUser</option>
                                     </select>
                                     : user.role}
                             </td>
@@ -61,34 +60,28 @@ function OrganizationUsers({ organization }: { organization: SelectedOrganizatio
 }
 
 export function UsersPage() {
-    const { role, organizationId, selectedOrganizationId, selectedOrganizationName } = useAuthStore();
+    const { role, organizationId, organizationName } = useAuthStore();
     const queryClient = useQueryClient();
     const [email, setEmail] = useState('');
-    const [nickname, setNickname] = useState('');
-    const [newRole, setNewRole] = useState<Role>('StandardUser');
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
-    const canView = role === 'Admin' || role === 'Manager';
-    const activeOrganizationId = role === 'Admin' ? selectedOrganizationId : organizationId;
-    const activeOrganization: SelectedOrganization | null = activeOrganizationId
+    const canView = role === 'Manager';
+    const activeOrganization: SelectedOrganization | null = organizationId
         ? {
-            id: activeOrganizationId,
-            name: role === 'Admin' ? selectedOrganizationName ?? 'Selected organization' : 'Your organization',
+            id: organizationId,
+            name: organizationName ?? 'Your organization',
         }
         : null;
 
     const create = useMutation({
         mutationFn: () => usersApi.create({
             email: email.trim(),
-            nickname: role === 'Admin' ? (nickname.trim() || undefined) : undefined,
-            role: role === 'Manager' ? 'StandardUser' : newRole,
-            organizationId: role === 'Admin' ? activeOrganizationId ?? undefined : undefined,
+            role: 'StandardUser',
         }),
         onSuccess: (created) => {
             queryClient.invalidateQueries({ queryKey: ['users'] });
             setEmail('');
-            setNickname('');
             setError('');
             setSuccess(created.invitationEmailSent
                 ? `User created. An invitation with a temporary password was sent to ${created.email}.`
@@ -103,7 +96,7 @@ export function UsersPage() {
         },
     });
 
-    if (!canView) return <Navigate to="/" replace />;
+    if (!canView) return <Navigate to="/retrospectives" replace />;
 
     return <Layout><div className="max-w-5xl mx-auto space-y-6">
         <h1 className="text-2xl font-bold">User Management</h1>
@@ -113,14 +106,8 @@ export function UsersPage() {
             {success && <p className="text-emerald-700">{success}</p>}
             <div className="grid md:grid-cols-4 gap-3">
                 <input className="border rounded p-2" placeholder="Email" value={email} onChange={(e) => { setEmail(e.target.value); setSuccess(''); }} />
-                {role === 'Admin' && (
-                    <input className="border rounded p-2" placeholder="Nickname" value={nickname} onChange={(e) => setNickname(e.target.value)} />
-                )}
-                {role === 'Admin' && <select className="border rounded p-2" value={newRole} onChange={(e) => setNewRole(e.target.value as Role)}>
-                    <option>Admin</option><option>Manager</option><option>StandardUser</option>
-                </select>}
             </div>
-            <button className="theme-primary text-white rounded px-4 py-2 disabled:opacity-50" disabled={!email || create.isPending || (role === 'Admin' && newRole !== 'Admin' && !activeOrganizationId)} onClick={() => create.mutate()}>Create User</button>
+            <button className="theme-primary text-white rounded px-4 py-2 disabled:opacity-50" disabled={!email || create.isPending} onClick={() => create.mutate()}>Create User</button>
         </div>
         {activeOrganization && <OrganizationUsers organization={activeOrganization} />}
     </div></Layout>;
