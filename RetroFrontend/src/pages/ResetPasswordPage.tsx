@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { authApi } from '../api/auth';
+import { PasswordField, PasswordMatchStatus, getPasswordMatchState } from '../components/PasswordField';
 
 function extractApiErrorMessage(err: unknown, fallback: string): string {
     const axiosErr = err as {
@@ -35,6 +36,7 @@ export function ResetPasswordPage() {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const linkValid = Boolean(email && token);
+    const { passwordsMatch, passwordsMismatch } = getPasswordMatchState(newPassword, confirmPassword);
 
     async function handleResetPassword(e: React.FormEvent) {
         e.preventDefault();
@@ -100,29 +102,31 @@ export function ResetPasswordPage() {
                         </p>
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">New Password</label>
-                            <input
-                                type="password"
+                            <PasswordField
                                 value={newPassword}
-                                onChange={(e) => setNewPassword(e.target.value)}
+                                onChange={setNewPassword}
                                 required
                                 minLength={8}
-                                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                autoComplete="new-password"
                             />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">Confirm New Password</label>
-                            <input
-                                type="password"
+                            <PasswordField
                                 value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                onChange={setConfirmPassword}
                                 required
                                 minLength={8}
-                                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                autoComplete="new-password"
+                                toggleLabel="confirm password"
+                                aria-describedby="password-match-status"
+                                matchState={passwordsMismatch ? 'mismatch' : passwordsMatch ? 'match' : 'none'}
                             />
+                            <PasswordMatchStatus passwordsMatch={passwordsMatch} confirmPassword={confirmPassword} />
                         </div>
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={loading || passwordsMismatch}
                             className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium py-2 rounded-md transition-colors"
                         >
                             {loading ? 'Resetting…' : 'Reset Password'}
