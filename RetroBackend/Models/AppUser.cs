@@ -16,4 +16,6 @@ public class AppUser : IdentityUser
     public string Nickname { get; set; } = string.Empty;
     public Guid? OrganizationId { get; set; }
     public Organization? Organization { get; set; }
+    public byte[]? AvatarBytes { get; set; }
+    public string? AvatarContentType { get; set; }
 }

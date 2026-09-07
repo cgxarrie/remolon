@@ -35,3 +35,8 @@ public record InitialPasswordChangeRequest(
 );
 
 public record PasswordChangeRequiredResponse(string Message, bool RequiresPasswordChange);
+
+public record ChangePasswordRequest(
+    [Required] string CurrentPassword,
+    [Required, MinLength(8)] string NewPassword
+);

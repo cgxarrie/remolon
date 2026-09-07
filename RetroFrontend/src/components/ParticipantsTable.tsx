@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import { UserAvatar } from './UserAvatar';
 
 export interface AvatarEntry {
     id: string;
     name: string;
     subtitle?: string;
+    avatarUrl?: string | null;
 }
 
 interface Props {
@@ -47,31 +49,6 @@ function tableGeometry(seatCount: number): TableGeometry {
     };
 }
 
-function initialsFrom(name: string): string {
-    const parts = name
-        .trim()
-        .split(/\s+/)
-        .filter(Boolean);
-
-    if (parts.length === 0) return '?';
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-}
-
-function colorClassFrom(id: string): string {
-    const classes = [
-        'bg-rose-100 text-rose-700',
-        'bg-amber-100 text-amber-700',
-        'bg-emerald-100 text-emerald-700',
-        'bg-cyan-100 text-cyan-700',
-        'bg-indigo-100 text-indigo-700',
-    ];
-
-    let sum = 0;
-    for (let i = 0; i < id.length; i += 1) sum += id.charCodeAt(i);
-    return classes[sum % classes.length];
-}
-
 function AvatarPill({
     user,
     isCurrent = false,
@@ -93,8 +70,8 @@ function AvatarPill({
                 ref={avatarRef}
                 onClick={onClick}
                 className={[
-                    'h-12 w-12 rounded-full flex items-center justify-center font-semibold text-sm border transition-all',
-                    isCurrent ? 'bg-indigo-600 text-white border-indigo-700' : `${colorClassFrom(user.id)} border-white`,
+                    'h-12 w-12 rounded-full overflow-hidden border transition-all',
+                    isCurrent ? 'border-indigo-700 ring-4 ring-indigo-200' : 'border-white',
                     clickable ? 'cursor-pointer hover:scale-105 hover:shadow-md' : '',
                     isTargeted ? 'ring-4 ring-amber-300 scale-105' : '',
                 ].join(' ')}
@@ -110,7 +87,13 @@ function AvatarPill({
                     }
                 }}
             >
-                {initialsFrom(user.name)}
+                <UserAvatar
+                    userId={user.id}
+                    avatarUrl={user.avatarUrl ?? null}
+                    name={user.name}
+                    className="h-12 w-12 text-sm border-0"
+                    fallbackClassName={isCurrent ? 'bg-indigo-600 text-white' : undefined}
+                />
             </div>
             <p className="text-[11px] leading-tight text-slate-500 max-w-16 truncate" title={user.name}>
                 {user.name}
@@ -162,11 +145,17 @@ export function ParticipantsTable({
         <>
             <div
                 ref={currentUserRef}
-                className="h-14 w-14 rounded-full flex items-center justify-center font-semibold bg-indigo-600 text-white border border-indigo-700 ring-4 ring-indigo-200"
+                className="h-14 w-14 rounded-full overflow-hidden border border-indigo-700 ring-4 ring-indigo-200"
                 title={currentUser.name}
                 aria-label={currentUser.name}
             >
-                {initialsFrom(currentUser.name)}
+                <UserAvatar
+                    userId={currentUser.id}
+                    avatarUrl={currentUser.avatarUrl ?? null}
+                    name={currentUser.name}
+                    className="h-14 w-14 text-sm border-0"
+                    fallbackClassName="bg-indigo-600 text-white"
+                />
             </div>
             <span className="px-2 py-0.5 rounded-full bg-indigo-600 text-white text-[10px] font-semibold tracking-wide uppercase">
                 You

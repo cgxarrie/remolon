@@ -7,6 +7,7 @@ import type {
     LoginRequest,
     RegisterRequest,
     ResetPasswordRequest,
+    ChangePasswordRequest,
 } from '../types';
 
 export const authApi = {
@@ -21,6 +22,9 @@ export const authApi = {
 
     changeInitialPassword: (data: InitialPasswordChangeRequest) =>
         client.post<AuthTokenResponse>('/auth/change-initial-password', data).then((r) => r.data),
+
+    changePassword: (data: ChangePasswordRequest) =>
+        client.post('/auth/change-password', data).then((r) => r.data),
 
     register: (data: RegisterRequest) =>
         client.post<AuthTokenResponse>('/auth/register', data).then((r) => r.data),

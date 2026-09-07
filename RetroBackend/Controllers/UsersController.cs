@@ -25,19 +25,64 @@ public class UsersController : ControllerBase
     private readonly IEmailSender _emailSender;
     private readonly EmailOptions _emailOptions;
     private readonly ILogger<UsersController> _logger;
+    private readonly IAuthTokenService _authTokenService;
 
     public UsersController(
         UserManager<AppUser> userManager,
         RetroDbContext context,
         IEmailSender emailSender,
         IOptions<EmailOptions> emailOptions,
-        ILogger<UsersController> logger)
+        ILogger<UsersController> logger,
+        IAuthTokenService authTokenService)
     {
         _userManager = userManager;
         _context = context;
         _emailSender = emailSender;
         _emailOptions = emailOptions.Value;
         _logger = logger;
+        _authTokenService = authTokenService;
+    }
+
+    /// <summary>Returns the authenticated user's profile.</summary>
+    [HttpGet("me")]
+    [ProducesResponseType(typeof(CurrentUserDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetMe()
+    {
+        var user = await FindCurrentUserAsync();
+        if (user is null) return Unauthorized();
+
+        var roles = await _userManager.GetRolesAsync(user);
+        var role = roles.FirstOrDefault() ?? Roles.StandardUser;
+        return Ok(new CurrentUserDto(user.Email!, user.Nickname, role, AvatarImage.UrlFor(user)));
+    }
+
+    /// <summary>Updates the authenticated user's nickname and returns a new JWT.</summary>
+    [HttpPatch("me")]
+    [ProducesResponseType(typeof(AuthTokenResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> UpdateMe([FromBody] UpdateMeRequest request)
+    {
+        var user = await FindCurrentUserAsync();
+        if (user is null) return Unauthorized();
+
+        var nickname = request.Nickname.Trim();
+        if (string.IsNullOrWhiteSpace(nickname))
+            return BadRequest(new { message = "Nickname is required." });
+
+        if (!string.Equals(user.Nickname, nickname, StringComparison.OrdinalIgnoreCase)
+            && await NicknameTakenAsync(nickname))
+            return BadRequest(new { message = "A user with this nickname already exists." });
+
+        user.Nickname = nickname;
+        var updateResult = await _userManager.UpdateAsync(user);
+        if (!updateResult.Succeeded)
+            return BadRequest(updateResult.Errors);
+
+        var roles = await _userManager.GetRolesAsync(user);
+        var role = roles.FirstOrDefault() ?? Roles.StandardUser;
+        return Ok(await _authTokenService.BuildAuthResponseAsync(user, role));
     }
 
     /// <summary>Creates a user with a temporary password. Manager.</summary>
@@ -123,7 +168,8 @@ public class UsersController : ControllerBase
         {
             var roles = await _userManager.GetRolesAsync(user);
             result.Add(new UserSummaryDto(user.Id, user.Email!, user.Nickname,
-                roles.FirstOrDefault() ?? Roles.StandardUser, user.OrganizationId, user.Organization?.Name));
+                roles.FirstOrDefault() ?? Roles.StandardUser, user.OrganizationId, user.Organization?.Name,
+                AvatarImage.UrlFor(user)));
         }
 
         return Ok(new PagedResponse<UserSummaryDto>(result, page, pageSize, totalCount));
@@ -160,7 +206,7 @@ public class UsersController : ControllerBase
             return BadRequest(addResult.Errors);
 
         return Ok(new UserSummaryDto(user.Id, user.Email!, user.Nickname, request.Role,
-            user.OrganizationId, user.Organization?.Name));
+            user.OrganizationId, user.Organization?.Name, AvatarImage.UrlFor(user)));
     }
 
     /// <summary>Deletes a user. Manager. Cannot delete self.</summary>
@@ -186,6 +232,13 @@ public class UsersController : ControllerBase
             return BadRequest(result.Errors);
 
         return NoContent();
+    }
+
+    private async Task<AppUser?> FindCurrentUserAsync()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId)) return null;
+        return await _userManager.FindByIdAsync(userId);
     }
 
     private async Task<bool> NicknameTakenAsync(string nickname) =>

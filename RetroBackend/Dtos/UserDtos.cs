@@ -9,7 +9,8 @@ public record UserSummaryDto(
     string Nickname,
     string Role,
     Guid? OrganizationId,
-    string? OrganizationName
+    string? OrganizationName,
+    string? AvatarUrl = null
 );
 
 public record CreateUserRequest(
@@ -34,4 +35,17 @@ public record UpdateUserRoleRequest(
         ErrorMessage = "Role must be Manager or StandardUser.")]
     string Role
 );
+
+public record CurrentUserDto(
+    string Email,
+    string Nickname,
+    string Role,
+    string? AvatarUrl
+);
+
+public record UpdateMeRequest(
+    [Required, MaxLength(50)] string Nickname
+);
+
+public record AvatarUploadResponse(string AvatarUrl);
 

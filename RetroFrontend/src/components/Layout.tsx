@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { organizationsApi } from '../api/organizations';
+import { usersApi } from '../api/users';
+import { UserAvatar } from './UserAvatar';
 import { clearOrganizationQueries } from '../query/organizationQueries';
 import { useAuthStore } from '../store/authStore';
 
@@ -42,9 +44,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         email,
         nickname,
         role,
+        userId,
+        avatarUrl,
         organizationId,
         organizationName,
         setOrganizationName,
+        setProfile,
         clearAuth,
     } = useAuthStore();
     const navigate = useNavigate();
@@ -55,6 +60,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
     // Sessions persisted before the organization name was part of the auth response
     // still need a one-time fetch of the current organization.
     const needsOrganizationName = role !== null && !organizationName && !!organizationId;
+    const { data: me } = useQuery({
+        queryKey: ['users', 'me'],
+        queryFn: () => usersApi.getMe(),
+        staleTime: 30_000,
+    });
+
+    useEffect(() => {
+        if (!me) return;
+        setProfile({ nickname: me.nickname, avatarUrl: me.avatarUrl });
+    }, [me, setProfile]);
+
     const { data: ownOrganizations } = useQuery({
         queryKey: ['organizations', 'current', organizationId],
         queryFn: () => organizationsApi.getAll(1, 1),
@@ -173,10 +189,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         </Link>
                     </div>
                     <div className="flex items-center gap-4 text-sm">
-                        <div className="flex flex-col items-end leading-tight pl-4 border-l border-white/25">
-                            <span className="opacity-90">{displayName}</span>
-                            <span className="text-xs font-medium opacity-75">{role}</span>
-                        </div>
+                        <Link
+                            to="/profile"
+                            className="flex items-center gap-3 theme-header-hover rounded-md px-2 py-1 transition-colors"
+                            aria-label="Edit profile"
+                            title="Edit profile"
+                        >
+                            <div className="flex flex-col items-end leading-tight pl-4 border-l border-white/25">
+                                <span className="opacity-90">{displayName}</span>
+                                <span className="text-xs font-medium opacity-75">{role}</span>
+                            </div>
+                            <UserAvatar userId={userId} avatarUrl={avatarUrl} name={displayName ?? ''} />
+                        </Link>
                         <button
                             onClick={handleLogout}
                             aria-label="Logout"

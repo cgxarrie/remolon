@@ -45,6 +45,26 @@ export interface PasswordChangeRequiredResponse {
     requiresPasswordChange: boolean;
 }
 
+export interface ChangePasswordRequest {
+    currentPassword: string;
+    newPassword: string;
+}
+
+export interface CurrentUserDto {
+    email: string;
+    nickname: string;
+    role: Role;
+    avatarUrl: string | null;
+}
+
+export interface UpdateMeRequest {
+    nickname: string;
+}
+
+export interface AvatarUploadResponse {
+    avatarUrl: string;
+}
+
 // Retrospectives
 export interface GetRetrospectiveSummaryDto {
     id: string;
@@ -179,6 +199,7 @@ export interface UserSummaryDto {
     role: Role;
     organizationId: string | null;
     organizationName: string | null;
+    avatarUrl?: string | null;
 }
 
 export interface CreateUserRequest {

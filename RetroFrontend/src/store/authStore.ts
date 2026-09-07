@@ -34,8 +34,10 @@ interface AuthState {
     email: string | null;
     role: Role | null;
     nickname: string | null;
+    avatarUrl: string | null;
     setAuth: (token: string, email: string, role: string, nickname: string, organizationName?: string | null) => void;
     setOrganizationName: (name: string) => void;
+    setProfile: (profile: { nickname?: string; avatarUrl?: string | null }) => void;
     clearAuth: () => void;
 }
 
@@ -49,9 +51,10 @@ export const useAuthStore = create<AuthState>()(
             email: null,
             role: null,
             nickname: null,
+            avatarUrl: null,
             setAuth: (token, email, role, nickname, organizationName) => {
                 const claims = parseJwt(token);
-                set({
+                set((state) => ({
                     token,
                     userId: claims.userId,
                     organizationId: claims.organizationId,
@@ -59,9 +62,14 @@ export const useAuthStore = create<AuthState>()(
                     email,
                     role: role as Role,
                     nickname,
-                });
+                    avatarUrl: claims.userId === state.userId ? state.avatarUrl : null,
+                }));
             },
             setOrganizationName: (name) => set({ organizationName: name }),
+            setProfile: (profile) => set((state) => ({
+                nickname: profile.nickname ?? state.nickname,
+                avatarUrl: profile.avatarUrl === undefined ? state.avatarUrl : profile.avatarUrl,
+            })),
             clearAuth: () => set({
                 token: null,
                 userId: null,
@@ -70,6 +78,7 @@ export const useAuthStore = create<AuthState>()(
                 email: null,
                 role: null,
                 nickname: null,
+                avatarUrl: null,
             }),
         }),
         { name: 'retro-auth' }
