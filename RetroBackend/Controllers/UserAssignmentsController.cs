@@ -216,7 +216,8 @@ public class UserAssignmentsController : ControllerBase
                 user.Nickname,
                 role,
                 user.OrganizationId,
-                user.Organization?.Name
+                user.Organization?.Name,
+                AvatarImage.UrlFor(user)
             ));
         }
 
@@ -254,7 +255,8 @@ public class UserAssignmentsController : ControllerBase
                 user.Nickname,
                 roles.FirstOrDefault() ?? Roles.StandardUser,
                 user.OrganizationId,
-                user.Organization?.Name
+                user.Organization?.Name,
+                AvatarImage.UrlFor(user)
             ));
         }
 

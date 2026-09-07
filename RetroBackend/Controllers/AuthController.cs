@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
@@ -215,6 +216,32 @@ public class AuthController : ControllerBase
         var roles = await _userManager.GetRolesAsync(user);
         var role = roles.FirstOrDefault() ?? Roles.StandardUser;
         return Ok(await BuildAuthResponseAsync(user, role));
+    }
+
+    /// <summary>Changes the authenticated user's password.</summary>
+    [HttpPost("change-password")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized();
+
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user is null)
+            return Unauthorized();
+
+        if (!await _userManager.CheckPasswordAsync(user, request.CurrentPassword))
+            return BadRequest(new { message = "Could not change password." });
+
+        var changeResult = await _userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
+        if (!changeResult.Succeeded)
+            return BadRequest(changeResult.Errors);
+
+        return NoContent();
     }
 
     private async Task TrySendPasswordResetEmailAsync(AppUser user)

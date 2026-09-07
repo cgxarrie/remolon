@@ -8,6 +8,7 @@ import { RetrospectivesPage } from './pages/RetrospectivesPage';
 import { RetrospectiveDetailPage } from './pages/RetrospectiveDetailPage';
 import { UsersPage } from './pages/UsersPage';
 import { OrganizationsPage } from './pages/OrganizationsPage';
+import { ProfilePage } from './pages/ProfilePage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { OrganizationThemeProvider } from './theme';
 
@@ -47,6 +48,14 @@ export default function App() {
                         element={
                             <ProtectedRoute>
                                 <RetrospectiveDetailPage />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/profile"
+                        element={
+                            <ProtectedRoute>
+                                <ProfilePage />
                             </ProtectedRoute>
                         }
                     />

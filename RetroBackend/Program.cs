@@ -153,6 +153,7 @@ builder.Services.AddSignalR();
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
 builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 
+builder.Services.AddScoped<IAuthTokenService, AuthTokenService>();
 builder.Services.AddScoped<IRetrospectiveRepository, EfRetrospectiveRepository>();
 builder.Services.AddScoped<IRetrospectiveService, RetrospectiveService>();
 builder.Services.AddScoped<IItemRepository, EfItemRepository>();

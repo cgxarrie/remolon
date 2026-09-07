@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using RetroBackend.Auth;
@@ -174,12 +175,25 @@ public class MultiTenancyControllerTests
         Assert.Equal("default", (await context.Organizations.FindAsync(other.Id))!.ThemeKey);
     }
 
+    private static IAuthTokenService TokenService(UserManager<AppUser> userManager, RetroDbContext context) =>
+        new AuthTokenService(userManager, context, TestJwtConfiguration());
+
+    private static IConfiguration TestJwtConfiguration() =>
+        new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Jwt:Key"] = "CHANGE_THIS_SECRET_KEY_MIN_32_CHARS_LONG_!!",
+                ["Jwt:Issuer"] = "RetroBackend",
+                ["Jwt:Audience"] = "RetroBackendClients",
+            })
+            .Build();
+
     private static UsersController CreateUsersController(
         UserManager<AppUser> userManager,
         RetroDbContext context,
         string role,
         Guid? organizationId) =>
-        new(userManager, context, new FakeEmailSender(), EmailOptions(), NullLogger<UsersController>.Instance)
+        new(userManager, context, new FakeEmailSender(), EmailOptions(), NullLogger<UsersController>.Instance, TokenService(userManager, context))
         {
             ControllerContext = ControllerContext(role, organizationId),
         };

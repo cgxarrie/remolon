@@ -59,6 +59,7 @@ export function RetrospectiveDetailPage() {
     const token = useAuthStore((s) => s.token);
     const email = useAuthStore((s) => s.email);
     const nickname = useAuthStore((s) => s.nickname);
+    const avatarUrl = useAuthStore((s) => s.avatarUrl);
     const canManage = role === 'Manager';
     const activeOrganizationId = organizationId;
     const throwablePreferenceKey = `retro-throwable:${userId ?? email ?? 'anonymous'}`;
@@ -168,6 +169,7 @@ export function RetrospectiveDetailPage() {
     const currentUser: AvatarEntry = {
         id: userId ?? email ?? 'current-user',
         name: currentUserLabel,
+        avatarUrl,
     };
 
     const otherUsers = useMemo(() => {
@@ -181,18 +183,18 @@ export function RetrospectiveDetailPage() {
             return Boolean(v) && (v === currentId || v === currentEmail || v === currentNickname);
         };
 
-        const add = (idValue: string, nameValue: string, subtitle?: string) => {
+        const add = (idValue: string, nameValue: string, avatarUrl?: string | null) => {
             const idKey = idValue.trim();
             const name = nameValue.trim();
             if (!idKey || !name || isCurrentUserValue(idKey) || isCurrentUserValue(name)) return;
             if (!map.has(idKey)) {
-                map.set(idKey, { id: idKey, name, subtitle });
+                map.set(idKey, { id: idKey, name, avatarUrl });
             }
         };
 
         assignedParticipants.forEach((participant) => {
             const displayName = participant.nickname?.trim() || 'Participant';
-            add(participant.id || participant.email || displayName, displayName);
+            add(participant.id || participant.email || displayName, displayName, participant.avatarUrl);
         });
 
         return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
