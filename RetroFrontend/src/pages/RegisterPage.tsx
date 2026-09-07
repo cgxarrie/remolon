@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../api/auth';
+import { PasswordField, PasswordMatchStatus, getPasswordMatchState } from '../components/PasswordField';
 import { useAuthStore } from '../store/authStore';
 
 // The API reports failures three ways: Identity error arrays, a { message } conflict,
@@ -23,36 +24,6 @@ function describeRegistrationError(data: unknown): string {
     return fallback;
 }
 
-function PasswordVisibilityToggle({
-    visible,
-    onToggle,
-    label,
-}: {
-    visible: boolean;
-    onToggle: () => void;
-    label: string;
-}) {
-    return (
-        <button
-            type="button"
-            onClick={onToggle}
-            aria-label={label}
-            className="absolute inset-y-0 right-0 px-2.5 text-slate-500 hover:text-slate-700"
-        >
-            {visible ? (
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18M10.5 10.7a2.5 2.5 0 003.8 3.2M9.9 5.2A10.4 10.4 0 0112 5c5 0 9.3 3.1 11 7.5a12 12 0 01-4.1 5.1M6.6 6.6A12 12 0 001 12.5C2.7 16.9 7 20 12 20a10.8 10.8 0 005.1-1.3" />
-                </svg>
-            ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2 12.5C3.7 8.1 7.9 5 12 5s8.3 3.1 10 7.5C20.3 16.9 16.1 20 12 20S3.7 16.9 2 12.5z" />
-                    <circle cx="12" cy="12.5" r="2.5" />
-                </svg>
-            )}
-        </button>
-    );
-}
-
 export function RegisterPage() {
     const navigate = useNavigate();
     const setAuth = useAuthStore((s) => s.setAuth);
@@ -61,13 +32,10 @@ export function RegisterPage() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [nickname, setNickname] = useState('');
     const [organizationName, setOrganizationName] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const passwordsMatch = password.length > 0 && confirmPassword.length > 0 && password === confirmPassword;
-    const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword;
+    const { passwordsMatch, passwordsMismatch } = getPasswordMatchState(password, confirmPassword);
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -145,58 +113,27 @@ export function RegisterPage() {
                             Password{' '}
                             <span className="text-slate-400 font-normal">(min 8 chars)</span>
                         </label>
-                        <div className="relative">
-                            <input
-                                type={showPassword ? 'text' : 'password'}
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                                minLength={8}
-                                autoComplete="new-password"
-                                className="w-full border border-slate-300 rounded-md px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
-                            <PasswordVisibilityToggle
-                                visible={showPassword}
-                                onToggle={() => setShowPassword((v) => !v)}
-                                label={showPassword ? 'Hide password' : 'Show password'}
-                            />
-                        </div>
+                        <PasswordField
+                            value={password}
+                            onChange={setPassword}
+                            required
+                            minLength={8}
+                            autoComplete="new-password"
+                        />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Confirm Password</label>
-                        <div className="relative">
-                            <input
-                                type={showConfirmPassword ? 'text' : 'password'}
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                required
-                                minLength={8}
-                                autoComplete="new-password"
-                                aria-invalid={passwordsMismatch}
-                                aria-describedby="password-match-status"
-                                className={`w-full border rounded-md px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 ${
-                                    passwordsMismatch
-                                        ? 'border-red-400 focus:ring-red-500'
-                                        : passwordsMatch
-                                          ? 'border-emerald-400 focus:ring-emerald-500'
-                                          : 'border-slate-300 focus:ring-indigo-500'
-                                }`}
-                            />
-                            <PasswordVisibilityToggle
-                                visible={showConfirmPassword}
-                                onToggle={() => setShowConfirmPassword((v) => !v)}
-                                label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
-                            />
-                        </div>
-                        {confirmPassword.length > 0 && (
-                            <p
-                                id="password-match-status"
-                                role="status"
-                                className={`mt-1 text-xs ${passwordsMatch ? 'text-emerald-600' : 'text-red-600'}`}
-                            >
-                                {passwordsMatch ? 'Passwords match.' : 'Passwords do not match.'}
-                            </p>
-                        )}
+                        <PasswordField
+                            value={confirmPassword}
+                            onChange={setConfirmPassword}
+                            required
+                            minLength={8}
+                            autoComplete="new-password"
+                            toggleLabel="confirm password"
+                            aria-describedby="password-match-status"
+                            matchState={passwordsMismatch ? 'mismatch' : passwordsMatch ? 'match' : 'none'}
+                        />
+                        <PasswordMatchStatus passwordsMatch={passwordsMatch} confirmPassword={confirmPassword} />
                     </div>
                     <button
                         type="submit"
