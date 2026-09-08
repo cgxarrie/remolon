@@ -84,3 +84,6 @@ dist-ssr/
 
 # Docker
 .docker/
+
+# ASP.NET Data Protection keys (reset/invite tokens)
+.dataprotection-keys/

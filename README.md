@@ -67,6 +67,8 @@ Do not commit `.env` or `docker-compose.override.yml`.
 
 The JWT placeholder `CHANGE_THIS_SECRET_KEY_MIN_32_CHARS_LONG_!!` and the password `retro_password` were committed in git history and are **burned**. Do not reuse them on any existing or production deploy. After rotating `JWT_KEY`, existing tokens are invalid and users must log in again.
 
+Password-reset and invitation links are protected with ASP.NET Data Protection. Compose stores those keys in the `dataprotection_keys` volume (`DataProtection__KeysDirectory`). Deleting that volume or replacing the key ring invalidates outstanding reset (30 minutes) and invite (30 days) links. Local `dotnet run` writes keys under `RetroBackend/.dataprotection-keys/` (gitignored).
+
 ---
 
 ## Project Structure

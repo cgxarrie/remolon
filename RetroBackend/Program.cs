@@ -95,6 +95,8 @@ builder.Services.Configure<InvitationTokenProviderOptions>(options =>
     options.TokenLifespan = TimeSpan.FromDays(30);
 });
 
+DataProtectionKeys.AddPersisted(builder.Services, builder.Configuration, builder.Environment);
+
 var jwtSigningKey = JwtSigningKey.Resolve(builder.Configuration);
 
 builder.Services

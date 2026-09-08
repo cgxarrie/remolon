@@ -95,6 +95,8 @@ export Jwt__Key='a-random-secret-at-least-32-chars'
 
 The process exits on startup if `Jwt:Key` is missing, shorter than 32 characters, or still the committed placeholder `CHANGE_THIS_SECRET_KEY_MIN_32_CHARS_LONG_!!`.
 
+Development stores Data Protection keys in `.dataprotection-keys/` (gitignored) so reset and invitation links survive `dotnet run` restarts. Production and Compose require `DataProtection__KeysDirectory`. Deleting those keys invalidates outstanding links.
+
 Invitation emails (when a Manager creates a user) are sent via SMTP. Local Compose with `docker-compose.dev.yml` uses [Mailpit](https://github.com/axllent/mailpit) at `http://localhost:8025`. Set `Email__SmtpUser` / `Email__SmtpPassword` for authenticated SMTP.
 
 ### 3. Apply migrations
@@ -147,3 +149,4 @@ Obtain a token by calling `POST /api/auth/login` with valid credentials. Tokens 
 | `Jwt:Audience`                   | Token audience                               |
 | `Cors:AllowedOrigins`            | Array of allowed frontend origins            |
 | `Email__SmtpUser` / `Email__SmtpPassword` | Optional SMTP credentials          |
+| `DataProtection:KeysDirectory` / `DataProtection__KeysDirectory` | Directory for Data Protection keys (reset/invite tokens). Required outside Development. Deleting or rotating keys invalidates outstanding links. |

@@ -39,6 +39,9 @@ services:
       Email__SmtpPassword: "${EMAIL_SMTP_PASSWORD:-}"
       Email__From: "noreply@remolon.local"
       Email__FrontendBaseUrl: "http://localhost:3000"
+      DataProtection__KeysDirectory: /var/dataprotection-keys
+    volumes:
+      - dataprotection_keys:/var/dataprotection-keys
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,3 +66,4 @@ services:
 
 volumes:
   postgres_data:
+  dataprotection_keys:
