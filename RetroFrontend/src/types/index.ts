@@ -193,6 +193,7 @@ export interface BatchAssignUsersResponse {
 export type Role = 'Manager' | 'StandardUser';
 
 export const ITEM_DESCRIPTION_MAX_LENGTH = 4000;
+export const PASSWORD_MIN_LENGTH = 12;
 
 export interface UserSummaryDto {
     id: string;
@@ -256,5 +257,4 @@ export interface CreateUserResponse {
     nickname: string;
     role: Role;
     invitationEmailSent: boolean;
-    temporaryPassword?: string | null;
 }

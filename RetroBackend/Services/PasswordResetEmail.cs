@@ -4,10 +4,13 @@ public static class PasswordResetEmail
 {
     public const string Subject = "Reset your ReMolon password";
 
-    public static string BuildResetUrl(string frontendBaseUrl, string email, string encodedToken)
+    public static string BuildResetUrl(string frontendBaseUrl, string email, string encodedToken, bool invite = false)
     {
         var baseUrl = frontendBaseUrl.TrimEnd('/');
-        return $"{baseUrl}/reset-password?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(encodedToken)}";
+        var fragment = $"email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(encodedToken)}";
+        if (invite)
+            fragment += "&purpose=invite";
+        return $"{baseUrl}/reset-password#{fragment}";
     }
 
     public static string HtmlBody(string resetUrl)

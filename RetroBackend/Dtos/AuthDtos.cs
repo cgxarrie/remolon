@@ -1,10 +1,11 @@
 using System.ComponentModel.DataAnnotations;
+using RetroBackend.Auth;
 
 namespace RetroBackend.Dtos;
 
 public record PublicRegisterRequest(
     [Required, EmailAddress] string Email,
-    [Required, MinLength(8)] string Password,
+    [Required, MinLength(IdentityPasswordPolicy.RequiredLength)] string Password,
     [MaxLength(50)] string? Nickname,
     [Required, MaxLength(200)] string OrganizationName
 );
@@ -23,7 +24,7 @@ public record ForgotPasswordResponse(string Message);
 public record ResetPasswordRequest(
     [Required, EmailAddress] string Email,
     [Required] string Token,
-    [Required, MinLength(8)] string NewPassword
+    [Required, MinLength(IdentityPasswordPolicy.RequiredLength)] string NewPassword
 );
 
 public record AuthTokenResponse(string Token, string Email, string Role, string Nickname, string? OrganizationName);
@@ -31,12 +32,12 @@ public record AuthTokenResponse(string Token, string Email, string Role, string 
 public record InitialPasswordChangeRequest(
     [Required, EmailAddress] string Email,
     [Required] string CurrentPassword,
-    [Required, MinLength(8)] string NewPassword
+    [Required, MinLength(IdentityPasswordPolicy.RequiredLength)] string NewPassword
 );
 
 public record PasswordChangeRequiredResponse(string Message, bool RequiresPasswordChange);
 
 public record ChangePasswordRequest(
     [Required] string CurrentPassword,
-    [Required, MinLength(8)] string NewPassword
+    [Required, MinLength(IdentityPasswordPolicy.RequiredLength)] string NewPassword
 );

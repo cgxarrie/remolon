@@ -25,8 +25,7 @@ public record CreateUserResponse(
     string Email,
     string Nickname,
     string Role,
-    bool InvitationEmailSent,
-    string? TemporaryPassword
+    bool InvitationEmailSent
 );
 
 public record UpdateUserRoleRequest(

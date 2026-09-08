@@ -165,6 +165,9 @@ public class AuthController : ControllerBase
         }
 
         var result = await _userManager.ResetPasswordAsync(user, decodedToken, request.NewPassword);
+        if (!result.Succeeded && result.Errors.Any(e => e.Code == "InvalidToken"))
+            result = await ResetPasswordWithInvitationTokenAsync(user, decodedToken, request.NewPassword);
+
         if (!result.Succeeded)
         {
             if (result.Errors.Any(e => e.Code == "InvalidToken"))
@@ -179,6 +182,29 @@ public class AuthController : ControllerBase
             await _userManager.RemoveClaimsAsync(user, mustChangePasswordClaims);
 
         return Ok(new { message = "Password has been reset." });
+    }
+
+    private async Task<IdentityResult> ResetPasswordWithInvitationTokenAsync(
+        AppUser user,
+        string token,
+        string newPassword)
+    {
+        var valid = await _userManager.VerifyUserTokenAsync(
+            user,
+            InvitationTokenProviderOptions.ProviderName,
+            UserManager<AppUser>.ResetPasswordTokenPurpose,
+            token);
+        if (!valid)
+            return IdentityResult.Failed(new IdentityError { Code = "InvalidToken", Description = "Invalid token." });
+
+        if (await _userManager.HasPasswordAsync(user))
+        {
+            var removed = await _userManager.RemovePasswordAsync(user);
+            if (!removed.Succeeded)
+                return removed;
+        }
+
+        return await _userManager.AddPasswordAsync(user, newPassword);
     }
 
     /// <summary>Changes an initial temporary password and signs in the user.</summary>

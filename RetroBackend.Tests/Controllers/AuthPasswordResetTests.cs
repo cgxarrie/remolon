@@ -50,7 +50,7 @@ public class AuthPasswordResetTests
         var sent = Assert.Single(emails.Sent);
         Assert.Equal("alice@example.com", sent.To);
         Assert.Equal(PasswordResetEmail.Subject, sent.Subject);
-        Assert.Contains("/reset-password?", sent.HtmlBody);
+        Assert.Contains("/reset-password#", sent.HtmlBody);
         Assert.Contains("alice%40example.com", sent.HtmlBody);
         Assert.DoesNotContain("resetToken", System.Text.Json.JsonSerializer.Serialize(response));
     }

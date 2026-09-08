@@ -75,21 +75,24 @@ builder.Services
     .AddIdentity<AppUser, IdentityRole>(options =>
     {
         options.User.RequireUniqueEmail = true;
-        options.Password.RequiredLength = 8;
-        options.Password.RequireDigit = true;
-        options.Password.RequireNonAlphanumeric = false;
-        options.Password.RequireUppercase = false;
-        options.Password.RequireLowercase = false;
+        IdentityPasswordPolicy.Apply(options);
         options.Tokens.PasswordResetTokenProvider = PasswordResetTokenProviderOptions.ProviderName;
     })
     .AddEntityFrameworkStores<RetroDbContext>()
     .AddDefaultTokenProviders()
-    .AddTokenProvider<PasswordResetTokenProvider<AppUser>>(PasswordResetTokenProviderOptions.ProviderName);
+    .AddTokenProvider<PasswordResetTokenProvider<AppUser>>(PasswordResetTokenProviderOptions.ProviderName)
+    .AddTokenProvider<InvitationTokenProvider<AppUser>>(InvitationTokenProviderOptions.ProviderName);
 
 builder.Services.Configure<PasswordResetTokenProviderOptions>(options =>
 {
     options.Name = PasswordResetTokenProviderOptions.ProviderName;
     options.TokenLifespan = TimeSpan.FromMinutes(30);
+});
+
+builder.Services.Configure<InvitationTokenProviderOptions>(options =>
+{
+    options.Name = InvitationTokenProviderOptions.ProviderName;
+    options.TokenLifespan = TimeSpan.FromDays(30);
 });
 
 var jwtSigningKey = JwtSigningKey.Resolve(builder.Configuration);

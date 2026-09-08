@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using System.Security.Cryptography;
 using RetroBackend.Dtos;
 using RetroBackend.Auth;
 using RetroBackend.Config;
@@ -11,6 +11,7 @@ using RetroBackend.Models;
 using RetroBackend.Data;
 using RetroBackend.Services;
 using System.Security.Claims;
+using System.Text;
 
 namespace RetroBackend.Controllers;
 
@@ -85,7 +86,7 @@ public class UsersController : ControllerBase
         return Ok(await _authTokenService.BuildAuthResponseAsync(user, role));
     }
 
-    /// <summary>Creates a user with a temporary password. Manager.</summary>
+    /// <summary>Creates a user and emails a one-time set-password link. Manager.</summary>
     [HttpPost]
     [Authorize(Roles = Roles.Manager)]
     [ProducesResponseType(typeof(CreateUserResponse), StatusCodes.Status201Created)]
@@ -120,10 +121,8 @@ public class UsersController : ControllerBase
             nickname = await UniqueNicknameAsync(fallbackNickname);
         }
 
-        var temporaryPassword = GenerateTemporaryPassword();
-
         var user = new AppUser(request.Email, nickname) { OrganizationId = organizationId };
-        var createResult = await _userManager.CreateAsync(user, temporaryPassword);
+        var createResult = await _userManager.CreateAsync(user);
         if (!createResult.Succeeded)
             return BadRequest(createResult.Errors);
 
@@ -131,9 +130,9 @@ public class UsersController : ControllerBase
         if (!roleResult.Succeeded)
             return BadRequest(roleResult.Errors);
 
-        await _userManager.AddClaimAsync(user, new System.Security.Claims.Claim(AuthClaims.MustChangePassword, "true"));
+        await _userManager.AddClaimAsync(user, new Claim(AuthClaims.MustChangePassword, "true"));
 
-        var invitationEmailSent = await TrySendInvitationAsync(user.Email!, temporaryPassword);
+        var invitationEmailSent = await TrySendInvitationAsync(user);
 
         return StatusCode(StatusCodes.Status201Created,
             new CreateUserResponse(
@@ -141,8 +140,7 @@ public class UsersController : ControllerBase
                 user.Email!,
                 user.Nickname,
                 role,
-                invitationEmailSent,
-                invitationEmailSent ? null : temporaryPassword));
+                invitationEmailSent));
     }
 
     /// <summary>Returns all users with their assigned role. Manager.</summary>
@@ -256,45 +254,30 @@ public class UsersController : ControllerBase
         return candidate;
     }
 
-    private async Task<bool> TrySendInvitationAsync(string email, string temporaryPassword)
+    private async Task<bool> TrySendInvitationAsync(AppUser user)
     {
         try
         {
-            var loginUrl = $"{_emailOptions.FrontendBaseUrl.TrimEnd('/')}/login";
+            var token = await _userManager.GenerateUserTokenAsync(
+                user,
+                InvitationTokenProviderOptions.ProviderName,
+                UserManager<AppUser>.ResetPasswordTokenPurpose);
+            var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+            var setPasswordUrl = PasswordResetEmail.BuildResetUrl(
+                _emailOptions.FrontendBaseUrl,
+                user.Email!,
+                encodedToken,
+                invite: true);
             await _emailSender.SendAsync(
-                email,
+                user.Email!,
                 UserInvitationEmail.Subject,
-                UserInvitationEmail.HtmlBody(email, temporaryPassword, loginUrl));
+                UserInvitationEmail.HtmlBody(user.Email!, setPasswordUrl));
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send invitation email to {Email}", email);
+            _logger.LogError(ex, "Failed to send invitation email to {Email}", user.Email);
             return false;
         }
-    }
-
-    private static string GenerateTemporaryPassword(int length = 12)
-    {
-        const string lowercase = "abcdefghijklmnopqrstuvwxyz";
-        const string uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        const string digits = "0123456789";
-        const string all = lowercase + uppercase + digits;
-
-        var chars = new char[length];
-        chars[0] = uppercase[RandomNumberGenerator.GetInt32(uppercase.Length)];
-        chars[1] = lowercase[RandomNumberGenerator.GetInt32(lowercase.Length)];
-        chars[2] = digits[RandomNumberGenerator.GetInt32(digits.Length)];
-
-        for (var i = 3; i < length; i += 1)
-            chars[i] = all[RandomNumberGenerator.GetInt32(all.Length)];
-
-        for (var i = chars.Length - 1; i > 0; i -= 1)
-        {
-            var j = RandomNumberGenerator.GetInt32(i + 1);
-            (chars[i], chars[j]) = (chars[j], chars[i]);
-        }
-
-        return new string(chars);
     }
 }
