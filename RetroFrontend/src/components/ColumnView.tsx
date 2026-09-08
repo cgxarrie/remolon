@@ -112,9 +112,8 @@ export function ColumnView({
         setEditingTitle(false);
     }
 
-    const hiddenAuthorCounts = column.hiddenAuthorCounts ?? [];
-    const totalItemCount =
-        column.items.length + hiddenAuthorCounts.reduce((sum, author) => sum + author.count, 0);
+    const hiddenItemCount = column.hiddenItemCount ?? 0;
+    const totalItemCount = column.items.length + hiddenItemCount;
 
     const sortedItems = [...column.items].sort((a, b) => a.position - b.position);
 
@@ -306,17 +305,13 @@ export function ColumnView({
                     })}
                 </SortableContext>
 
-                {hiddenAuthorCounts.map((author) => (
-                    <div
-                        key={author.createdBy}
-                        className="bg-white/70 border border-dashed border-slate-300 rounded-lg px-3 py-2"
-                    >
-                        <p className="text-sm text-slate-600">{author.createdByNickname}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">
-                            {author.count} item(s) hidden until reveal
+                {hiddenItemCount > 0 && (
+                    <div className="bg-white/70 border border-dashed border-slate-300 rounded-lg px-3 py-2">
+                        <p className="text-xs text-slate-400">
+                            {hiddenItemCount} item(s) hidden until reveal
                         </p>
                     </div>
-                ))}
+                )}
 
                 {!isClosed && canAddItems && (
                     <>

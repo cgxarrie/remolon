@@ -112,6 +112,7 @@ export interface GetColumnDto {
     headerColor: string | null;
     items: GetItemDto[];
     hiddenAuthorCounts: ColumnAuthorCountDto[];
+    hiddenItemCount: number;
 }
 
 export interface GetActionColumnDto {
