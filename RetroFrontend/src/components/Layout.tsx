@@ -68,7 +68,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         if (!me) return;
-        setProfile({ nickname: me.nickname, avatarUrl: me.avatarUrl });
+        setProfile({ nickname: me.nickname, avatarUrl: me.avatarUrl, role: me.role });
     }, [me, setProfile]);
 
     const { data: ownOrganizations } = useQuery({
