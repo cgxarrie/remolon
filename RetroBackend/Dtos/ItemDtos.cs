@@ -1,6 +1,12 @@
 using System.ComponentModel.DataAnnotations;
+using RetroBackend.Models;
 
 namespace RetroBackend.Dtos;
+
+public static class ItemDescriptionLimits
+{
+    public const int MaxLength = ItemLimits.DescriptionMaxLength;
+}
 
 public class CreateItemRequest
 {
@@ -8,6 +14,7 @@ public class CreateItemRequest
     public Guid ColumnId { get; set; }
 
     [Required]
+    [MaxLength(ItemDescriptionLimits.MaxLength)]
     public string Description { get; set; } = string.Empty;
 
     [Required]
@@ -16,6 +23,7 @@ public class CreateItemRequest
 
 public class UpdateItemRequest
 {
+    [MaxLength(ItemDescriptionLimits.MaxLength)]
     public string? Description { get; set; }
     public int? Position { get; set; }
 }
@@ -40,6 +48,7 @@ public class CreateActionItemRequest
     public Guid ColumnId { get; set; }
 
     [Required]
+    [MaxLength(ItemDescriptionLimits.MaxLength)]
     public string Description { get; set; } = string.Empty;
 
     [Required]
@@ -50,6 +59,7 @@ public class CreateActionItemRequest
 
 public class UpdateActionItemRequest
 {
+    [MaxLength(ItemDescriptionLimits.MaxLength)]
     public string? Description { get; set; }
     public int? Position { get; set; }
     public string? Assignee { get; set; }

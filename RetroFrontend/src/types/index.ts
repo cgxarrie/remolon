@@ -192,6 +192,8 @@ export interface BatchAssignUsersResponse {
 
 export type Role = 'Manager' | 'StandardUser';
 
+export const ITEM_DESCRIPTION_MAX_LENGTH = 4000;
+
 export interface UserSummaryDto {
     id: string;
     email: string;

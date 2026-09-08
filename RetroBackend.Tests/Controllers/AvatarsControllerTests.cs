@@ -106,6 +106,8 @@ public class AvatarsControllerTests
         var file = Assert.IsType<FileContentResult>(result);
         Assert.Equal("image/jpeg", file.ContentType);
         Assert.Equal(JpegBytes, file.FileContents);
+        Assert.Equal("private, max-age=3600", controller.Response.Headers.CacheControl.ToString());
+        Assert.Equal("Authorization", controller.Response.Headers.Vary.ToString());
     }
 
     [Fact]

@@ -48,7 +48,8 @@ public class RetroDbContext : IdentityDbContext<AppUser>
                   entity.HasKey(i => i.Id);
                   entity.Property(i => i.Description)
                     .HasField("_description")
-                    .UsePropertyAccessMode(PropertyAccessMode.Field);
+                    .UsePropertyAccessMode(PropertyAccessMode.Field)
+                    .HasMaxLength(ItemLimits.DescriptionMaxLength);
                   entity.Property(i => i.Position)
                     .HasField("_position")
                     .UsePropertyAccessMode(PropertyAccessMode.Field);

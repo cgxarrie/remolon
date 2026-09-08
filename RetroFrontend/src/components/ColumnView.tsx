@@ -7,7 +7,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { itemsApi } from '../api/items';
 import { ItemCard } from './ItemCard';
 import { MergedGroupCard } from './MergedGroupCard';
-import type { GetColumnDto, GetItemDto } from '../types';
+import { ITEM_DESCRIPTION_MAX_LENGTH, type GetColumnDto, type GetItemDto } from '../types';
 import { invalidateRetrospective } from '../query/retrospectiveQueries';
 
 interface Props {
@@ -331,6 +331,7 @@ export function ColumnView({
                                         if (e.key === 'Escape') setAddingItem(false);
                                     }}
                                     rows={3}
+                                    maxLength={ITEM_DESCRIPTION_MAX_LENGTH}
                                     placeholder="What's on your mind?"
                                     className="w-full text-sm border border-slate-300 rounded-md px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                                 />
