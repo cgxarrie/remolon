@@ -74,7 +74,7 @@ public class RetrospectiveManagerRulesTests
         using var userManager = CreateUserManager(context);
         var controller = new UserAssignmentsController(context, userManager, new RetroAuthorizationService(context))
         {
-            ControllerContext = ControllerContext(Roles.Manager, organization.Id),
+            ControllerContext = ControllerContext(Roles.Manager, organization.Id, manager.Id),
         };
 
         var result = await controller.UnassignUser(new AssignUserRequest(manager.Email!, retro.Id));
@@ -82,6 +82,74 @@ public class RetrospectiveManagerRulesTests
         Assert.IsType<BadRequestObjectResult>(result);
         Assert.True(await context.UserRetrospectives.AnyAsync(
             assignment => assignment.UserId == manager.Id && assignment.RetrospectiveId == retro.Id));
+    }
+
+    [Fact]
+    public async Task AssignUser_ManagerNotOnRetrospective_CannotSelfAssign()
+    {
+        await using var context = CreateContext();
+        var (organization, _, outsider, retro) = await SeedTwoManagersAndRetro(context);
+        using var userManager = CreateUserManager(context);
+        var controller = AssignmentsController(context, userManager, organization.Id, outsider.Id);
+
+        var result = await controller.AssignUser(new AssignUserRequest(outsider.Email!, retro.Id));
+
+        Assert.IsType<ForbidResult>(result);
+        Assert.False(await context.UserRetrospectives.AnyAsync(
+            assignment => assignment.UserId == outsider.Id && assignment.RetrospectiveId == retro.Id));
+    }
+
+    [Fact]
+    public async Task AssignUsers_ManagerNotOnRetrospective_CannotSelfAssign()
+    {
+        await using var context = CreateContext();
+        var (organization, _, outsider, retro) = await SeedTwoManagersAndRetro(context);
+        using var userManager = CreateUserManager(context);
+        var controller = AssignmentsController(context, userManager, organization.Id, outsider.Id);
+
+        var result = await controller.AssignUsers(new BatchAssignUsersRequest(retro.Id, [outsider.Id]));
+
+        Assert.IsType<ForbidResult>(result);
+        Assert.False(await context.UserRetrospectives.AnyAsync(
+            assignment => assignment.UserId == outsider.Id && assignment.RetrospectiveId == retro.Id));
+    }
+
+    [Fact]
+    public async Task AssignUser_AssignedManager_CanAssignOrgUser()
+    {
+        await using var context = CreateContext();
+        var organization = new Organization { Name = "Acme" };
+        var manager = new AppUser("manager@acme.test", "manager")
+        {
+            OrganizationId = organization.Id,
+            NormalizedEmail = "MANAGER@ACME.TEST",
+        };
+        var participant = new AppUser("user@acme.test", "user")
+        {
+            OrganizationId = organization.Id,
+            NormalizedEmail = "USER@ACME.TEST",
+        };
+        var managerRole = new IdentityRole(Roles.Manager)
+        {
+            NormalizedName = Roles.Manager.ToUpperInvariant(),
+        };
+        var retro = Retrospective.CreateNew(manager.Id, "Sprint", organization.Id);
+        context.AddRange(organization, manager, participant, managerRole, retro);
+        context.UserRoles.Add(new IdentityUserRole<string> { UserId = manager.Id, RoleId = managerRole.Id });
+        context.UserRetrospectives.Add(new UserRetrospective
+        {
+            UserId = manager.Id,
+            RetrospectiveId = retro.Id,
+        });
+        await context.SaveChangesAsync();
+        using var userManager = CreateUserManager(context);
+        var controller = AssignmentsController(context, userManager, organization.Id, manager.Id);
+
+        var result = await controller.AssignUser(new AssignUserRequest(participant.Email!, retro.Id));
+
+        Assert.IsType<OkObjectResult>(result);
+        Assert.True(await context.UserRetrospectives.AnyAsync(
+            assignment => assignment.UserId == participant.Id && assignment.RetrospectiveId == retro.Id));
     }
 
     [Fact]
@@ -260,11 +328,53 @@ public class RetrospectiveManagerRulesTests
             null!,
             NullLogger<UserManager<AppUser>>.Instance);
 
-    private static ControllerContext ControllerContext(string role, Guid? organizationId = null)
+    private static UserAssignmentsController AssignmentsController(
+        RetroDbContext context,
+        UserManager<AppUser> userManager,
+        Guid organizationId,
+        string userId) =>
+        new(context, userManager, new RetroAuthorizationService(context))
+        {
+            ControllerContext = ControllerContext(Roles.Manager, organizationId, userId),
+        };
+
+    private static async Task<(Organization Organization, AppUser Owner, AppUser Outsider, Retrospective Retro)>
+        SeedTwoManagersAndRetro(RetroDbContext context)
+    {
+        var organization = new Organization { Name = "Acme" };
+        var owner = new AppUser("owner@acme.test", "owner")
+        {
+            OrganizationId = organization.Id,
+            NormalizedEmail = "OWNER@ACME.TEST",
+        };
+        var outsider = new AppUser("outsider@acme.test", "outsider")
+        {
+            OrganizationId = organization.Id,
+            NormalizedEmail = "OUTSIDER@ACME.TEST",
+        };
+        var managerRole = new IdentityRole(Roles.Manager)
+        {
+            NormalizedName = Roles.Manager.ToUpperInvariant(),
+        };
+        var retro = Retrospective.CreateNew(owner.Id, "Sprint", organization.Id);
+        context.AddRange(organization, owner, outsider, managerRole, retro);
+        context.UserRoles.AddRange(
+            new IdentityUserRole<string> { UserId = owner.Id, RoleId = managerRole.Id },
+            new IdentityUserRole<string> { UserId = outsider.Id, RoleId = managerRole.Id });
+        context.UserRetrospectives.Add(new UserRetrospective
+        {
+            UserId = owner.Id,
+            RetrospectiveId = retro.Id,
+        });
+        await context.SaveChangesAsync();
+        return (organization, owner, outsider, retro);
+    }
+
+    private static ControllerContext ControllerContext(string role, Guid? organizationId = null, string userId = "actor")
     {
         var claims = new List<Claim>
         {
-            new(ClaimTypes.NameIdentifier, "actor"),
+            new(ClaimTypes.NameIdentifier, userId),
             new(ClaimTypes.Role, role),
         };
         if (organizationId.HasValue)

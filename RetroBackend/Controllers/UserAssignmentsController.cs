@@ -46,10 +46,7 @@ public class UserAssignmentsController : ControllerBase
         if (retro is null) return NotFound(new { message = "Retrospective not found." });
         if (user.OrganizationId is null || user.OrganizationId != retro.OrganizationId)
             return BadRequest(new { message = "User and retrospective must belong to the same organization." });
-        if (User.HasRole(Roles.Manager)
-            && (!Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var organizationId)
-                || organizationId != retro.OrganizationId))
-            return Forbid();
+        if (!await CanManageRetrospectiveAsync(retro)) return Forbid();
 
         var alreadyAssigned = await _context.UserRetrospectives
             .AnyAsync(ur => ur.UserId == user.Id && ur.RetrospectiveId == request.RetrospectiveId);
@@ -79,7 +76,7 @@ public class UserAssignmentsController : ControllerBase
     {
         var retro = await _context.Retrospectives.FindAsync(request.RetrospectiveId);
         if (retro is null) return NotFound(new { message = "Retrospective not found." });
-        if (!CanManage(retro.OrganizationId)) return Forbid();
+        if (!await CanManageRetrospectiveAsync(retro)) return Forbid();
 
         var userIds = request.UserIds
             .Where(id => !string.IsNullOrWhiteSpace(id))
@@ -146,10 +143,7 @@ public class UserAssignmentsController : ControllerBase
         var retro = await _context.Retrospectives.FindAsync(request.RetrospectiveId);
         if (retro is null || user.OrganizationId != retro.OrganizationId)
             return BadRequest(new { message = "User and retrospective must belong to the same organization." });
-        if (User.HasRole(Roles.Manager)
-            && (!Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var organizationId)
-                || organizationId != retro.OrganizationId))
-            return Forbid();
+        if (!await CanManageRetrospectiveAsync(retro)) return Forbid();
 
         if (await _userManager.IsInRoleAsync(user, Roles.Manager))
         {
@@ -267,4 +261,12 @@ public class UserAssignmentsController : ControllerBase
         User.HasRole(Roles.Manager)
         && Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var managerOrganizationId)
         && managerOrganizationId == organizationId;
+
+    private async Task<bool> CanManageRetrospectiveAsync(Retrospective retro)
+    {
+        if (!CanManage(retro.OrganizationId)) return false;
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        return await _authzService.IsRetrospectiveOwnerAsync(userId, retro.Id)
+            || await _authzService.IsAssignedToRetrospectiveAsync(userId, retro.Id);
+    }
 }

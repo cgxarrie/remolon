@@ -77,15 +77,22 @@ public class ActionItemsController : ControllerBase
         return Ok(item.ToDto());
     }
 
-    /// <summary>Marks an action item as completed.</summary>
+    /// <summary>Marks an action item as completed. The user must own the retrospective or be assigned to it.</summary>
     /// <param name="id">The action item's unique identifier.</param>
     /// <returns>The updated action item data.</returns>
     [HttpPost("{id:guid}/close")]
     [ProducesResponseType(typeof(GetActionItemDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CloseActionItem(Guid id)
     {
-        var closedBy = User.FindFirstValue(System.Security.Claims.ClaimTypes.Email)!;
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var allowed = await _authzService.IsAssignedToRetrospectiveByItemAsync(userId, id)
+            || await _authzService.IsRetrospectiveOwnerByItemAsync(userId, id);
+
+        if (!allowed) return Forbid();
+
+        var closedBy = User.FindFirstValue(ClaimTypes.Email)!;
         var item = await _service.CloseActionItemAsync(id, closedBy);
         if (item is null) return NotFound();
 
