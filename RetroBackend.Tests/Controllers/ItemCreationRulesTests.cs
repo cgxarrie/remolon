@@ -103,7 +103,7 @@ public class ItemCreationRulesTests
         var setup = await SeedAsync();
         var notifier = new RecordingLiveNotifier();
         var controller = new ItemsController(
-            new ItemService(new EfItemRepository(setup.Context)),
+            new ItemService(new EfItemRepository(setup.Context), new RetroAuthorizationService(setup.Context)),
             new RetroAuthorizationService(setup.Context),
             notifier)
         {
@@ -210,7 +210,7 @@ public class ItemCreationRulesTests
 
         var notifier = new RecordingLiveNotifier();
         var controller = new ItemsController(
-            new ItemService(new EfItemRepository(setup.Context)),
+            new ItemService(new EfItemRepository(setup.Context), new RetroAuthorizationService(setup.Context)),
             new RetroAuthorizationService(setup.Context),
             notifier)
         {
@@ -233,7 +233,7 @@ public class ItemCreationRulesTests
 
         var notifier = new RecordingLiveNotifier();
         var controller = new ItemsController(
-            new ItemService(new EfItemRepository(setup.Context)),
+            new ItemService(new EfItemRepository(setup.Context), new RetroAuthorizationService(setup.Context)),
             new RetroAuthorizationService(setup.Context),
             notifier)
         {
@@ -256,7 +256,7 @@ public class ItemCreationRulesTests
 
         var notifier = new RecordingLiveNotifier();
         var controller = new ItemsController(
-            new ItemService(new EfItemRepository(setup.Context)),
+            new ItemService(new EfItemRepository(setup.Context), new RetroAuthorizationService(setup.Context)),
             new RetroAuthorizationService(setup.Context),
             notifier)
         {
@@ -322,7 +322,7 @@ public class ItemCreationRulesTests
         string role,
         IRetrospectiveLiveNotifier? notifier = null) =>
         new(
-            new ItemService(new EfItemRepository(context)),
+            new ItemService(new EfItemRepository(context), new RetroAuthorizationService(context)),
             new RetroAuthorizationService(context),
             notifier ?? new RecordingLiveNotifier())
         {

@@ -122,13 +122,25 @@ public class ItemsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> MergeItems(Guid id, [FromBody] Dtos.MergeItemRequest request)
     {
         if (id == request.TargetItemId)
             return BadRequest(new { message = "An item cannot be merged with itself." });
 
+        var sourceRetroId = await _authzService.GetRetrospectiveIdByItemAsync(id);
+        var targetRetroId = await _authzService.GetRetrospectiveIdByItemAsync(request.TargetItemId);
+        if (sourceRetroId is null || targetRetroId is null)
+            return NotFound();
+        if (sourceRetroId != targetRetroId)
+            return BadRequest(new { message = "Items must belong to the same retrospective." });
+
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-        if (!await CanMergeItemsAsync(userId, id)) return Forbid();
+        if (!await CanMergeItemsAsync(userId, id) || !await CanMergeItemsAsync(userId, request.TargetItemId))
+            return Forbid();
+
+        if (await _authzService.IsRetrospectiveClosedByItemAsync(id))
+            return Conflict(new { message = "Cannot merge items on a closed retrospective." });
 
         var group = await _service.MergeItemsAsync(id, request.TargetItemId);
         if (group is null) return NotFound();

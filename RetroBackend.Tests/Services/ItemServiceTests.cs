@@ -32,7 +32,7 @@ public class ItemServiceTests
 
         await using (var context = CreateContext(dbName))
         {
-            var service = new ItemService(new EfItemRepository(context));
+            var service = new ItemService(new EfItemRepository(context), new RetroAuthorizationService(context));
             var unlinked = await service.UnlinkFromGroupAsync(firstId);
             Assert.NotNull(unlinked);
             Assert.Null(unlinked!.GroupId);
@@ -72,7 +72,7 @@ public class ItemServiceTests
 
         await using (var context = CreateContext(dbName))
         {
-            var service = new ItemService(new EfItemRepository(context));
+            var service = new ItemService(new EfItemRepository(context), new RetroAuthorizationService(context));
             await service.UnlinkFromGroupAsync(firstId);
         }
 
@@ -83,6 +83,69 @@ public class ItemServiceTests
             Assert.Equal(groupId, second.GroupId);
             Assert.Equal(groupId, third.GroupId);
         }
+    }
+
+    [Fact]
+    public async Task MergeItemsAsync_WhenItemsAreOnDifferentRetrospectives_DoesNotMerge()
+    {
+        await using var context = CreateContext($"merge-cross-{Guid.NewGuid()}");
+        var (sourceId, targetId) = await SeedTwoRetrosWithItemsAsync(context);
+
+        var service = new ItemService(new EfItemRepository(context), new RetroAuthorizationService(context));
+        var result = await service.MergeItemsAsync(sourceId, targetId);
+
+        Assert.Null(result);
+        Assert.Null((await context.Items.FindAsync(sourceId))!.GroupId);
+        Assert.Null((await context.Items.FindAsync(targetId))!.GroupId);
+    }
+
+    [Fact]
+    public async Task MergeItemsAsync_WhenItemsShareARetrospective_JoinsTheSameGroup()
+    {
+        await using var context = CreateContext($"merge-same-{Guid.NewGuid()}");
+        var organization = new Organization { Name = "Acme" };
+        var managerId = "mgr";
+        var retro = Retrospective.CreateNew(managerId, "Sprint", organization.Id);
+        retro.AddColumn(managerId, "Went Well", 1);
+        retro.AddColumn(managerId, "To Improve", 2);
+        context.Organizations.Add(organization);
+        context.Retrospectives.Add(retro);
+        await context.SaveChangesAsync();
+
+        var wentWell = retro.Columns.Single(c => c.Title == "Went Well");
+        var toImprove = retro.Columns.Single(c => c.Title == "To Improve");
+        var source = new Item(managerId, "M", wentWell.Id, "A", 0);
+        var target = new Item(managerId, "M", toImprove.Id, "B", 0);
+        context.Items.AddRange(source, target);
+        await context.SaveChangesAsync();
+
+        var service = new ItemService(new EfItemRepository(context), new RetroAuthorizationService(context));
+        var group = (await service.MergeItemsAsync(source.Id, target.Id))!.ToList();
+
+        Assert.Equal(2, group.Count);
+        Assert.NotNull(group[0].GroupId);
+        Assert.Equal(group[0].GroupId, group[1].GroupId);
+    }
+
+    private static async Task<(Guid SourceId, Guid TargetId)> SeedTwoRetrosWithItemsAsync(RetroDbContext context)
+    {
+        var organization = new Organization { Name = "Acme" };
+        var managerId = "mgr";
+        var sourceRetro = Retrospective.CreateNew(managerId, "A", organization.Id);
+        var targetRetro = Retrospective.CreateNew(managerId, "B", organization.Id);
+        sourceRetro.AddColumn(managerId, "Went Well", 1);
+        targetRetro.AddColumn(managerId, "Went Well", 1);
+        context.Organizations.Add(organization);
+        context.Retrospectives.AddRange(sourceRetro, targetRetro);
+        await context.SaveChangesAsync();
+
+        var sourceColumn = sourceRetro.Columns.Single(c => c.Title == "Went Well");
+        var targetColumn = targetRetro.Columns.Single(c => c.Title == "Went Well");
+        var source = new Item(managerId, "M", sourceColumn.Id, "A", 0);
+        var target = new Item(managerId, "M", targetColumn.Id, "B", 0);
+        context.Items.AddRange(source, target);
+        await context.SaveChangesAsync();
+        return (source.Id, target.Id);
     }
 
     private static RetroDbContext CreateContext(string dbName)

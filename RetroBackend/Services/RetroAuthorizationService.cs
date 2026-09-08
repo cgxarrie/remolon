@@ -81,6 +81,19 @@ public class RetroAuthorizationService : IRetroAuthorizationService
         return revealed == true;
     }
 
+    public async Task<bool> IsRetrospectiveClosedByItemAsync(Guid itemId)
+    {
+        var closed = await (
+            from item in _context.Items
+            join column in _context.Columns on item.ColumnId equals column.Id
+            join retro in _context.Retrospectives on column.RetrospectiveId equals retro.Id
+            where item.Id == itemId
+            select (bool?)retro.IsClosed
+        ).FirstOrDefaultAsync();
+
+        return closed == true;
+    }
+
     public async Task<Guid?> GetRetrospectiveIdByItemAsync(Guid itemId)
     {
         var columnId = await _context.Items
