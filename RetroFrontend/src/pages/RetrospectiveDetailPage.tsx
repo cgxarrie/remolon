@@ -9,7 +9,7 @@ import { AssignUserModal } from '../components/AssignUserModal';
 import { ParticipantsTable } from '../components/ParticipantsTable';
 import type { AvatarEntry } from '../components/ParticipantsTable';
 import { createRetrospectiveHubConnection } from '../api/retrospectiveHub';
-import type { ItemsChangedEvent, ObjectThrownEvent, RetrospectiveClosedEvent, RetrospectiveDeletedEvent, RetrospectiveRevealedEvent } from '../api/retrospectiveHub';
+import type { ItemsChangedEvent, ObjectThrownEvent, RetrospectiveAccessRevokedEvent, RetrospectiveClosedEvent, RetrospectiveDeletedEvent, RetrospectiveRevealedEvent } from '../api/retrospectiveHub';
 import { invalidateRetrospective } from '../query/retrospectiveQueries';
 import { useAuthStore } from '../store/authStore';
 
@@ -370,11 +370,18 @@ export function RetrospectiveDetailPage() {
             navigate('/retrospectives');
         };
 
+        const handleAccessRevoked = (event: RetrospectiveAccessRevokedEvent) => {
+            if (event.retrospectiveId.toLowerCase() !== id.toLowerCase()) return;
+            void queryClient.invalidateQueries({ queryKey: ['retrospectives'] });
+            navigate('/retrospectives');
+        };
+
         connection.on('ObjectThrown', handleThrown);
         connection.on('ItemsChanged', refreshBoard);
         connection.on('RetrospectiveRevealed', refreshBoard);
         connection.on('RetrospectiveClosed', handleClosed);
         connection.on('RetrospectiveDeleted', handleDeleted);
+        connection.on('RetrospectiveAccessRevoked', handleAccessRevoked);
 
         const join = () => connection.invoke('Join', id).catch(() => undefined);
 
@@ -390,6 +397,7 @@ export function RetrospectiveDetailPage() {
             connection.off('RetrospectiveRevealed', refreshBoard);
             connection.off('RetrospectiveClosed', handleClosed);
             connection.off('RetrospectiveDeleted', handleDeleted);
+            connection.off('RetrospectiveAccessRevoked', handleAccessRevoked);
             hubConnectionRef.current = null;
             void connection.stop();
         };

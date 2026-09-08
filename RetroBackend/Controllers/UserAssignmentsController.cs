@@ -20,12 +20,18 @@ public class UserAssignmentsController : ControllerBase
     private readonly RetroDbContext _context;
     private readonly UserManager<AppUser> _userManager;
     private readonly IRetroAuthorizationService _authzService;
+    private readonly IRetrospectiveHubMembership _hubMembership;
 
-    public UserAssignmentsController(RetroDbContext context, UserManager<AppUser> userManager, IRetroAuthorizationService authzService)
+    public UserAssignmentsController(
+        RetroDbContext context,
+        UserManager<AppUser> userManager,
+        IRetroAuthorizationService authzService,
+        IRetrospectiveHubMembership hubMembership)
     {
         _context = context;
         _userManager = userManager;
         _authzService = authzService;
+        _hubMembership = hubMembership;
     }
 
     /// <summary>Assigns a user to a retrospective. Manager.</summary>
@@ -121,6 +127,12 @@ public class UserAssignmentsController : ControllerBase
         _context.UserRetrospectives.RemoveRange(removals);
         await _context.SaveChangesAsync();
 
+        foreach (var removal in removals)
+        {
+            if (!await _authzService.IsRetrospectiveOwnerAsync(removal.UserId, request.RetrospectiveId))
+                await _hubMembership.RemoveUserFromRetrospectiveAsync(removal.UserId, request.RetrospectiveId);
+        }
+
         return Ok(new { assignedCount = assignments.Count, removedCount = removals.Count });
     }
 
@@ -166,6 +178,9 @@ public class UserAssignmentsController : ControllerBase
 
         _context.UserRetrospectives.Remove(assignment);
         await _context.SaveChangesAsync();
+
+        if (!await _authzService.IsRetrospectiveOwnerAsync(user.Id, request.RetrospectiveId))
+            await _hubMembership.RemoveUserFromRetrospectiveAsync(user.Id, request.RetrospectiveId);
 
         return NoContent();
     }

@@ -67,6 +67,18 @@ public class RetrospectiveRealtimeServiceTests
     }
 
     [Fact]
+    public async Task TryCreateThrow_RejectsTargetNotOnRetrospective()
+    {
+        var setup = await SeedAsync();
+        var service = CreateService(setup.Context);
+        var user = Principal(setup.AssignedUserId, Roles.StandardUser, setup.OrganizationId);
+
+        var thrown = await service.TryCreateThrowAsync(user, setup.RetrospectiveId, "stranger", "axe");
+
+        Assert.Null(thrown);
+    }
+
+    [Fact]
     public async Task CanAccess_ManagerFromAnotherOrganizationCannotJoin()
     {
         var setup = await SeedAsync();
@@ -124,6 +136,11 @@ public class RetrospectiveRealtimeServiceTests
         context.UserRetrospectives.Add(new UserRetrospective
         {
             UserId = assigned.Id,
+            RetrospectiveId = retro.Id,
+        });
+        context.UserRetrospectives.Add(new UserRetrospective
+        {
+            UserId = target.Id,
             RetrospectiveId = retro.Id,
         });
         await context.SaveChangesAsync();

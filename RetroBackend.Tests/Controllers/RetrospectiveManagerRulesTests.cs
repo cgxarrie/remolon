@@ -72,7 +72,7 @@ public class RetrospectiveManagerRulesTests
         });
         await context.SaveChangesAsync();
         using var userManager = CreateUserManager(context);
-        var controller = new UserAssignmentsController(context, userManager, new RetroAuthorizationService(context))
+        var controller = new UserAssignmentsController(context, userManager, new RetroAuthorizationService(context), new NoOpHubMembership())
         {
             ControllerContext = ControllerContext(Roles.Manager, organization.Id, manager.Id),
         };
@@ -150,6 +150,137 @@ public class RetrospectiveManagerRulesTests
         Assert.IsType<OkObjectResult>(result);
         Assert.True(await context.UserRetrospectives.AnyAsync(
             assignment => assignment.UserId == participant.Id && assignment.RetrospectiveId == retro.Id));
+    }
+
+    [Fact]
+    public async Task UnassignUser_NonOwner_RemovesHubMembership()
+    {
+        await using var context = CreateContext();
+        var organization = new Organization { Name = "Acme" };
+        var manager = new AppUser("manager@acme.test", "manager")
+        {
+            OrganizationId = organization.Id,
+            NormalizedEmail = "MANAGER@ACME.TEST",
+        };
+        var participant = new AppUser("user@acme.test", "user")
+        {
+            OrganizationId = organization.Id,
+            NormalizedEmail = "USER@ACME.TEST",
+        };
+        var managerRole = new IdentityRole(Roles.Manager)
+        {
+            NormalizedName = Roles.Manager.ToUpperInvariant(),
+        };
+        var retro = Retrospective.CreateNew(manager.Id, "Sprint", organization.Id);
+        context.AddRange(organization, manager, participant, managerRole, retro);
+        context.UserRoles.Add(new IdentityUserRole<string> { UserId = manager.Id, RoleId = managerRole.Id });
+        context.UserRetrospectives.AddRange(
+            new UserRetrospective { UserId = manager.Id, RetrospectiveId = retro.Id },
+            new UserRetrospective { UserId = participant.Id, RetrospectiveId = retro.Id });
+        await context.SaveChangesAsync();
+        using var userManager = CreateUserManager(context);
+        var membership = new RecordingHubMembership();
+        var controller = new UserAssignmentsController(
+            context,
+            userManager,
+            new RetroAuthorizationService(context),
+            membership)
+        {
+            ControllerContext = ControllerContext(Roles.Manager, organization.Id, manager.Id),
+        };
+
+        var result = await controller.UnassignUser(new AssignUserRequest(participant.Email!, retro.Id));
+
+        Assert.IsType<NoContentResult>(result);
+        Assert.Equal([(participant.Id, retro.Id)], membership.Removals);
+    }
+
+    [Fact]
+    public async Task UnassignUser_Owner_KeepsHubMembership()
+    {
+        await using var context = CreateContext();
+        var organization = new Organization { Name = "Acme" };
+        var owner = new AppUser("owner@acme.test", "owner")
+        {
+            OrganizationId = organization.Id,
+            NormalizedEmail = "OWNER@ACME.TEST",
+        };
+        var manager = new AppUser("manager@acme.test", "manager")
+        {
+            OrganizationId = organization.Id,
+            NormalizedEmail = "MANAGER@ACME.TEST",
+        };
+        var managerRole = new IdentityRole(Roles.Manager)
+        {
+            NormalizedName = Roles.Manager.ToUpperInvariant(),
+        };
+        var retro = Retrospective.CreateNew(owner.Id, "Sprint", organization.Id);
+        context.AddRange(organization, owner, manager, managerRole, retro);
+        context.UserRoles.AddRange(
+            new IdentityUserRole<string> { UserId = owner.Id, RoleId = managerRole.Id },
+            new IdentityUserRole<string> { UserId = manager.Id, RoleId = managerRole.Id });
+        context.UserRetrospectives.AddRange(
+            new UserRetrospective { UserId = owner.Id, RetrospectiveId = retro.Id },
+            new UserRetrospective { UserId = manager.Id, RetrospectiveId = retro.Id });
+        await context.SaveChangesAsync();
+        using var userManager = CreateUserManager(context);
+        var membership = new RecordingHubMembership();
+        var controller = new UserAssignmentsController(
+            context,
+            userManager,
+            new RetroAuthorizationService(context),
+            membership)
+        {
+            ControllerContext = ControllerContext(Roles.Manager, organization.Id, manager.Id),
+        };
+
+        var result = await controller.UnassignUser(new AssignUserRequest(owner.Email!, retro.Id));
+
+        Assert.IsType<NoContentResult>(result);
+        Assert.Empty(membership.Removals);
+    }
+
+    [Fact]
+    public async Task AssignUsers_RemovedParticipant_RemovesHubMembership()
+    {
+        await using var context = CreateContext();
+        var organization = new Organization { Name = "Acme" };
+        var manager = new AppUser("manager@acme.test", "manager")
+        {
+            OrganizationId = organization.Id,
+            NormalizedEmail = "MANAGER@ACME.TEST",
+        };
+        var participant = new AppUser("user@acme.test", "user")
+        {
+            OrganizationId = organization.Id,
+            NormalizedEmail = "USER@ACME.TEST",
+        };
+        var managerRole = new IdentityRole(Roles.Manager)
+        {
+            NormalizedName = Roles.Manager.ToUpperInvariant(),
+        };
+        var retro = Retrospective.CreateNew(manager.Id, "Sprint", organization.Id);
+        context.AddRange(organization, manager, participant, managerRole, retro);
+        context.UserRoles.Add(new IdentityUserRole<string> { UserId = manager.Id, RoleId = managerRole.Id });
+        context.UserRetrospectives.AddRange(
+            new UserRetrospective { UserId = manager.Id, RetrospectiveId = retro.Id },
+            new UserRetrospective { UserId = participant.Id, RetrospectiveId = retro.Id });
+        await context.SaveChangesAsync();
+        using var userManager = CreateUserManager(context);
+        var membership = new RecordingHubMembership();
+        var controller = new UserAssignmentsController(
+            context,
+            userManager,
+            new RetroAuthorizationService(context),
+            membership)
+        {
+            ControllerContext = ControllerContext(Roles.Manager, organization.Id, manager.Id),
+        };
+
+        var result = await controller.AssignUsers(new BatchAssignUsersRequest(retro.Id, [manager.Id]));
+
+        Assert.IsType<OkObjectResult>(result);
+        Assert.Equal([(participant.Id, retro.Id)], membership.Removals);
     }
 
     [Fact]
@@ -333,7 +464,7 @@ public class RetrospectiveManagerRulesTests
         UserManager<AppUser> userManager,
         Guid organizationId,
         string userId) =>
-        new(context, userManager, new RetroAuthorizationService(context))
+        new(context, userManager, new RetroAuthorizationService(context), new NoOpHubMembership())
         {
             ControllerContext = ControllerContext(Roles.Manager, organizationId, userId),
         };

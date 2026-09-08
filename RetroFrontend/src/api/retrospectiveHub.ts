@@ -14,6 +14,7 @@ export interface ItemsChangedEvent {
 export type RetrospectiveRevealedEvent = ItemsChangedEvent;
 export type RetrospectiveClosedEvent = ItemsChangedEvent;
 export type RetrospectiveDeletedEvent = ItemsChangedEvent;
+export type RetrospectiveAccessRevokedEvent = ItemsChangedEvent;
 
 export function createRetrospectiveHubConnection(): HubConnection {
     return new HubConnectionBuilder()

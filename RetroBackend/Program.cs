@@ -3,6 +3,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -153,6 +154,8 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddSingleton<IUserIdProvider, NameIdentifierUserIdProvider>();
+builder.Services.AddSingleton<RetrospectiveHubConnectionTracker>();
 builder.Services.AddSignalR();
 
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
@@ -166,6 +169,7 @@ builder.Services.AddScoped<IItemService, ItemService>();
 builder.Services.AddScoped<IRetroAuthorizationService, RetroAuthorizationService>();
 builder.Services.AddScoped<IRetrospectiveRealtimeService, RetrospectiveRealtimeService>();
 builder.Services.AddScoped<IRetrospectiveLiveNotifier, RetrospectiveLiveNotifier>();
+builder.Services.AddSingleton<IRetrospectiveHubMembership, RetrospectiveHubMembership>();
 
 var app = builder.Build();
 
