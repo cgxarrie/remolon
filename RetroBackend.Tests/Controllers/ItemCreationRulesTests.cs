@@ -125,10 +125,7 @@ public class ItemCreationRulesTests
     public async Task CloseActionItem_NotifiesOpenRetrospectiveClients()
     {
         var setup = await SeedAsync();
-        var pendingColumnId = setup.Context.Columns.Single(c => c.Title == "Pending Action Items").Id;
-        var pending = new ActionItem(setup.AssignedUserId, "Alice", "Alice", pendingColumnId, "Carry over", 0);
-        setup.Context.Items.Add(pending);
-        await setup.Context.SaveChangesAsync();
+        var pending = await AddPendingActionItemAsync(setup);
 
         var notifier = new RecordingLiveNotifier();
         var controller = CreateActionItemsController(setup.Context, setup.AssignedUserId, Roles.StandardUser, notifier);
@@ -141,7 +138,22 @@ public class ItemCreationRulesTests
     }
 
     [Fact]
-    public async Task CloseActionItem_WhenMissing_DoesNotNotify()
+    public async Task CloseActionItem_OwnerManagerWhoIsNotAssigned_IsAllowed()
+    {
+        var setup = await SeedAsync();
+        var pending = await AddPendingActionItemAsync(setup);
+        var notifier = new RecordingLiveNotifier();
+        var controller = CreateActionItemsController(setup.Context, setup.OwnerId, Roles.Manager, notifier);
+
+        var result = await controller.CloseActionItem(pending.Id);
+
+        var dto = Assert.IsType<GetActionItemDto>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.True(dto.IsCompleted);
+        Assert.Equal([setup.RetrospectiveId], notifier.ItemsChangedNotifications);
+    }
+
+    [Fact]
+    public async Task CloseActionItem_WhenMissing_IsForbidden()
     {
         var setup = await SeedAsync();
         var notifier = new RecordingLiveNotifier();
@@ -149,7 +161,42 @@ public class ItemCreationRulesTests
 
         var result = await controller.CloseActionItem(Guid.NewGuid());
 
-        Assert.IsType<NotFoundResult>(result);
+        Assert.IsType<ForbidResult>(result);
+        Assert.Empty(notifier.ItemsChangedNotifications);
+    }
+
+    [Fact]
+    public async Task CloseActionItem_UnrelatedUser_IsForbidden()
+    {
+        var setup = await SeedAsync();
+        var pending = await AddPendingActionItemAsync(setup);
+        var notifier = new RecordingLiveNotifier();
+        var controller = CreateActionItemsController(setup.Context, "outsider", Roles.Manager, notifier);
+
+        var result = await controller.CloseActionItem(pending.Id);
+
+        Assert.IsType<ForbidResult>(result);
+        Assert.False(pending.IsCompleted);
+        Assert.Empty(notifier.ItemsChangedNotifications);
+    }
+
+    [Fact]
+    public async Task CloseActionItem_OtherOrganizationUser_IsForbidden()
+    {
+        var setup = await SeedAsync();
+        var pending = await AddPendingActionItemAsync(setup);
+
+        var globex = new Organization { Name = "Globex" };
+        setup.Context.Organizations.Add(globex);
+        await setup.Context.SaveChangesAsync();
+
+        var notifier = new RecordingLiveNotifier();
+        var controller = CreateActionItemsController(setup.Context, "globex-user", Roles.StandardUser, notifier);
+
+        var result = await controller.CloseActionItem(pending.Id);
+
+        Assert.IsType<ForbidResult>(result);
+        Assert.False(pending.IsCompleted);
         Assert.Empty(notifier.ItemsChangedNotifications);
     }
 
@@ -258,6 +305,15 @@ public class ItemCreationRulesTests
 
         Assert.IsType<NoContentResult>(result);
         Assert.Equal([setup.RetrospectiveId], notifier.ItemsChangedNotifications);
+    }
+
+    private static async Task<ActionItem> AddPendingActionItemAsync(Setup setup)
+    {
+        var pendingColumnId = setup.Context.Columns.Single(c => c.Title == "Pending Action Items").Id;
+        var pending = new ActionItem(setup.AssignedUserId, "Alice", "Alice", pendingColumnId, "Carry over", 0);
+        setup.Context.Items.Add(pending);
+        await setup.Context.SaveChangesAsync();
+        return pending;
     }
 
     private static ActionItemsController CreateActionItemsController(
