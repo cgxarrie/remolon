@@ -92,6 +92,8 @@ builder.Services.Configure<PasswordResetTokenProviderOptions>(options =>
     options.TokenLifespan = TimeSpan.FromMinutes(30);
 });
 
+var jwtSigningKey = JwtSigningKey.Resolve(builder.Configuration);
+
 builder.Services
     .AddAuthentication(options =>
     {
@@ -111,7 +113,7 @@ builder.Services
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)),
+                Encoding.UTF8.GetBytes(jwtSigningKey)),
         };
 
         options.Events = new JwtBearerEvents

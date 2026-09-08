@@ -182,7 +182,7 @@ public class MultiTenancyControllerTests
         new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Jwt:Key"] = "CHANGE_THIS_SECRET_KEY_MIN_32_CHARS_LONG_!!",
+                ["Jwt:Key"] = "unit-test-jwt-signing-key-32ch!!",
                 ["Jwt:Issuer"] = "RetroBackend",
                 ["Jwt:Audience"] = "RetroBackendClients",
             })

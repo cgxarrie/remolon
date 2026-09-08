@@ -7,9 +7,7 @@ services:
     environment:
       POSTGRES_DB: retrodb
       POSTGRES_USER: retro
-      POSTGRES_PASSWORD: retro_password
-    ports:
-      - "5432:5432"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -28,8 +26,8 @@ services:
       - "5145:8080"   # exposes backend directly for dev/Swagger access
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=retrodb;Username=retro;Password=retro_password"
-      Jwt__Key: "CHANGE_THIS_SECRET_KEY_MIN_32_CHARS_LONG_!!"
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=retrodb;Username=retro;Password=${POSTGRES_PASSWORD}"
+      Jwt__Key: "${JWT_KEY:?Set JWT_KEY in .env}"
       Jwt__Issuer: RetroBackend
       Jwt__Audience: RetroBackendClients
       # frontend container is on port 3000 – allow it as CORS origin
@@ -37,6 +35,8 @@ services:
       Cors__AllowedOrigins__1: "http://localhost:5173"
       Email__SmtpHost: mailpit
       Email__SmtpPort: "1025"
+      Email__SmtpUser: "${EMAIL_SMTP_USER:-}"
+      Email__SmtpPassword: "${EMAIL_SMTP_PASSWORD:-}"
       Email__From: "noreply@remolon.local"
       Email__FrontendBaseUrl: "http://localhost:3000"
     depends_on:
@@ -49,9 +49,6 @@ services:
   mailpit:
     image: axllent/mailpit
     restart: unless-stopped
-    ports:
-      - "8025:8025"
-      - "1025:1025"
 
   # ── Frontend (nginx) ────────────────────────────────────────────────────────
   frontend:
