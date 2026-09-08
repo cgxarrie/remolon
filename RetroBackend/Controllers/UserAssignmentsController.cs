@@ -192,20 +192,12 @@ public class UserAssignmentsController : ControllerBase
     [Authorize(Roles = Roles.Manager + "," + Roles.StandardUser)]
     [ProducesResponseType(typeof(IEnumerable<UserSummaryDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetRetrospectiveParticipants(Guid retrospectiveId)
     {
-        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-        var isManager = User.HasRole(Roles.Manager);
-
-        if (!isManager)
-        {
-            var isOwner = await _authzService.IsRetrospectiveOwnerAsync(currentUserId, retrospectiveId);
-            var isAssigned = await _context.UserRetrospectives
-                .AnyAsync(ur => ur.UserId == currentUserId && ur.RetrospectiveId == retrospectiveId);
-
-            if (!isOwner && !isAssigned)
-                return Forbid();
-        }
+        var retro = await _context.Retrospectives.FindAsync(retrospectiveId);
+        if (retro is null) return NotFound();
+        if (!await CanAccessRetrospectiveAsync(retro)) return Forbid();
 
         var users = await _context.UserRetrospectives
             .Where(ur => ur.RetrospectiveId == retrospectiveId)
@@ -277,11 +269,24 @@ public class UserAssignmentsController : ControllerBase
         && Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var managerOrganizationId)
         && managerOrganizationId == organizationId;
 
+    private async Task<bool> CanAccessRetrospectiveAsync(Retrospective retro)
+    {
+        if (!Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var organizationId)
+            || organizationId != retro.OrganizationId)
+        {
+            return false;
+        }
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId)) return false;
+
+        return await _authzService.IsRetrospectiveOwnerAsync(userId, retro.Id)
+            || await _authzService.IsAssignedToRetrospectiveAsync(userId, retro.Id);
+    }
+
     private async Task<bool> CanManageRetrospectiveAsync(Retrospective retro)
     {
         if (!CanManage(retro.OrganizationId)) return false;
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-        return await _authzService.IsRetrospectiveOwnerAsync(userId, retro.Id)
-            || await _authzService.IsAssignedToRetrospectiveAsync(userId, retro.Id);
+        return await CanAccessRetrospectiveAsync(retro);
     }
 }
