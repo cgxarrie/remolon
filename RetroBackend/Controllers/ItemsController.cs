@@ -15,6 +15,7 @@ namespace RetroBackend.Controllers;
 [Produces("application/json")]
 public class ItemsController : ControllerBase
 {
+    private const string ClosedBoardMessage = "Cannot modify items on a closed retrospective.";
     private readonly IItemService _service;
     private readonly IRetroAuthorizationService _authzService;
     private readonly IRetrospectiveLiveNotifier _liveNotifier;
@@ -36,6 +37,7 @@ public class ItemsController : ControllerBase
     [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> CreateItem([FromBody] Dtos.CreateItemRequest request)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -44,6 +46,8 @@ public class ItemsController : ControllerBase
             || await _authzService.IsRetrospectiveOwnerByColumnAsync(userId, request.ColumnId);
 
         if (!allowed) return Forbid();
+        if (await _authzService.IsRetrospectiveClosedByColumnAsync(request.ColumnId))
+            return Conflict(new { message = ClosedBoardMessage });
 
         var svcReq = request.ToServiceRequest();
         svcReq.CreatedBy = userId;
@@ -61,10 +65,13 @@ public class ItemsController : ControllerBase
     [ProducesResponseType(typeof(GetItemDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateItem(Guid id, [FromBody] Dtos.UpdateItemRequest request)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         if (!await CanEditOrDeleteItemAsync(userId, id)) return Forbid();
+        if (await _authzService.IsRetrospectiveClosedByItemAsync(id))
+            return Conflict(new { message = ClosedBoardMessage });
 
         var item = await _service.UpdateItemAsync(id, request.ToServiceRequest());
         if (item is null) return NotFound();
@@ -80,10 +87,13 @@ public class ItemsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> DeleteItem(Guid id)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         if (!await CanEditOrDeleteItemAsync(userId, id)) return Forbid();
+        if (await _authzService.IsRetrospectiveClosedByItemAsync(id))
+            return Conflict(new { message = ClosedBoardMessage });
 
         var retrospectiveId = await _authzService.GetRetrospectiveIdByItemAsync(id);
         var deleted = await _service.DeleteAsync(id);
@@ -101,10 +111,13 @@ public class ItemsController : ControllerBase
     [ProducesResponseType(typeof(GetItemDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UnlinkFromGroup(Guid id)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
         if (!await CanMergeItemsAsync(userId, id)) return Forbid();
+        if (await _authzService.IsRetrospectiveClosedByItemAsync(id))
+            return Conflict(new { message = ClosedBoardMessage });
 
         var item = await _service.UnlinkFromGroupAsync(id);
         if (item is null) return NotFound();
@@ -140,7 +153,7 @@ public class ItemsController : ControllerBase
             return Forbid();
 
         if (await _authzService.IsRetrospectiveClosedByItemAsync(id))
-            return Conflict(new { message = "Cannot merge items on a closed retrospective." });
+            return Conflict(new { message = ClosedBoardMessage });
 
         var group = await _service.MergeItemsAsync(id, request.TargetItemId);
         if (group is null) return NotFound();
