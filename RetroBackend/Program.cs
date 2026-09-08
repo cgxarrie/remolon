@@ -168,6 +168,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<RetroDbContext>();
     await db.Database.MigrateAsync();
+    await IdentityBootstrap.EnsureRolesAsync(scope.ServiceProvider);
 }
 
 if (app.Environment.IsDevelopment())
