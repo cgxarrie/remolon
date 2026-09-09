@@ -84,6 +84,7 @@ dist-ssr/
 
 # Docker
 .docker/
+docker-compose.override.yml
 
 # ASP.NET Data Protection keys (reset/invite tokens)
 .dataprotection-keys/
