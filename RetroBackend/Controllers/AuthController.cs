@@ -32,7 +32,6 @@ public class AuthController : ControllerBase
     private readonly EmailOptions _emailOptions;
     private readonly ILogger<AuthController> _logger;
     private readonly IAuthTokenService _authTokenService;
-    private readonly IHostEnvironment _environment;
 
     public AuthController(
         UserManager<AppUser> userManager,
@@ -49,7 +48,7 @@ public class AuthController : ControllerBase
         _emailOptions = emailOptions.Value;
         _logger = logger;
         _authTokenService = authTokenService;
-        _environment = environment;
+        _ = environment;
     }
 
     /// <summary>Registers a new manager and creates their organization.</summary>
@@ -305,7 +304,7 @@ public class AuthController : ControllerBase
             Request.Cookies.TryGetValue(AuthCookies.Refresh, out presented);
         if (!string.IsNullOrWhiteSpace(presented))
             await _authTokenService.RevokeAsync(presented);
-        AuthCookies.Clear(Response, _environment);
+        AuthCookies.Clear(Response, Request.IsHttps);
         return NoContent();
     }
 
@@ -338,7 +337,7 @@ public class AuthController : ControllerBase
 
     private IActionResult TokenOk(AuthTokenResponse response)
     {
-        AuthCookies.Append(Response, _environment, response);
+        AuthCookies.Append(Response, Request.IsHttps, response);
         return Ok(response);
     }
 

@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Hosting;
 using RetroBackend.Dtos;
 using RetroBackend.Services;
 
@@ -10,9 +9,8 @@ public static class AuthCookies
     public const string Access = "access_token";
     public const string Refresh = "refresh_token";
 
-    public static void Append(HttpResponse response, IHostEnvironment environment, AuthTokenResponse tokens)
+    public static void Append(HttpResponse response, bool secure, AuthTokenResponse tokens)
     {
-        var secure = !environment.IsDevelopment();
         response.Cookies.Append(Access, tokens.Token, AccessOptions(secure));
         if (!string.IsNullOrEmpty(tokens.RefreshToken))
         {
@@ -20,9 +18,8 @@ public static class AuthCookies
         }
     }
 
-    public static void Clear(HttpResponse response, IHostEnvironment environment)
+    public static void Clear(HttpResponse response, bool secure)
     {
-        var secure = !environment.IsDevelopment();
         response.Cookies.Delete(Access, AccessOptions(secure));
         response.Cookies.Delete(Refresh, RefreshOptions(secure));
     }

@@ -28,7 +28,6 @@ public class UsersController : ControllerBase
     private readonly EmailOptions _emailOptions;
     private readonly ILogger<UsersController> _logger;
     private readonly IAuthTokenService _authTokenService;
-    private readonly IHostEnvironment _environment;
 
     public UsersController(
         UserManager<AppUser> userManager,
@@ -45,7 +44,7 @@ public class UsersController : ControllerBase
         _emailOptions = emailOptions.Value;
         _logger = logger;
         _authTokenService = authTokenService;
-        _environment = environment;
+        _ = environment;
     }
 
     /// <summary>Returns the authenticated user's profile.</summary>
@@ -88,7 +87,7 @@ public class UsersController : ControllerBase
         var roles = await _userManager.GetRolesAsync(user);
         var role = roles.FirstOrDefault() ?? Roles.StandardUser;
         var tokens = await _authTokenService.BuildAuthResponseAsync(user, role);
-        AuthCookies.Append(Response, _environment, tokens);
+        AuthCookies.Append(Response, Request.IsHttps, tokens);
         return Ok(tokens);
     }
 
