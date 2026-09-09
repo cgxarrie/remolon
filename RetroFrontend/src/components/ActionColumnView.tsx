@@ -69,9 +69,7 @@ export function ActionColumnView({
     const sortedItems = [...column.items].sort((a, b) => a.position - b.position);
     const isActionItemsColumn = column.title === 'Action Items';
     const isPendingActionItemsColumn = column.title.toLowerCase().includes('pending');
-    const headerColor = column.title.toLowerCase().includes('pending')
-        ? 'bg-amber-600'
-        : 'bg-emerald-600';
+    const headerColor = isPendingActionItemsColumn ? 'theme-header-soft' : 'theme-header';
 
     return (
         <div className="flex flex-col w-full">

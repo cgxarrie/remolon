@@ -567,6 +567,30 @@ export function RetrospectiveDetailPage() {
                             </div>
                             {canManage && (
                                 <div className="flex items-center gap-2 mt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAssign(true)}
+                                        className="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+                                        title="Manage participants"
+                                        aria-label="Manage participants"
+                                    >
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="1.75"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            className="w-4 h-4"
+                                            aria-hidden="true"
+                                        >
+                                            <path d="M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1" />
+                                            <circle cx="9" cy="7" r="4" />
+                                            <path d="M19 8v6" />
+                                            <path d="M22 11h-6" />
+                                        </svg>
+                                    </button>
                                     {!retro.isRevealed && (
                                         <button
                                             onClick={() => revealMutation.mutate()}
@@ -682,73 +706,38 @@ export function RetrospectiveDetailPage() {
                     </div>
                 )}
 
-                <div className="space-y-4">
-                    <section className="bg-white/75 backdrop-blur border border-slate-200 rounded-2xl p-4">
-                        <div className="mb-2 flex items-center justify-between gap-2">
-                            <p className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
-                                People
-                            </p>
-                            {canManage && (
-                                <button
-                                    type="button"
-                                    onClick={() => setShowAssign(true)}
-                                    className="p-1 text-slate-400 hover:text-indigo-600 rounded-md transition-colors"
-                                    title="Manage participants"
-                                    aria-label="Manage participants"
-                                >
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="1.75"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        className="w-4 h-4"
-                                        aria-hidden="true"
-                                    >
-                                        <path d="M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1" />
-                                        <circle cx="9" cy="7" r="4" />
-                                        <path d="M19 8v6" />
-                                        <path d="M22 11h-6" />
-                                    </svg>
-                                </button>
+                <ParticipantsTable
+                    currentUser={currentUser}
+                    participants={otherUsers}
+                    targetedIds={axeFlights.map((flight) => flight.targetId)}
+                    onParticipantClick={launchAxeToParticipant}
+                    currentUserRef={(element) => {
+                        currentAvatarRef.current = element;
+                    }}
+                    participantRef={(participantId, element) => {
+                        targetAvatarRefs.current[participantId] = element;
+                    }}
+                    currentUserAction={(
+                        <button
+                            onClick={handleCurrentThrowableIconClick}
+                            className="text-lg leading-none rounded hover:bg-slate-100 p-1"
+                            aria-label={`Selected throwable ${selectedThrowable.label}`}
+                            title={selectedThrowable.label}
+                        >
+                            {selectedThrowable.imageUrl ? (
+                                <img
+                                    src={selectedThrowable.imageUrl}
+                                    alt={selectedThrowable.label}
+                                    className="h-6 w-6 object-contain"
+                                />
+                            ) : (
+                                selectedThrowable.emoji
                             )}
-                        </div>
-                        <ParticipantsTable
-                            currentUser={currentUser}
-                            participants={otherUsers}
-                            targetedIds={axeFlights.map((flight) => flight.targetId)}
-                            onParticipantClick={launchAxeToParticipant}
-                            currentUserRef={(element) => {
-                                currentAvatarRef.current = element;
-                            }}
-                            participantRef={(participantId, element) => {
-                                targetAvatarRefs.current[participantId] = element;
-                            }}
-                            centerAction={(
-                                <button
-                                    onClick={handleCurrentThrowableIconClick}
-                                    className="text-lg leading-none rounded hover:bg-slate-100 p-1"
-                                    aria-label={`Selected throwable ${selectedThrowable.label}`}
-                                    title={selectedThrowable.label}
-                                >
-                                    {selectedThrowable.imageUrl ? (
-                                        <img
-                                            src={selectedThrowable.imageUrl}
-                                            alt={selectedThrowable.label}
-                                            className="h-6 w-6 object-contain"
-                                        />
-                                    ) : (
-                                        selectedThrowable.emoji
-                                    )}
-                                </button>
-                            )}
-                        />
-                    </section>
-
+                        </button>
+                    )}
+                >
                     <RetroBoard retro={retro} assigneeOptions={assigneeOptions} />
-                </div>
+                </ParticipantsTable>
             </div>
 
             {showAssign && (

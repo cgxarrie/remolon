@@ -4,10 +4,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Layout } from '../components/Layout';
 import { organizationsApi } from '../api/organizations';
 import { useAuthStore } from '../store/authStore';
-import { defaultCustomPalette, resolveTheme, themePresets } from '../theme';
+import { defaultCustomPalette, presetThemeKeys, resolveTheme, themePresets } from '../theme';
 import type { Organization, SaveOrganizationRequest, ThemeKey } from '../types';
 
-const themeOptions: ThemeKey[] = ['default', 'ocean', 'forest', 'sunset', 'custom'];
+const themeOptions: ThemeKey[] = [...presetThemeKeys, 'custom'];
 
 function emptyDraft(): SaveOrganizationRequest {
     return {
@@ -53,13 +53,14 @@ function ThemePicker({
     return (
         <div className="space-y-3">
             <span className="text-sm font-medium text-slate-700">Theme</span>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                 {themeOptions.map((key) => {
                     const palette = key === 'custom' ? customPalette : themePresets[key];
                     return (
                         <button
                             type="button"
                             key={key}
+                            aria-pressed={draft.themeKey === key}
                             onClick={() => onChange({ ...draft, themeKey: key })}
                             className={`rounded-lg border p-2 text-left transition ${
                                 draft.themeKey === key ? 'ring-2 border-transparent' : 'border-slate-200'

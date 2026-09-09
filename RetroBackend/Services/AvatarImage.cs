@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using RetroBackend.Models;
 
 namespace RetroBackend.Services;
@@ -37,6 +38,15 @@ public static class AvatarImage
         };
     }
 
+    /// <summary>
+    /// Builds the avatar URL, carrying a version derived from the image so that a replaced
+    /// avatar produces a different URL instead of reusing the cached previous image.
+    /// </summary>
     public static string? UrlFor(AppUser user) =>
-        string.IsNullOrWhiteSpace(user.AvatarContentType) ? null : $"/api/users/{user.Id}/avatar";
+        string.IsNullOrWhiteSpace(user.AvatarContentType) || user.AvatarBytes is not { Length: > 0 }
+            ? null
+            : $"/api/users/{user.Id}/avatar?v={VersionFor(user.AvatarBytes)}";
+
+    public static string VersionFor(byte[] content) =>
+        Convert.ToHexString(SHA256.HashData(content).AsSpan(0, 8)).ToLowerInvariant();
 }

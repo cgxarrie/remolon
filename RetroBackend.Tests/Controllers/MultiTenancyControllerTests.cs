@@ -156,6 +156,50 @@ public class MultiTenancyControllerTests
     }
 
     [Fact]
+    public async Task UpdateOrganization_AcceptsEveryPresetTheme()
+    {
+        await using var context = CreateContext();
+        var organization = new Organization { Name = "Acme" };
+        context.Organizations.Add(organization);
+        await context.SaveChangesAsync();
+        var controller = new OrganizationsController(context)
+        {
+            ControllerContext = ControllerContext(Roles.Manager, organization.Id),
+        };
+
+        foreach (var themeKey in OrganizationThemes.Presets)
+        {
+            var result = await controller.Update(
+                organization.Id,
+                new SaveOrganizationRequest("Acme", themeKey));
+
+            var updated = Assert.IsType<OrganizationDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
+            Assert.Equal(themeKey, updated.Theme.ThemeKey);
+            Assert.Null(updated.Theme.HeaderColor);
+        }
+    }
+
+    [Fact]
+    public async Task UpdateOrganization_RejectsUnknownTheme()
+    {
+        await using var context = CreateContext();
+        var organization = new Organization { Name = "Acme" };
+        context.Organizations.Add(organization);
+        await context.SaveChangesAsync();
+        var controller = new OrganizationsController(context)
+        {
+            ControllerContext = ControllerContext(Roles.Manager, organization.Id),
+        };
+
+        var result = await controller.Update(
+            organization.Id,
+            new SaveOrganizationRequest("Acme", "chartreuse"));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Equal("default", (await context.Organizations.FindAsync(organization.Id))!.ThemeKey);
+    }
+
+    [Fact]
     public async Task UpdateOrganization_ManagerCannotUpdateDifferentOrganization()
     {
         await using var context = CreateContext();
