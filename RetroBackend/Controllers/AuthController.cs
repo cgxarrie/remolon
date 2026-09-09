@@ -153,9 +153,7 @@ public class AuthController : ControllerBase
             return StatusCode(StatusCodes.Status403Forbidden,
                 new PasswordChangeRequiredResponse("Password change required before first login.", true));
 
-        var roles = await _userManager.GetRolesAsync(user);
-        var role = roles.FirstOrDefault() ?? Roles.StandardUser;
-        return TokenOk(await _authTokenService.BuildAuthResponseAsync(user, role));
+        return TokenOk(await BuildSessionAsync(user));
     }
 
     /// <summary>Starts forgot password flow by emailing a reset link valid for 30 minutes.</summary>
@@ -173,10 +171,10 @@ public class AuthController : ControllerBase
         return Ok(new ForgotPasswordResponse(ForgotPasswordMessage));
     }
 
-    /// <summary>Completes forgot password flow by setting a new password using a reset token.</summary>
+    /// <summary>Completes forgot password flow by setting a new password using a reset token and signs in the user.</summary>
     [HttpPost("reset-password")]
     [EnableRateLimiting("auth")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(AuthTokenResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
     {
@@ -216,7 +214,7 @@ public class AuthController : ControllerBase
             await _userManager.RemoveClaimsAsync(user, mustChangePasswordClaims);
 
         await _authTokenService.RevokeAllForUserAsync(user.Id);
-        return Ok(new { message = "Password has been reset." });
+        return TokenOk(await BuildSessionAsync(user));
     }
 
     private async Task<IdentityResult> ResetPasswordWithInvitationTokenAsync(
@@ -283,9 +281,7 @@ public class AuthController : ControllerBase
         if (mustChangePasswordClaims.Count > 0)
             await _userManager.RemoveClaimsAsync(user, mustChangePasswordClaims);
 
-        var roles = await _userManager.GetRolesAsync(user);
-        var role = roles.FirstOrDefault() ?? Roles.StandardUser;
-        return TokenOk(await _authTokenService.BuildAuthResponseAsync(user, role));
+        return TokenOk(await BuildSessionAsync(user));
     }
 
     /// <summary>Exchanges a refresh token for a new access token.</summary>
@@ -321,10 +317,10 @@ public class AuthController : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Changes the authenticated user's password.</summary>
+    /// <summary>Changes the authenticated user's password and issues a fresh session.</summary>
     [HttpPost("change-password")]
     [Authorize]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(AuthTokenResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
@@ -345,7 +341,14 @@ public class AuthController : ControllerBase
             return BadRequest(changeResult.Errors);
 
         await _authTokenService.RevokeAllForUserAsync(user.Id);
-        return NoContent();
+        return TokenOk(await BuildSessionAsync(user));
+    }
+
+    private async Task<AuthTokenResponse> BuildSessionAsync(AppUser user)
+    {
+        var roles = await _userManager.GetRolesAsync(user);
+        var role = roles.FirstOrDefault() ?? Roles.StandardUser;
+        return await _authTokenService.BuildAuthResponseAsync(user, role);
     }
 
     private IActionResult TokenOk(AuthTokenResponse response)

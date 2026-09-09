@@ -86,7 +86,6 @@ export function OrganizationThemeProvider({ children }: { children: React.ReactN
         queryKey: ['organizationTheme', organizationId],
         queryFn: () => organizationsApi.getById(organizationId!),
         enabled: !!organizationId,
-        staleTime: 30_000,
     });
 
     useEffect(() => {

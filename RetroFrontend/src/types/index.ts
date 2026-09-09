@@ -68,6 +68,13 @@ export interface AvatarUploadResponse {
 }
 
 // Retrospectives
+export interface GetRetrospectiveBoardDto {
+    title: string;
+    sessionCount: number;
+    openSessionId: string | null;
+    latestClosedSessionId: string | null;
+}
+
 export interface GetRetrospectiveSummaryDto {
     id: string;
     organizationId: string;

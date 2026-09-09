@@ -34,28 +34,63 @@ public class RetrospectivesController : ControllerBase
         _liveNotifier = liveNotifier;
     }
 
-    /// <summary>Retrieves all retrospectives.</summary>
-    /// <returns>A list of retrospectives with their basic information.</returns>
+    /// <summary>Retrieves retrospective boards grouped by title.</summary>
     [HttpGet]
-    [ProducesResponseType(typeof(PagedResponse<GetRetrospectiveSummaryDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PagedResponse<GetRetrospectiveBoardDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(Guid? organizationId, int page = 1, int pageSize = 20)
     {
+        var scoped = TryVisibleQuery(organizationId, out var query);
+        if (scoped is not null) return scoped;
+
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
-        if (!Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var ownOrganizationId))
-            return Forbid();
-        if (organizationId.HasValue && organizationId != ownOrganizationId) return Forbid();
-        organizationId = ownOrganizationId;
 
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-        var query = _context.Retrospectives.Include(r => r.Organization)
-            .Where(r => r.OrganizationId == organizationId);
-        query = query.Where(r => r.CreatedBy == userId
-            || _context.UserRetrospectives.Any(ur => ur.RetrospectiveId == r.Id && ur.UserId == userId));
+        var rows = await query
+            .Select(r => new { r.Id, r.Title, r.IsClosed, r.CreatedAt })
+            .ToListAsync();
+
+        var boards = rows
+            .GroupBy(r => r.Title)
+            .Select(group =>
+            {
+                var open = group.Where(r => !r.IsClosed).OrderByDescending(r => r.CreatedAt).FirstOrDefault();
+                var closed = group.Where(r => r.IsClosed).OrderByDescending(r => r.CreatedAt).FirstOrDefault();
+                return new GetRetrospectiveBoardDto
+                {
+                    Title = group.Key,
+                    SessionCount = group.Count(),
+                    OpenSessionId = open?.Id,
+                    LatestClosedSessionId = closed?.Id,
+                };
+            })
+            .OrderBy(board => board.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var totalCount = boards.Count;
+        var items = boards.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        return Ok(new PagedResponse<GetRetrospectiveBoardDto>(items, page, pageSize, totalCount));
+    }
+
+    /// <summary>Retrieves sessions for a retrospective board, newest first.</summary>
+    [HttpGet("sessions")]
+    [ProducesResponseType(typeof(PagedResponse<GetRetrospectiveSummaryDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetSessions(string title, Guid? organizationId, int page = 1, int pageSize = 20)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            return BadRequest(new { message = "Title is required." });
+
+        var scoped = TryVisibleQuery(organizationId, out var query);
+        if (scoped is not null) return scoped;
+
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+        query = query.Where(r => r.Title == title);
 
         var totalCount = await query.CountAsync();
-        var items = await query.OrderBy(r => r.Title.ToLower()).ThenByDescending(r => r.CreatedAt)
-            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        var items = await query.OrderByDescending(r => r.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
         return Ok(new PagedResponse<GetRetrospectiveSummaryDto>(
             items.Select(r => r.ToSummaryDto()).ToList(), page, pageSize, totalCount));
     }
@@ -291,5 +326,19 @@ public class RetrospectivesController : ControllerBase
     private bool IsSameOrganization(Guid organizationId) =>
         Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var currentOrganizationId)
         && currentOrganizationId == organizationId;
+
+    private IActionResult? TryVisibleQuery(Guid? organizationId, out IQueryable<Retrospective> query)
+    {
+        query = _context.Retrospectives.Include(r => r.Organization);
+        if (!Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var ownOrganizationId))
+            return Forbid();
+        if (organizationId.HasValue && organizationId != ownOrganizationId) return Forbid();
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        query = query.Where(r => r.OrganizationId == ownOrganizationId)
+            .Where(r => r.CreatedBy == userId
+                || _context.UserRetrospectives.Any(ur => ur.RetrospectiveId == r.Id && ur.UserId == userId));
+        return null;
+    }
 }
 

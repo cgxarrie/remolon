@@ -64,7 +64,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
     const { data: me } = useQuery({
         queryKey: ['users', 'me'],
         queryFn: () => usersApi.getMe(),
-        staleTime: 30_000,
     });
 
     useEffect(() => {

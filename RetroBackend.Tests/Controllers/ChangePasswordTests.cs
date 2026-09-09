@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using RetroBackend.Auth;
 using RetroBackend.Config;
 using RetroBackend.Controllers;
 using RetroBackend.Data;
@@ -32,8 +33,30 @@ public class ChangePasswordTests
 
         var result = await controller.ChangePassword(new ChangePasswordRequest("Passw0rd!", "N3w-Passw0rd!"));
 
-        Assert.IsType<NoContentResult>(result);
+        var session = Assert.IsType<AuthTokenResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Equal("alice@example.com", session.Email);
+        Assert.False(string.IsNullOrWhiteSpace(session.Token));
+        Assert.False(string.IsNullOrWhiteSpace(session.RefreshToken));
         Assert.True(await userManager.CheckPasswordAsync(user, "N3w-Passw0rd!"));
+    }
+
+    [Fact]
+    public async Task ChangePassword_LeavesOnlyTheNewRefreshTokenActive()
+    {
+        await using var context = CreateContext();
+        using var userManager = CreateUserManager(context);
+        var user = new AppUser("alice@example.com", "alice");
+        Assert.True((await userManager.CreateAsync(user, "Passw0rd!")).Succeeded);
+        var tokenService = new AuthTokenService(userManager, context, TestJwt.Configuration);
+        var previous = await tokenService.BuildAuthResponseAsync(user, Roles.StandardUser);
+        var controller = CreateController(userManager, context, user.Id, tokenService);
+
+        var result = await controller.ChangePassword(new ChangePasswordRequest("Passw0rd!", "N3w-Passw0rd!"));
+
+        var session = Assert.IsType<AuthTokenResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.NotEqual(previous.RefreshToken, session.RefreshToken);
+        Assert.NotNull(await tokenService.RefreshAsync(session.RefreshToken!));
+        Assert.Null(await tokenService.RefreshAsync(previous.RefreshToken!));
     }
 
     [Fact]
@@ -54,14 +77,15 @@ public class ChangePasswordTests
     private static AuthController CreateController(
         UserManager<AppUser> userManager,
         RetroDbContext context,
-        string userId) =>
+        string userId,
+        IAuthTokenService? authTokenService = null) =>
         new(
             userManager,
             context,
             new FakeEmailSender(),
             Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" }),
             NullLogger<AuthController>.Instance,
-            new AuthTokenService(userManager, context, TestJwt.Configuration),
+            authTokenService ?? new AuthTokenService(userManager, context, TestJwt.Configuration),
             new TestHostEnvironment())
         {
             ControllerContext = new ControllerContext

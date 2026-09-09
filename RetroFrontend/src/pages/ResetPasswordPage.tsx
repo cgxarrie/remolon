@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { authApi } from '../api/auth';
 import { PasswordField, PasswordMatchStatus, getPasswordMatchState } from '../components/PasswordField';
+import { useAuthStore } from '../store/authStore';
 import { PASSWORD_MIN_LENGTH } from '../types';
 
 function extractApiErrorMessage(err: unknown, fallback: string): string {
@@ -42,10 +43,11 @@ function credentialsFromLocation(searchParams: URLSearchParams) {
 
 export function ResetPasswordPage() {
     const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
+    const setAuth = useAuthStore((s) => s.setAuth);
     const { email, token, isInvite } = credentialsFromLocation(searchParams);
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [message, setMessage] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const linkValid = Boolean(email && token);
@@ -54,7 +56,6 @@ export function ResetPasswordPage() {
     async function handleResetPassword(e: React.FormEvent) {
         e.preventDefault();
         setError('');
-        setMessage('');
 
         if (!linkValid) {
             setError('This reset link is invalid. Request a new one from the forgot password page.');
@@ -68,16 +69,15 @@ export function ResetPasswordPage() {
 
         setLoading(true);
         try {
-            await authApi.resetPassword({
+            const session = await authApi.resetPassword({
                 email,
                 token,
                 newPassword,
             });
-            setMessage(isInvite
-                ? 'Password set successfully. You can sign in now.'
-                : 'Password reset successfully. You can sign in now.');
             setNewPassword('');
             setConfirmPassword('');
+            setAuth(session);
+            navigate('/retrospectives', { replace: true });
         } catch (err: unknown) {
             setError(extractApiErrorMessage(err, 'Failed to reset password. The link may be invalid or expired.'));
         } finally {
@@ -92,11 +92,6 @@ export function ResetPasswordPage() {
                     {isInvite ? 'Set Password' : 'Reset Password'}
                 </h1>
 
-                {message && (
-                    <p className="mb-4 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md p-3">
-                        {message}
-                    </p>
-                )}
                 {error && (
                     <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">
                         {error}
@@ -111,7 +106,7 @@ export function ResetPasswordPage() {
                         </Link>
                         .
                     </p>
-                ) : message ? null : (
+                ) : (
                     <form onSubmit={handleResetPassword} className="space-y-4">
                         <p className="text-sm text-slate-600">
                             Choose a new password for <span className="font-medium">{email}</span>. This link expires{' '}
