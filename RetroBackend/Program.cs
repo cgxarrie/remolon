@@ -20,6 +20,11 @@ using RetroBackend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Schema-only run: the migration job does not serve requests, so it must not
+// require the Data Protection key ring that reset and invite links depend on.
+var migrateOnly = args.Any(argument =>
+    string.Equals(argument, "--migrate", StringComparison.OrdinalIgnoreCase));
+
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -108,7 +113,8 @@ builder.Services.Configure<InvitationTokenProviderOptions>(options =>
     options.TokenLifespan = TimeSpan.FromDays(30);
 });
 
-DataProtectionKeys.AddPersisted(builder.Services, builder.Configuration, builder.Environment);
+if (!migrateOnly)
+    DataProtectionKeys.AddPersisted(builder.Services, builder.Configuration, builder.Environment);
 
 var jwtSigningKey = JwtSigningKey.Resolve(builder.Configuration);
 
@@ -229,9 +235,6 @@ builder.Services.AddScoped<IRetrospectiveLiveNotifier, RetrospectiveLiveNotifier
 builder.Services.AddSingleton<IRetrospectiveHubMembership, RetrospectiveHubMembership>();
 
 var app = builder.Build();
-
-var migrateOnly = args.Any(argument =>
-    string.Equals(argument, "--migrate", StringComparison.OrdinalIgnoreCase));
 
 using (var scope = app.Services.CreateScope())
 {
