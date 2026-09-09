@@ -11,6 +11,7 @@ using RetroBackend.Data;
 using RetroBackend.Dtos;
 using RetroBackend.Models;
 using RetroBackend.Services;
+using RetroBackend.Tests.Fakes;
 using Xunit;
 
 namespace RetroBackend.Tests.Controllers;
@@ -79,7 +80,8 @@ public class AuthPasswordResetTests
             emailSender,
             Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" }),
             NullLogger<AuthController>.Instance,
-            new UnusedAuthTokenService());
+            new UnusedAuthTokenService(),
+            new TestHostEnvironment());
 
     private static RetroDbContext CreateContext() =>
         new(new DbContextOptionsBuilder<RetroDbContext>()

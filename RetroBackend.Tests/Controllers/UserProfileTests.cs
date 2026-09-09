@@ -14,6 +14,7 @@ using RetroBackend.Data;
 using RetroBackend.Dtos;
 using RetroBackend.Models;
 using RetroBackend.Services;
+using RetroBackend.Tests.Fakes;
 using Xunit;
 
 namespace RetroBackend.Tests.Controllers;
@@ -106,7 +107,8 @@ public class UserProfileTests
             new FakeEmailSender(),
             Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" }),
             NullLogger<UsersController>.Instance,
-            new AuthTokenService(userManager, context, TestJwtConfiguration()))
+            new AuthTokenService(userManager, context, TestJwtConfiguration()),
+            new TestHostEnvironment())
         {
             ControllerContext = ControllerContext(userId, role, organizationId),
         };

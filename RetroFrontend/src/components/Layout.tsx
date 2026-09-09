@@ -105,10 +105,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     }, [menuOpen]);
 
     function handleLogout() {
-        const refreshToken = useAuthStore.getState().refreshToken;
-        if (refreshToken) {
-            void authApi.logout(refreshToken).catch(() => undefined);
-        }
+        void authApi.logout().catch(() => undefined);
         clearOrganizationQueries(queryClient);
         clearAuth();
         navigate('/login');

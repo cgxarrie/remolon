@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using RetroBackend.Dtos;
 using RetroBackend.Auth;
@@ -27,6 +28,7 @@ public class UsersController : ControllerBase
     private readonly EmailOptions _emailOptions;
     private readonly ILogger<UsersController> _logger;
     private readonly IAuthTokenService _authTokenService;
+    private readonly IHostEnvironment _environment;
 
     public UsersController(
         UserManager<AppUser> userManager,
@@ -34,7 +36,8 @@ public class UsersController : ControllerBase
         IEmailSender emailSender,
         IOptions<EmailOptions> emailOptions,
         ILogger<UsersController> logger,
-        IAuthTokenService authTokenService)
+        IAuthTokenService authTokenService,
+        IHostEnvironment environment)
     {
         _userManager = userManager;
         _context = context;
@@ -42,6 +45,7 @@ public class UsersController : ControllerBase
         _emailOptions = emailOptions.Value;
         _logger = logger;
         _authTokenService = authTokenService;
+        _environment = environment;
     }
 
     /// <summary>Returns the authenticated user's profile.</summary>
@@ -83,7 +87,9 @@ public class UsersController : ControllerBase
 
         var roles = await _userManager.GetRolesAsync(user);
         var role = roles.FirstOrDefault() ?? Roles.StandardUser;
-        return Ok(await _authTokenService.BuildAuthResponseAsync(user, role));
+        var tokens = await _authTokenService.BuildAuthResponseAsync(user, role);
+        AuthCookies.Append(Response, _environment, tokens);
+        return Ok(tokens);
     }
 
     /// <summary>Creates a user and emails a one-time set-password link. Manager.</summary>

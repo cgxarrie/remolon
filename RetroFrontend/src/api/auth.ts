@@ -29,9 +29,9 @@ export const authApi = {
     register: (data: RegisterRequest) =>
         client.post<AuthTokenResponse>('/auth/register', data).then((r) => r.data),
 
-    refresh: (refreshToken: string) =>
-        client.post<AuthTokenResponse>('/auth/refresh', { refreshToken }).then((r) => r.data),
+    refresh: () =>
+        client.post<AuthTokenResponse>('/auth/refresh', {}).then((r) => r.data),
 
-    logout: (refreshToken: string) =>
-        client.post('/auth/logout', { refreshToken }).then((r) => r.data),
+    logout: () =>
+        client.post('/auth/logout', {}).then((r) => r.data),
 };

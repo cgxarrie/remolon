@@ -17,6 +17,7 @@ using RetroBackend.Data;
 using RetroBackend.Dtos;
 using RetroBackend.Models;
 using RetroBackend.Services;
+using RetroBackend.Tests.Fakes;
 using Xunit;
 
 namespace RetroBackend.Tests.Controllers;
@@ -91,7 +92,8 @@ public class CreateUserInvitationTests
             emails,
             Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" }),
             NullLogger<AuthController>.Instance,
-            new UnusedAuthTokenService());
+            new UnusedAuthTokenService(),
+            new TestHostEnvironment());
 
         var result = await authController.ResetPassword(new ResetPasswordRequest(
             "new@acme.test",
@@ -115,7 +117,8 @@ public class CreateUserInvitationTests
             emailSender,
             Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" }),
             NullLogger<UsersController>.Instance,
-            new UnusedAuthTokenService())
+            new UnusedAuthTokenService(),
+            new TestHostEnvironment())
         {
             ControllerContext = new ControllerContext
             {

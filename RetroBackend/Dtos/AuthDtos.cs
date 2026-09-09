@@ -35,7 +35,7 @@ public record AuthTokenResponse(
     string? OrganizationName,
     string? RefreshToken = null);
 
-public record RefreshTokenRequest([Required] string RefreshToken);
+public record RefreshTokenRequest(string? RefreshToken = null);
 
 public record InitialPasswordChangeRequest(
     [Required, EmailAddress] string Email,

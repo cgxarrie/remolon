@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using RetroBackend.Dtos;
 using RetroBackend.Auth;
@@ -31,6 +32,7 @@ public class AuthController : ControllerBase
     private readonly EmailOptions _emailOptions;
     private readonly ILogger<AuthController> _logger;
     private readonly IAuthTokenService _authTokenService;
+    private readonly IHostEnvironment _environment;
 
     public AuthController(
         UserManager<AppUser> userManager,
@@ -38,7 +40,8 @@ public class AuthController : ControllerBase
         IEmailSender emailSender,
         IOptions<EmailOptions> emailOptions,
         ILogger<AuthController> logger,
-        IAuthTokenService authTokenService)
+        IAuthTokenService authTokenService,
+        IHostEnvironment environment)
     {
         _userManager = userManager;
         _context = context;
@@ -46,6 +49,7 @@ public class AuthController : ControllerBase
         _emailOptions = emailOptions.Value;
         _logger = logger;
         _authTokenService = authTokenService;
+        _environment = environment;
     }
 
     /// <summary>Registers a new manager and creates their organization.</summary>
@@ -95,7 +99,7 @@ public class AuthController : ControllerBase
             }
 
             await transaction.CommitAsync();
-            return Ok(await _authTokenService.BuildAuthResponseAsync(user, Roles.Manager));
+            return TokenOk(await _authTokenService.BuildAuthResponseAsync(user, Roles.Manager));
         }
         catch (DbUpdateException ex) when (IsOrganizationNameUniqueViolation(ex))
         {
@@ -139,7 +143,7 @@ public class AuthController : ControllerBase
 
         var roles = await _userManager.GetRolesAsync(user);
         var role = roles.FirstOrDefault() ?? Roles.StandardUser;
-        return Ok(await _authTokenService.BuildAuthResponseAsync(user, role));
+        return TokenOk(await _authTokenService.BuildAuthResponseAsync(user, role));
     }
 
     /// <summary>Starts forgot password flow by emailing a reset link valid for 30 minutes.</summary>
@@ -269,7 +273,7 @@ public class AuthController : ControllerBase
 
         var roles = await _userManager.GetRolesAsync(user);
         var role = roles.FirstOrDefault() ?? Roles.StandardUser;
-        return Ok(await _authTokenService.BuildAuthResponseAsync(user, role));
+        return TokenOk(await _authTokenService.BuildAuthResponseAsync(user, role));
     }
 
     /// <summary>Exchanges a refresh token for a new access token.</summary>
@@ -277,20 +281,31 @@ public class AuthController : ControllerBase
     [EnableRateLimiting("auth")]
     [ProducesResponseType(typeof(AuthTokenResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request)
+    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest? request)
     {
-        var response = await _authTokenService.RefreshAsync(request.RefreshToken);
+        var presented = request?.RefreshToken;
+        if (string.IsNullOrWhiteSpace(presented))
+            Request.Cookies.TryGetValue(AuthCookies.Refresh, out presented);
+        if (string.IsNullOrWhiteSpace(presented))
+            return Unauthorized(new { message = "Invalid credentials." });
+
+        var response = await _authTokenService.RefreshAsync(presented);
         if (response is null)
             return Unauthorized(new { message = "Invalid credentials." });
-        return Ok(response);
+        return TokenOk(response);
     }
 
     /// <summary>Revokes the supplied refresh token.</summary>
     [HttpPost("logout")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
+    public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest? request)
     {
-        await _authTokenService.RevokeAsync(request.RefreshToken);
+        var presented = request?.RefreshToken;
+        if (string.IsNullOrWhiteSpace(presented))
+            Request.Cookies.TryGetValue(AuthCookies.Refresh, out presented);
+        if (!string.IsNullOrWhiteSpace(presented))
+            await _authTokenService.RevokeAsync(presented);
+        AuthCookies.Clear(Response, _environment);
         return NoContent();
     }
 
@@ -319,6 +334,12 @@ public class AuthController : ControllerBase
 
         await _authTokenService.RevokeAllForUserAsync(user.Id);
         return NoContent();
+    }
+
+    private IActionResult TokenOk(AuthTokenResponse response)
+    {
+        AuthCookies.Append(Response, _environment, response);
+        return Ok(response);
     }
 
     private async Task PadForgotPasswordTimingAsync()

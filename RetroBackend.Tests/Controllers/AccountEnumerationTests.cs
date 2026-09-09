@@ -90,7 +90,8 @@ public class AccountEnumerationTests
             new FakeEmailSender(),
             Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" }),
             NullLogger<UsersController>.Instance,
-            new UnusedAuthTokenService())
+            new UnusedAuthTokenService(),
+            new TestHostEnvironment())
         {
             ControllerContext = ControllerContext(organizationId, "manager"),
         };

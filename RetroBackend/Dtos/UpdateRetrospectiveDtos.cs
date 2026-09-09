@@ -33,6 +33,7 @@ public class UpdateRetrospectiveColumnRequest
     public int? Position { get; set; }
 
     [MaxLength(7)]
+    [RegularExpression("^#[0-9a-fA-F]{6}$", ErrorMessage = "HeaderColor must be a #RRGGBB color.")]
     public string? HeaderColor { get; set; }
 }
 

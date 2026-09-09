@@ -9,16 +9,12 @@ interface Props {
 }
 
 export function ProtectedRoute({ children }: Props) {
-    const token = useAuthStore((s) => s.token);
-    const refreshToken = useAuthStore((s) => s.refreshToken);
     const clearAuth = useAuthStore((s) => s.clearAuth);
     const setProfile = useAuthStore((s) => s.setProfile);
-    const hasSession = Boolean(token || refreshToken);
 
     const meQuery = useQuery({
         queryKey: ['users', 'me'],
         queryFn: usersApi.getMe,
-        enabled: hasSession,
         retry: false,
     });
 
@@ -35,7 +31,7 @@ export function ProtectedRoute({ children }: Props) {
         });
     }, [meQuery.data, setProfile]);
 
-    if (!hasSession || meQuery.isError) {
+    if (meQuery.isError) {
         return <Navigate to="/login" replace />;
     }
 

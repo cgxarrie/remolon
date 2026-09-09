@@ -4,6 +4,7 @@ import type { AuthTokenResponse } from '../types';
 
 const client = axios.create({
     baseURL: '/api',
+    withCredentials: true,
     headers: { 'Content-Type': 'application/json' },
 });
 
@@ -23,10 +24,12 @@ function applyAuth(data: AuthTokenResponse) {
 }
 
 async function refreshSession(): Promise<boolean> {
-    const refreshToken = useAuthStore.getState().refreshToken;
-    if (!refreshToken) return false;
     try {
-        const { data } = await axios.post<AuthTokenResponse>('/api/auth/refresh', { refreshToken });
+        const { data } = await axios.post<AuthTokenResponse>(
+            '/api/auth/refresh',
+            {},
+            { withCredentials: true },
+        );
         applyAuth(data);
         return true;
     } catch {

@@ -19,6 +19,7 @@ export type RetrospectiveAccessRevokedEvent = ItemsChangedEvent;
 export function createRetrospectiveHubConnection(): HubConnection {
     return new HubConnectionBuilder()
         .withUrl('/hubs/retrospective', {
+            withCredentials: true,
             accessTokenFactory: () => useAuthStore.getState().token ?? '',
         })
         .withAutomaticReconnect()

@@ -100,6 +100,17 @@ export const useAuthStore = create<AuthState>()(
                 avatarUrl: null,
             }),
         }),
-        { name: 'retro-auth' }
+        {
+            name: 'retro-auth',
+            partialize: (state) => ({
+                userId: state.userId,
+                organizationId: state.organizationId,
+                organizationName: state.organizationName,
+                email: state.email,
+                role: state.role,
+                nickname: state.nickname,
+                avatarUrl: state.avatarUrl,
+            }),
+        }
     )
 );

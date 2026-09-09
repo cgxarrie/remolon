@@ -15,6 +15,7 @@ using RetroBackend.Dtos;
 using RetroBackend.Models;
 using RetroBackend.Services;
 using RetroBackend.Tests.Config;
+using RetroBackend.Tests.Fakes;
 using Xunit;
 
 namespace RetroBackend.Tests.Controllers;
@@ -184,7 +185,7 @@ public class MultiTenancyControllerTests
         RetroDbContext context,
         string role,
         Guid? organizationId) =>
-        new(userManager, context, new FakeEmailSender(), EmailOptions(), NullLogger<UsersController>.Instance, TokenService(userManager, context))
+        new(userManager, context, new FakeEmailSender(), EmailOptions(), NullLogger<UsersController>.Instance, TokenService(userManager, context), new TestHostEnvironment())
         {
             ControllerContext = ControllerContext(role, organizationId),
         };
