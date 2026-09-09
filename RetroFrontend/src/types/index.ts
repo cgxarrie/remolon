@@ -6,6 +6,7 @@ export interface AuthTokenResponse {
     nickname: string;
     organizationId?: string;
     organizationName?: string | null;
+    refreshToken?: string | null;
 }
 
 export interface RegisterRequest {

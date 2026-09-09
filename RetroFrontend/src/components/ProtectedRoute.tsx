@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { usersApi } from '../api/users';
-import { isAccessTokenExpired, useAuthStore } from '../store/authStore';
+import { useAuthStore } from '../store/authStore';
 
 interface Props {
     children: React.ReactNode;
@@ -10,20 +10,17 @@ interface Props {
 
 export function ProtectedRoute({ children }: Props) {
     const token = useAuthStore((s) => s.token);
+    const refreshToken = useAuthStore((s) => s.refreshToken);
     const clearAuth = useAuthStore((s) => s.clearAuth);
     const setProfile = useAuthStore((s) => s.setProfile);
-    const tokenExpired = Boolean(token && isAccessTokenExpired(token));
+    const hasSession = Boolean(token || refreshToken);
 
     const meQuery = useQuery({
         queryKey: ['users', 'me'],
         queryFn: usersApi.getMe,
-        enabled: Boolean(token) && !tokenExpired,
+        enabled: hasSession,
         retry: false,
     });
-
-    useEffect(() => {
-        if (tokenExpired) clearAuth();
-    }, [tokenExpired, clearAuth]);
 
     useEffect(() => {
         if (meQuery.isError) clearAuth();
@@ -38,7 +35,7 @@ export function ProtectedRoute({ children }: Props) {
         });
     }, [meQuery.data, setProfile]);
 
-    if (!token || tokenExpired || meQuery.isError) {
+    if (!hasSession || meQuery.isError) {
         return <Navigate to="/login" replace />;
     }
 

@@ -1,12 +1,11 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
 using RetroBackend.Dtos;
 using RetroBackend.Auth;
 using RetroBackend.Config;
@@ -27,32 +26,33 @@ public class AuthController : ControllerBase
         "If an account exists for that email, a password reset link has been sent. The link expires in 30 minutes.";
 
     private readonly UserManager<AppUser> _userManager;
-    private readonly IConfiguration _configuration;
     private readonly RetroDbContext _context;
     private readonly IEmailSender _emailSender;
     private readonly EmailOptions _emailOptions;
     private readonly ILogger<AuthController> _logger;
+    private readonly IAuthTokenService _authTokenService;
 
     public AuthController(
         UserManager<AppUser> userManager,
-        IConfiguration configuration,
         RetroDbContext context,
         IEmailSender emailSender,
         IOptions<EmailOptions> emailOptions,
-        ILogger<AuthController> logger)
+        ILogger<AuthController> logger,
+        IAuthTokenService authTokenService)
     {
         _userManager = userManager;
-        _configuration = configuration;
         _context = context;
         _emailSender = emailSender;
         _emailOptions = emailOptions.Value;
         _logger = logger;
+        _authTokenService = authTokenService;
     }
 
     /// <summary>Registers a new manager and creates their organization.</summary>
     /// <param name="request">Email, password, and unique organization name for the new account.</param>
     /// <returns>A JWT token for the newly created manager.</returns>
     [HttpPost("register")]
+    [EnableRateLimiting("auth")]
     [ProducesResponseType(typeof(AuthTokenResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -93,7 +93,7 @@ public class AuthController : ControllerBase
             }
 
             await transaction.CommitAsync();
-            return Ok(await BuildAuthResponseAsync(user, Roles.Manager));
+            return Ok(await _authTokenService.BuildAuthResponseAsync(user, Roles.Manager));
         }
         catch (DbUpdateException ex) when (IsOrganizationNameUniqueViolation(ex))
         {
@@ -106,13 +106,25 @@ public class AuthController : ControllerBase
     /// <param name="request">Email and password credentials.</param>
     /// <returns>A JWT token with the user's role.</returns>
     [HttpPost("login")]
+    [EnableRateLimiting("auth")]
     [ProducesResponseType(typeof(AuthTokenResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         var user = await _userManager.FindByEmailAsync(request.Email);
-        if (user is null || !await _userManager.CheckPasswordAsync(user, request.Password))
+        if (user is null)
             return Unauthorized(new { message = "Invalid credentials." });
+
+        if (await _userManager.IsLockedOutAsync(user))
+            return Unauthorized(new { message = "Invalid credentials." });
+
+        if (!await _userManager.CheckPasswordAsync(user, request.Password))
+        {
+            await _userManager.AccessFailedAsync(user);
+            return Unauthorized(new { message = "Invalid credentials." });
+        }
+
+        await _userManager.ResetAccessFailedCountAsync(user);
 
         var claims = await _userManager.GetClaimsAsync(user);
         var mustChangePassword = claims.Any(c =>
@@ -125,11 +137,12 @@ public class AuthController : ControllerBase
 
         var roles = await _userManager.GetRolesAsync(user);
         var role = roles.FirstOrDefault() ?? Roles.StandardUser;
-        return Ok(await BuildAuthResponseAsync(user, role));
+        return Ok(await _authTokenService.BuildAuthResponseAsync(user, role));
     }
 
     /// <summary>Starts forgot password flow by emailing a reset link valid for 30 minutes.</summary>
     [HttpPost("forgot-password")]
+    [EnableRateLimiting("auth")]
     [ProducesResponseType(typeof(ForgotPasswordResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
     {
@@ -142,6 +155,7 @@ public class AuthController : ControllerBase
 
     /// <summary>Completes forgot password flow by setting a new password using a reset token.</summary>
     [HttpPost("reset-password")]
+    [EnableRateLimiting("auth")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
@@ -181,6 +195,7 @@ public class AuthController : ControllerBase
         if (mustChangePasswordClaims.Count > 0)
             await _userManager.RemoveClaimsAsync(user, mustChangePasswordClaims);
 
+        await _authTokenService.RevokeAllForUserAsync(user.Id);
         return Ok(new { message = "Password has been reset." });
     }
 
@@ -209,6 +224,7 @@ public class AuthController : ControllerBase
 
     /// <summary>Changes an initial temporary password and signs in the user.</summary>
     [HttpPost("change-initial-password")]
+    [EnableRateLimiting("auth")]
     [ProducesResponseType(typeof(AuthTokenResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -216,6 +232,9 @@ public class AuthController : ControllerBase
     {
         var user = await _userManager.FindByEmailAsync(request.Email);
         if (user is null)
+            return Unauthorized(new { message = "Invalid credentials." });
+
+        if (await _userManager.IsLockedOutAsync(user))
             return Unauthorized(new { message = "Invalid credentials." });
 
         var claims = await _userManager.GetClaimsAsync(user);
@@ -230,7 +249,12 @@ public class AuthController : ControllerBase
             return BadRequest(new { message = "Initial password change is not required for this user." });
 
         if (!await _userManager.CheckPasswordAsync(user, request.CurrentPassword))
+        {
+            await _userManager.AccessFailedAsync(user);
             return Unauthorized(new { message = "Invalid credentials." });
+        }
+
+        await _userManager.ResetAccessFailedCountAsync(user);
 
         var changeResult = await _userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
         if (!changeResult.Succeeded)
@@ -241,7 +265,29 @@ public class AuthController : ControllerBase
 
         var roles = await _userManager.GetRolesAsync(user);
         var role = roles.FirstOrDefault() ?? Roles.StandardUser;
-        return Ok(await BuildAuthResponseAsync(user, role));
+        return Ok(await _authTokenService.BuildAuthResponseAsync(user, role));
+    }
+
+    /// <summary>Exchanges a refresh token for a new access token.</summary>
+    [HttpPost("refresh")]
+    [EnableRateLimiting("auth")]
+    [ProducesResponseType(typeof(AuthTokenResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request)
+    {
+        var response = await _authTokenService.RefreshAsync(request.RefreshToken);
+        if (response is null)
+            return Unauthorized(new { message = "Invalid credentials." });
+        return Ok(response);
+    }
+
+    /// <summary>Revokes the supplied refresh token.</summary>
+    [HttpPost("logout")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
+    {
+        await _authTokenService.RevokeAsync(request.RefreshToken);
+        return NoContent();
     }
 
     /// <summary>Changes the authenticated user's password.</summary>
@@ -267,6 +313,7 @@ public class AuthController : ControllerBase
         if (!changeResult.Succeeded)
             return BadRequest(changeResult.Errors);
 
+        await _authTokenService.RevokeAllForUserAsync(user.Id);
         return NoContent();
     }
 
@@ -286,58 +333,6 @@ public class AuthController : ControllerBase
         {
             _logger.LogError(ex, "Failed to send password reset email");
         }
-    }
-
-    private async Task<AuthTokenResponse> BuildAuthResponseAsync(AppUser user, string role)
-    {
-        var organizationName = await GetOrganizationNameAsync(user);
-        var token = await GenerateJwtAsync(user, organizationName);
-        return new AuthTokenResponse(token, user.Email!, role, user.Nickname, organizationName);
-    }
-
-    private async Task<string?> GetOrganizationNameAsync(AppUser user)
-    {
-        if (!user.OrganizationId.HasValue) return null;
-
-        return await _context.Organizations
-            .Where(o => o.Id == user.OrganizationId.Value)
-            .Select(o => o.Name)
-            .FirstOrDefaultAsync();
-    }
-
-    private async Task<string> GenerateJwtAsync(AppUser user, string? organizationName)
-    {
-        var roles = await _userManager.GetRolesAsync(user);
-
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, user.Id),
-            new(ClaimTypes.Email, user.Email!),
-            new(ClaimTypes.GivenName, user.Nickname),
-            new(JwtRegisteredClaimNames.Sub, user.Id),
-            new(JwtRegisteredClaimNames.Email, user.Email!),
-            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-        };
-
-        foreach (var role in roles)
-            claims.Add(new Claim(ClaimTypes.Role, role));
-        if (user.OrganizationId.HasValue)
-            claims.Add(new Claim(AuthClaims.OrganizationId, user.OrganizationId.Value.ToString()));
-        if (!string.IsNullOrWhiteSpace(organizationName))
-            claims.Add(new Claim(AuthClaims.OrganizationName, organizationName));
-
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
-        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-        var token = new JwtSecurityToken(
-            issuer: _configuration["Jwt:Issuer"],
-            audience: _configuration["Jwt:Audience"],
-            claims: claims,
-            expires: DateTime.UtcNow.AddHours(8),
-            signingCredentials: creds
-        );
-
-        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
     private static bool IsOrganizationNameUniqueViolation(DbUpdateException ex) =>

@@ -53,7 +53,7 @@ export function RegisterPage() {
                 nickname: nickname.trim() || undefined,
                 organizationName: organizationName.trim(),
             });
-            setAuth(res.token, res.email, res.role, res.nickname, res.organizationName);
+            setAuth(res.token, res.email, res.role, res.nickname, res.organizationName, res.refreshToken);
             navigate('/retrospectives');
         } catch (err: unknown) {
             setError(describeRegistrationError((err as { response?: { data?: unknown } }).response?.data));

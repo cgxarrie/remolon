@@ -203,6 +203,9 @@ public class UsersController : ControllerBase
         if (!addResult.Succeeded)
             return BadRequest(addResult.Errors);
 
+        await _userManager.UpdateSecurityStampAsync(user);
+        await _authTokenService.RevokeAllForUserAsync(user.Id);
+
         return Ok(new UserSummaryDto(user.Id, user.Email!, user.Nickname, request.Role,
             user.OrganizationId, user.Organization?.Name, AvatarImage.UrlFor(user)));
     }
@@ -225,6 +228,7 @@ public class UsersController : ControllerBase
             || user.OrganizationId != organizationId)
             return Forbid();
 
+        await _authTokenService.RevokeAllForUserAsync(user.Id);
         var result = await _userManager.DeleteAsync(user);
         if (!result.Succeeded)
             return BadRequest(result.Errors);

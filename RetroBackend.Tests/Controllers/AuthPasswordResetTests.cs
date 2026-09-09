@@ -75,11 +75,11 @@ public class AuthPasswordResetTests
         IEmailSender emailSender) =>
         new(
             userManager,
-            new ConfigurationBuilder().Build(),
             context,
             emailSender,
             Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" }),
-            NullLogger<AuthController>.Instance);
+            NullLogger<AuthController>.Instance,
+            new UnusedAuthTokenService());
 
     private static RetroDbContext CreateContext() =>
         new(new DbContextOptionsBuilder<RetroDbContext>()
@@ -129,5 +129,18 @@ public class AuthPasswordResetTests
     {
         public Task SendAsync(string to, string subject, string htmlBody, CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("SMTP unavailable");
+    }
+
+    private sealed class UnusedAuthTokenService : IAuthTokenService
+    {
+        public Task<AuthTokenResponse> BuildAuthResponseAsync(AppUser user, string role) =>
+            throw new NotSupportedException();
+
+        public Task<AuthTokenResponse?> RefreshAsync(string refreshToken) =>
+            throw new NotSupportedException();
+
+        public Task RevokeAllForUserAsync(string userId) => Task.CompletedTask;
+
+        public Task RevokeAsync(string refreshToken) => Task.CompletedTask;
     }
 }

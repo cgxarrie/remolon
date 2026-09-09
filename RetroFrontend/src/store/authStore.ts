@@ -35,6 +35,7 @@ export function isAccessTokenExpired(token: string): boolean {
 
 interface AuthState {
     token: string | null;
+    refreshToken: string | null;
     userId: string | null;
     organizationId: string | null;
     organizationName: string | null;
@@ -42,7 +43,14 @@ interface AuthState {
     role: Role | null;
     nickname: string | null;
     avatarUrl: string | null;
-    setAuth: (token: string, email: string, role: string, nickname: string, organizationName?: string | null) => void;
+    setAuth: (
+        token: string,
+        email: string,
+        role: string,
+        nickname: string,
+        organizationName?: string | null,
+        refreshToken?: string | null,
+    ) => void;
     setOrganizationName: (name: string) => void;
     setProfile: (profile: { nickname?: string; avatarUrl?: string | null; role?: Role }) => void;
     clearAuth: () => void;
@@ -52,6 +60,7 @@ export const useAuthStore = create<AuthState>()(
     persist(
         (set) => ({
             token: null,
+            refreshToken: null,
             userId: null,
             organizationId: null,
             organizationName: null,
@@ -59,10 +68,11 @@ export const useAuthStore = create<AuthState>()(
             role: null,
             nickname: null,
             avatarUrl: null,
-            setAuth: (token, email, role, nickname, organizationName) => {
+            setAuth: (token, email, role, nickname, organizationName, refreshToken) => {
                 const claims = parseJwt(token);
                 set((state) => ({
                     token,
+                    refreshToken: refreshToken === undefined ? state.refreshToken : refreshToken,
                     userId: claims.userId,
                     organizationId: claims.organizationId,
                     organizationName: organizationName ?? claims.organizationName,
@@ -80,6 +90,7 @@ export const useAuthStore = create<AuthState>()(
             })),
             clearAuth: () => set({
                 token: null,
+                refreshToken: null,
                 userId: null,
                 organizationId: null,
                 organizationName: null,

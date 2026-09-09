@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { authApi } from '../api/auth';
 import { organizationsApi } from '../api/organizations';
 import { usersApi } from '../api/users';
 import { UserAvatar } from './UserAvatar';
@@ -104,6 +105,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
     }, [menuOpen]);
 
     function handleLogout() {
+        const refreshToken = useAuthStore.getState().refreshToken;
+        if (refreshToken) {
+            void authApi.logout(refreshToken).catch(() => undefined);
+        }
         clearOrganizationQueries(queryClient);
         clearAuth();
         navigate('/login');

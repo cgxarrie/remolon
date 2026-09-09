@@ -1,8 +1,10 @@
 using System.Text;
 using System.Security.Claims;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -77,6 +79,9 @@ builder.Services
         options.User.RequireUniqueEmail = true;
         IdentityPasswordPolicy.Apply(options);
         options.Tokens.PasswordResetTokenProvider = PasswordResetTokenProviderOptions.ProviderName;
+        options.Lockout.AllowedForNewUsers = true;
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
     })
     .AddEntityFrameworkStores<RetroDbContext>()
     .AddDefaultTokenProviders()
@@ -113,6 +118,7 @@ builder.Services
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
+            ClockSkew = TimeSpan.Zero,
             NameClaimType = ClaimTypes.NameIdentifier,
             RoleClaimType = ClaimTypes.Role,
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
@@ -132,10 +138,26 @@ builder.Services
 
                 return Task.CompletedTask;
             },
-            OnTokenValidated = context =>
+            OnTokenValidated = async context =>
             {
                 if (context.Principal?.Identity is not ClaimsIdentity identity)
-                    return Task.CompletedTask;
+                    return;
+
+                var userId = identity.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var presentedStamp = identity.FindFirst(AuthClaims.SecurityStamp)?.Value;
+                if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(presentedStamp))
+                {
+                    context.Fail("Invalid token.");
+                    return;
+                }
+
+                var userManager = context.HttpContext.RequestServices.GetRequiredService<UserManager<AppUser>>();
+                var user = await userManager.FindByIdAsync(userId);
+                if (user is null || await userManager.GetSecurityStampAsync(user) != presentedStamp)
+                {
+                    context.Fail("Token is no longer valid.");
+                    return;
+                }
 
                 var roleValues = identity.Claims
                     .Where(c =>
@@ -154,13 +176,30 @@ builder.Services
                     if (!identity.HasClaim("role", roleValue))
                         identity.AddClaim(new Claim("role", roleValue));
                 }
-
-                return Task.CompletedTask;
             }
         };
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = (context, _) =>
+    {
+        context.HttpContext.Response.Headers.RetryAfter = "60";
+        return ValueTask.CompletedTask;
+    };
+    options.AddPolicy("auth", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                AutoReplenishment = true,
+                PermitLimit = 10,
+                QueueLimit = 0,
+                Window = TimeSpan.FromMinutes(1),
+            }));
+});
 builder.Services.AddSingleton<IUserIdProvider, NameIdentifierUserIdProvider>();
 builder.Services.AddSingleton<RetrospectiveHubConnectionTracker>();
 builder.Services.AddSignalR();
@@ -198,6 +237,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

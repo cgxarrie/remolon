@@ -27,7 +27,15 @@ public record ResetPasswordRequest(
     [Required, MinLength(IdentityPasswordPolicy.RequiredLength)] string NewPassword
 );
 
-public record AuthTokenResponse(string Token, string Email, string Role, string Nickname, string? OrganizationName);
+public record AuthTokenResponse(
+    string Token,
+    string Email,
+    string Role,
+    string Nickname,
+    string? OrganizationName,
+    string? RefreshToken = null);
+
+public record RefreshTokenRequest([Required] string RefreshToken);
 
 public record InitialPasswordChangeRequest(
     [Required, EmailAddress] string Email,

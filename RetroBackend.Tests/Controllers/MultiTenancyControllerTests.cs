@@ -14,6 +14,7 @@ using RetroBackend.Data;
 using RetroBackend.Dtos;
 using RetroBackend.Models;
 using RetroBackend.Services;
+using RetroBackend.Tests.Config;
 using Xunit;
 
 namespace RetroBackend.Tests.Controllers;
@@ -176,17 +177,7 @@ public class MultiTenancyControllerTests
     }
 
     private static IAuthTokenService TokenService(UserManager<AppUser> userManager, RetroDbContext context) =>
-        new AuthTokenService(userManager, context, TestJwtConfiguration());
-
-    private static IConfiguration TestJwtConfiguration() =>
-        new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Jwt:Key"] = "unit-test-jwt-signing-key-32ch!!",
-                ["Jwt:Issuer"] = "RetroBackend",
-                ["Jwt:Audience"] = "RetroBackendClients",
-            })
-            .Build();
+        new AuthTokenService(userManager, context, TestJwt.Configuration);
 
     private static UsersController CreateUsersController(
         UserManager<AppUser> userManager,

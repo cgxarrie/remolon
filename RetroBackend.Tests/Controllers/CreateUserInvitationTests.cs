@@ -87,11 +87,11 @@ public class CreateUserInvitationTests
         var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes("raw-reset-token"));
         var authController = new AuthController(
             userManager,
-            new ConfigurationBuilder().Build(),
             context,
             emails,
             Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" }),
-            NullLogger<AuthController>.Instance);
+            NullLogger<AuthController>.Instance,
+            new UnusedAuthTokenService());
 
         var result = await authController.ResetPassword(new ResetPasswordRequest(
             "new@acme.test",
@@ -199,5 +199,12 @@ public class CreateUserInvitationTests
     {
         public Task<AuthTokenResponse> BuildAuthResponseAsync(AppUser user, string role) =>
             throw new NotSupportedException();
+
+        public Task<AuthTokenResponse?> RefreshAsync(string refreshToken) =>
+            throw new NotSupportedException();
+
+        public Task RevokeAllForUserAsync(string userId) => Task.CompletedTask;
+
+        public Task RevokeAsync(string refreshToken) => Task.CompletedTask;
     }
 }
