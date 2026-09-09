@@ -23,6 +23,7 @@ namespace RetroBackend.Controllers;
 [Produces("application/json")]
 public class AuthController : ControllerBase
 {
+    private const string CouldNotCreateAccount = "Could not create account.";
     private const string ForgotPasswordMessage =
         "If an account exists for that email, a password reset link has been sent. The link expires in 30 minutes.";
 
@@ -69,11 +70,13 @@ public class AuthController : ControllerBase
             ? request.Nickname.Trim()
             : request.Email.Split('@')[0];
         if (await _userManager.Users.AnyAsync(u => u.Nickname.ToLower() == nickname.ToLower()))
-            return BadRequest(new { message = "Could not create account." });
+            return BadRequest(new { message = CouldNotCreateAccount });
         if (await _context.Organizations.AnyAsync(o => o.Name.ToLower() == organizationName.ToLower()))
-            return BadRequest(new { message = "Could not create account." });
+            return BadRequest(new { message = CouldNotCreateAccount });
 
-        await using var transaction = await _context.Database.BeginTransactionAsync();
+        await using var transaction = _context.Database.IsRelational()
+            ? await _context.Database.BeginTransactionAsync()
+            : null;
         try
         {
             var organization = new Organization { Name = organizationName };
@@ -84,26 +87,36 @@ public class AuthController : ControllerBase
             var result = await _userManager.CreateAsync(user, request.Password);
             if (!result.Succeeded)
             {
-                await transaction.RollbackAsync();
-                if (result.Errors.Any(e => e.Code is "DuplicateEmail" or "DuplicateUserName"))
-                    return BadRequest(new { message = "Could not create account." });
-                return BadRequest(result.Errors);
+                if (transaction is not null)
+                    await transaction.RollbackAsync();
+                _logger.LogInformation(
+                    "Public registration failed for {Email}: {Errors}",
+                    request.Email,
+                    string.Join(", ", result.Errors.Select(e => e.Code)));
+                return BadRequest(new { message = CouldNotCreateAccount });
             }
 
             var roleResult = await _userManager.AddToRoleAsync(user, Roles.Manager);
             if (!roleResult.Succeeded)
             {
-                await transaction.RollbackAsync();
-                return BadRequest(roleResult.Errors);
+                if (transaction is not null)
+                    await transaction.RollbackAsync();
+                _logger.LogInformation(
+                    "Public registration role assignment failed for {Email}: {Errors}",
+                    request.Email,
+                    string.Join(", ", roleResult.Errors.Select(e => e.Code)));
+                return BadRequest(new { message = CouldNotCreateAccount });
             }
 
-            await transaction.CommitAsync();
+            if (transaction is not null)
+                await transaction.CommitAsync();
             return TokenOk(await _authTokenService.BuildAuthResponseAsync(user, Roles.Manager));
         }
         catch (DbUpdateException ex) when (IsOrganizationNameUniqueViolation(ex))
         {
-            await transaction.RollbackAsync();
-            return BadRequest(new { message = "Could not create account." });
+            if (transaction is not null)
+                await transaction.RollbackAsync();
+            return BadRequest(new { message = CouldNotCreateAccount });
         }
     }
 

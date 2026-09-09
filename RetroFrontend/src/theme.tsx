@@ -81,12 +81,11 @@ function applyTheme(palette: ThemePalette) {
 }
 
 export function OrganizationThemeProvider({ children }: { children: React.ReactNode }) {
-    const token = useAuthStore((state) => state.token);
     const organizationId = useAuthStore((state) => state.organizationId);
     const { data: organization } = useQuery({
         queryKey: ['organizationTheme', organizationId],
         queryFn: () => organizationsApi.getById(organizationId!),
-        enabled: !!token && !!organizationId,
+        enabled: !!organizationId,
         staleTime: 30_000,
     });
 

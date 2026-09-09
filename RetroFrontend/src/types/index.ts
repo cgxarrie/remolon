@@ -1,12 +1,11 @@
 // Auth
 export interface AuthTokenResponse {
-    token: string;
     email: string;
     role: string;
     nickname: string;
     organizationId?: string;
     organizationName?: string | null;
-    refreshToken?: string | null;
+    userId?: string;
 }
 
 export interface RegisterRequest {
@@ -56,6 +55,8 @@ export interface CurrentUserDto {
     nickname: string;
     role: Role;
     avatarUrl: string | null;
+    id: string;
+    organizationId: string | null;
 }
 
 export interface UpdateMeRequest {

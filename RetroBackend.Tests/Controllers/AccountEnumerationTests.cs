@@ -67,8 +67,58 @@ public class AccountEnumerationTests
         Assert.DoesNotContain("exists", Serialize(body.Value), StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string Serialize(object? value) =>
-        System.Text.Json.JsonSerializer.Serialize(value);
+    [Fact]
+    public async Task Register_DuplicateEmailAndWeakPassword_ReturnSameGenericMessage()
+    {
+        await using var context = CreateContext();
+        using var userManager = CreateRegisterUserManager(context);
+        Assert.True((await userManager.CreateAsync(
+            new AppUser("taken@acme.test", "taken"), "Correct-Horse-1!")).Succeeded);
+        var existing = CreateAuthController(userManager, context);
+        var missing = CreateAuthController(userManager, context);
+        const string weak = "aaaaaaaaaaaa";
+
+        var taken = await existing.Register(new PublicRegisterRequest(
+            "taken@acme.test", weak, "othernick", "NewOrgTaken"));
+        var unknown = await missing.Register(new PublicRegisterRequest(
+            "new@acme.test", weak, "brandnew", "NewOrgUnknown"));
+
+        var takenBody = Assert.IsType<BadRequestObjectResult>(taken);
+        var unknownBody = Assert.IsType<BadRequestObjectResult>(unknown);
+        Assert.Equal(Serialize(takenBody.Value), Serialize(unknownBody.Value));
+        Assert.Contains("Could not create account", Serialize(takenBody.Value), StringComparison.Ordinal);
+        Assert.DoesNotContain("Password", Serialize(takenBody.Value), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Duplicate", Serialize(unknownBody.Value), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static AuthController CreateAuthController(UserManager<AppUser> userManager, RetroDbContext context) =>
+        new(
+            userManager,
+            context,
+            new FakeEmailSender(),
+            Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" }),
+            NullLogger<AuthController>.Instance,
+            new UnusedAuthTokenService(),
+            new TestHostEnvironment())
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
+        };
+
+    private static UserManager<AppUser> CreateRegisterUserManager(RetroDbContext context)
+    {
+        var options = new IdentityOptions();
+        IdentityPasswordPolicy.Apply(options);
+        return new UserManager<AppUser>(
+            new UserStore<AppUser>(context),
+            Options.Create(options),
+            new PasswordHasher<AppUser>(),
+            [new UserValidator<AppUser>()],
+            [new PasswordValidator<AppUser>()],
+            new UpperInvariantLookupNormalizer(),
+            new IdentityErrorDescriber(),
+            null!,
+            NullLogger<UserManager<AppUser>>.Instance);
+    }
 
     private static UserAssignmentsController AssignmentsController(
         RetroDbContext context,
@@ -136,17 +186,24 @@ public class AccountEnumerationTests
             .UseInMemoryDatabase($"enum-{Guid.NewGuid()}")
             .Options);
 
-    private static UserManager<AppUser> CreateUserManager(RetroDbContext context) =>
-        new(
+    private static UserManager<AppUser> CreateUserManager(RetroDbContext context)
+    {
+        var options = new IdentityOptions();
+        IdentityPasswordPolicy.Apply(options);
+        return new UserManager<AppUser>(
             new UserStore<AppUser>(context),
-            Options.Create(new IdentityOptions()),
+            Options.Create(options),
             new PasswordHasher<AppUser>(),
-            [],
-            [],
+            [new UserValidator<AppUser>()],
+            [new PasswordValidator<AppUser>()],
             new UpperInvariantLookupNormalizer(),
             new IdentityErrorDescriber(),
             null!,
             NullLogger<UserManager<AppUser>>.Instance);
+    }
+
+    private static string Serialize(object? value) =>
+        System.Text.Json.JsonSerializer.Serialize(value);
 
     private sealed class FakeEmailSender : IEmailSender
     {

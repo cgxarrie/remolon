@@ -52,6 +52,20 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 
 Local Vite still expects a backend on `http://localhost:5145` (`dotnet run` in RetroBackend). Do not expose `5145` from Compose.
 
+### HTTPS (optional overlay)
+
+Default Compose is HTTP. For a production-like stack with TLS at nginx:
+
+```bash
+mkdir -p certs
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout certs/privkey.pem -out certs/fullchain.pem \
+  -subj "/CN=localhost"
+docker compose -f docker-compose.yml -f docker-compose.tls.yml up --build
+```
+
+Then use `https://localhost`. Port 80 redirects to HTTPS. Cookies are `Secure` when nginx sets `X-Forwarded-Proto: https`. If the site is not `localhost`, set `ALLOWED_HOSTS` (maps to `ASPNETCORE_ALLOWEDHOSTS`, semicolon-separated).
+
 Register a Manager account from the frontend to create an organization.
 
 ### Required environment
@@ -80,6 +94,7 @@ ReMolon/
 ├── RetroFrontend/           # React 19 SPA
 ├── docker-compose.yml       # Full-stack orchestration (no DB/Mailpit host ports)
 ├── docker-compose.dev.yml   # Local Postgres and Mailpit port maps
+├── docker-compose.tls.yml   # Optional HTTPS at nginx (certs/ + port 443)
 └── .env.example             # Required secrets (copy to .env)
 ```
 

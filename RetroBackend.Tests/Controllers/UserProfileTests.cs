@@ -40,6 +40,8 @@ public class UserProfileTests
         Assert.Equal("alice", dto.Nickname);
         Assert.Equal(Roles.StandardUser, dto.Role);
         Assert.Null(dto.AvatarUrl);
+        Assert.Equal(user.Id, dto.Id);
+        Assert.Equal(organization.Id, dto.OrganizationId);
     }
 
     [Fact]

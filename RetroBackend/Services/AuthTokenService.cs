@@ -39,23 +39,77 @@ public class AuthTokenService : IAuthTokenService
         var organizationName = await GetOrganizationNameAsync(user);
         var token = await GenerateJwtAsync(user, organizationName);
         var refreshToken = await IssueRefreshTokenAsync(user.Id);
-        return new AuthTokenResponse(token, user.Email!, role, user.Nickname, organizationName, refreshToken);
+        return new AuthTokenResponse(
+            token,
+            user.Email!,
+            role,
+            user.Nickname,
+            organizationName,
+            refreshToken,
+            user.Id,
+            user.OrganizationId?.ToString());
     }
 
     public async Task<AuthTokenResponse?> RefreshAsync(string refreshToken)
     {
         var hash = Hash(refreshToken);
-        var stored = await _context.RefreshTokens
-            .Include(t => t.User)
-            .FirstOrDefaultAsync(t => t.TokenHash == hash);
+        var now = DateTime.UtcNow;
+        RefreshToken? stored;
 
-        if (stored is null || stored.RevokedAt is not null || stored.ExpiresAt <= DateTime.UtcNow || stored.User is null)
+        if (_context.Database.IsRelational())
+        {
+            var rotated = await _context.RefreshTokens
+                .Where(t => t.TokenHash == hash && t.RevokedAt == null && t.ExpiresAt > now)
+                .ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, now));
+
+            if (rotated == 0)
+            {
+                await RevokeAllIfReuseAsync(hash, now);
+                return null;
+            }
+
+            stored = await _context.RefreshTokens
+                .Include(t => t.User)
+                .FirstAsync(t => t.TokenHash == hash);
+        }
+        else
+        {
+            stored = await _context.RefreshTokens
+                .Include(t => t.User)
+                .FirstOrDefaultAsync(t => t.TokenHash == hash);
+
+            if (stored is null)
+                return null;
+
+            if (stored.RevokedAt is not null)
+            {
+                if (stored.ExpiresAt > now)
+                    await RevokeAllForUserAsync(stored.UserId);
+                return null;
+            }
+
+            if (stored.ExpiresAt <= now)
+                return null;
+
+            stored.RevokedAt = now;
+            await _context.SaveChangesAsync();
+        }
+
+        if (stored.User is null)
             return null;
 
-        stored.RevokedAt = DateTime.UtcNow;
         var roles = await _userManager.GetRolesAsync(stored.User);
         var role = roles.FirstOrDefault() ?? Roles.StandardUser;
         return await BuildAuthResponseAsync(stored.User, role);
+    }
+
+    private async Task RevokeAllIfReuseAsync(string hash, DateTime now)
+    {
+        var presented = await _context.RefreshTokens
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.TokenHash == hash);
+        if (presented is not null && presented.RevokedAt is not null && presented.ExpiresAt > now)
+            await RevokeAllForUserAsync(presented.UserId);
     }
 
     public async Task RevokeAllForUserAsync(string userId)

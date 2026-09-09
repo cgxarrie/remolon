@@ -56,7 +56,6 @@ export function RetrospectiveDetailPage() {
     const role = useAuthStore((s) => s.role);
     const organizationId = useAuthStore((s) => s.organizationId);
     const userId = useAuthStore((s) => s.userId);
-    const token = useAuthStore((s) => s.token);
     const email = useAuthStore((s) => s.email);
     const nickname = useAuthStore((s) => s.nickname);
     const avatarUrl = useAuthStore((s) => s.avatarUrl);
@@ -340,7 +339,7 @@ export function RetrospectiveDetailPage() {
     playFlightRef.current = playFlight;
 
     useEffect(() => {
-        if (!id || !token) return;
+        if (!id || !userId) return;
 
         const connection = createRetrospectiveHubConnection();
         hubConnectionRef.current = connection;
@@ -401,7 +400,7 @@ export function RetrospectiveDetailPage() {
             hubConnectionRef.current = null;
             void connection.stop();
         };
-    }, [id, token, queryClient, navigate]);
+    }, [id, userId, queryClient, navigate]);
 
     function launchAxeToParticipant(targetId: string) {
         const fromUserId = userId ?? '';

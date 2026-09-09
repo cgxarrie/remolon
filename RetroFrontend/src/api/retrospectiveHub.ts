@@ -1,5 +1,4 @@
 import { HubConnectionBuilder, type HubConnection } from '@microsoft/signalr';
-import { useAuthStore } from '../store/authStore';
 
 export interface ObjectThrownEvent {
     fromUserId: string;
@@ -20,7 +19,6 @@ export function createRetrospectiveHubConnection(): HubConnection {
     return new HubConnectionBuilder()
         .withUrl('/hubs/retrospective', {
             withCredentials: true,
-            accessTokenFactory: () => useAuthStore.getState().token ?? '',
         })
         .withAutomaticReconnect()
         .build();

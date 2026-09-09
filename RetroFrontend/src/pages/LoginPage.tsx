@@ -23,7 +23,7 @@ export function LoginPage() {
         setLoading(true);
         try {
             const res = await authApi.login({ email, password });
-            setAuth(res.token, res.email, res.role, res.nickname, res.organizationName, res.refreshToken);
+            setAuth(res);
             navigate('/retrospectives');
         } catch (err: unknown) {
             const axiosErr = err as { response?: { status?: number; data?: PasswordChangeRequiredResponse } };
@@ -58,7 +58,7 @@ export function LoginPage() {
                 currentPassword: password,
                 newPassword,
             });
-            setAuth(res.token, res.email, res.role, res.nickname, res.organizationName, res.refreshToken);
+            setAuth(res);
             navigate('/retrospectives');
         } catch {
             setError('Could not change password. Ensure it meets policy requirements.');

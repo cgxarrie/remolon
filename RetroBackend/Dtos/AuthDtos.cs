@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using RetroBackend.Auth;
 
 namespace RetroBackend.Dtos;
@@ -28,12 +29,14 @@ public record ResetPasswordRequest(
 );
 
 public record AuthTokenResponse(
-    string Token,
+    [property: JsonIgnore] string Token,
     string Email,
     string Role,
     string Nickname,
     string? OrganizationName,
-    string? RefreshToken = null);
+    [property: JsonIgnore] string? RefreshToken = null,
+    string? UserId = null,
+    string? OrganizationId = null);
 
 public record RefreshTokenRequest(string? RefreshToken = null);
 

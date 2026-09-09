@@ -58,7 +58,13 @@ public class UsersController : ControllerBase
 
         var roles = await _userManager.GetRolesAsync(user);
         var role = roles.FirstOrDefault() ?? Roles.StandardUser;
-        return Ok(new CurrentUserDto(user.Email!, user.Nickname, role, AvatarImage.UrlFor(user)));
+        return Ok(new CurrentUserDto(
+            user.Email!,
+            user.Nickname,
+            role,
+            AvatarImage.UrlFor(user),
+            user.Id,
+            user.OrganizationId));
     }
 
     /// <summary>Updates the authenticated user's nickname and returns a new JWT.</summary>

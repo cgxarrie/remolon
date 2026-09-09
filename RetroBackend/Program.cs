@@ -145,13 +145,20 @@ builder.Services
         {
             OnMessageReceived = context =>
             {
+                if (!string.IsNullOrEmpty(context.Token))
+                    return Task.CompletedTask;
+
+                if (context.Request.Cookies.TryGetValue(AuthCookies.Access, out var cookieToken)
+                    && !string.IsNullOrEmpty(cookieToken))
+                {
+                    context.Token = cookieToken;
+                    return Task.CompletedTask;
+                }
+
                 var accessToken = context.Request.Query["access_token"];
                 var path = context.HttpContext.Request.Path;
                 if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
                     context.Token = accessToken;
-                else if (string.IsNullOrEmpty(context.Token)
-                    && context.Request.Cookies.TryGetValue(AuthCookies.Access, out var cookieToken))
-                    context.Token = cookieToken;
 
                 return Task.CompletedTask;
             },

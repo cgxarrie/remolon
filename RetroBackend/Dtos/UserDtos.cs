@@ -39,7 +39,9 @@ public record CurrentUserDto(
     string Email,
     string Nickname,
     string Role,
-    string? AvatarUrl
+    string? AvatarUrl,
+    string Id,
+    Guid? OrganizationId
 );
 
 public record UpdateMeRequest(

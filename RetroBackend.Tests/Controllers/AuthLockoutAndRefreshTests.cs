@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
@@ -58,10 +59,26 @@ public class AuthLockoutAndRefreshTests
         Assert.NotNull(first);
         Assert.NotEqual(issued.RefreshToken, first!.RefreshToken);
 
-        Assert.Null(await tokens.RefreshAsync(issued.RefreshToken!));
-
         var second = await tokens.RefreshAsync(first.RefreshToken!);
         Assert.NotNull(second);
+        Assert.NotEqual(first.RefreshToken, second!.RefreshToken);
+    }
+
+    [Fact]
+    public async Task Refresh_ReuseOfRotatedToken_RevokesRemainingSessions()
+    {
+        await using var context = CreateContext();
+        using var userManager = CreateUserManager(context);
+        var user = new AppUser("alice@example.com", "alice");
+        Assert.True((await userManager.CreateAsync(user, Password)).Succeeded);
+        var tokens = new AuthTokenService(userManager, context, TestJwt.Configuration);
+        var issued = await tokens.BuildAuthResponseAsync(user, Roles.StandardUser);
+        var rotated = await tokens.RefreshAsync(issued.RefreshToken!);
+        Assert.NotNull(rotated);
+
+        Assert.Null(await tokens.RefreshAsync(issued.RefreshToken!));
+        Assert.Null(await tokens.RefreshAsync(rotated!.RefreshToken!));
+        Assert.All(context.RefreshTokens.ToList(), token => Assert.NotNull(token.RevokedAt));
     }
 
     [Fact]
@@ -84,6 +101,28 @@ public class AuthLockoutAndRefreshTests
         Assert.True(jwt.ValidTo > DateTime.UtcNow.AddMinutes(10));
     }
 
+    [Fact]
+    public void AuthTokenResponse_JsonOmitsSecrets()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(
+            new AuthTokenResponse(
+                "secret-access",
+                "alice@example.com",
+                Roles.StandardUser,
+                "alice",
+                "Acme",
+                "secret-refresh",
+                "user-1",
+                Guid.NewGuid().ToString()),
+            new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
+
+        Assert.Contains("alice@example.com", json);
+        Assert.DoesNotContain("secret-access", json);
+        Assert.DoesNotContain("secret-refresh", json);
+        Assert.DoesNotContain("\"token\"", json);
+        Assert.DoesNotContain("refreshToken", json);
+    }
+
     private static AuthController CreateController(UserManager<AppUser> userManager, RetroDbContext context) =>
         new(
             userManager,
@@ -92,7 +131,10 @@ public class AuthLockoutAndRefreshTests
             Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" }),
             NullLogger<AuthController>.Instance,
             new AuthTokenService(userManager, context, TestJwt.Configuration),
-            new TestHostEnvironment());
+            new TestHostEnvironment())
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
+        };
 
     private static RetroDbContext CreateContext() =>
         new(new DbContextOptionsBuilder<RetroDbContext>()

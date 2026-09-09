@@ -5,7 +5,10 @@ import type { AuthTokenResponse } from '../types';
 const client = axios.create({
     baseURL: '/api',
     withCredentials: true,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+    },
 });
 
 type RetryConfig = InternalAxiosRequestConfig & { _retry?: boolean };
@@ -13,14 +16,7 @@ type RetryConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 let refreshInFlight: Promise<boolean> | null = null;
 
 function applyAuth(data: AuthTokenResponse) {
-    useAuthStore.getState().setAuth(
-        data.token,
-        data.email,
-        data.role,
-        data.nickname,
-        data.organizationName,
-        data.refreshToken,
-    );
+    useAuthStore.getState().setAuth(data);
 }
 
 async function refreshSession(): Promise<boolean> {
@@ -28,7 +24,10 @@ async function refreshSession(): Promise<boolean> {
         const { data } = await axios.post<AuthTokenResponse>(
             '/api/auth/refresh',
             {},
-            { withCredentials: true },
+            {
+                withCredentials: true,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            },
         );
         applyAuth(data);
         return true;
@@ -50,10 +49,6 @@ function isAuthCredentialRequest(url: string | undefined) {
 }
 
 client.interceptors.request.use((config) => {
-    const token = useAuthStore.getState().token;
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }
     if (config.data instanceof FormData) {
         delete config.headers['Content-Type'];
     }
@@ -78,7 +73,6 @@ client.interceptors.response.use(
             return Promise.reject(error);
         }
 
-        original.headers.Authorization = `Bearer ${useAuthStore.getState().token}`;
         return client(original);
     },
 );

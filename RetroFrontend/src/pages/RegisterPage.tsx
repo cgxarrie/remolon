@@ -5,8 +5,7 @@ import { PasswordField, PasswordMatchStatus, getPasswordMatchState } from '../co
 import { PASSWORD_MIN_LENGTH } from '../types';
 import { useAuthStore } from '../store/authStore';
 
-// The API reports failures three ways: Identity error arrays, a { message } conflict,
-// and ASP.NET validation problem details keyed by field name.
+        // The API reports failures as { message } or ASP.NET validation problem details.
 function describeRegistrationError(data: unknown): string {
     const fallback = 'Registration failed. Please try again.';
     if (Array.isArray(data)) {
@@ -53,7 +52,7 @@ export function RegisterPage() {
                 nickname: nickname.trim() || undefined,
                 organizationName: organizationName.trim(),
             });
-            setAuth(res.token, res.email, res.role, res.nickname, res.organizationName, res.refreshToken);
+            setAuth(res);
             navigate('/retrospectives');
         } catch (err: unknown) {
             setError(describeRegistrationError((err as { response?: { data?: unknown } }).response?.data));
