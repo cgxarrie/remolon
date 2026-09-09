@@ -70,9 +70,10 @@ public class RetroDbContext : IdentityDbContext<AppUser>
                   entity.Property(a => a.IsCompleted)
                     .HasField("_isCompleted")
                     .UsePropertyAccessMode(PropertyAccessMode.Field);
-                  entity.Property(a => a.Assignee)
-                    .HasField("_asseignee")
-                    .UsePropertyAccessMode(PropertyAccessMode.Field);
+                  entity.PrimitiveCollection(a => a.Assignees)
+                    .HasField("_assignees")
+                    .UsePropertyAccessMode(PropertyAccessMode.Field)
+                    .HasColumnType("text[]");
                   entity.Property(a => a.Iterations)
                     .HasField("_iterations")
                     .UsePropertyAccessMode(PropertyAccessMode.Field);

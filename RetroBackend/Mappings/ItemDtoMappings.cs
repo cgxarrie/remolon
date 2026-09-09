@@ -17,7 +17,7 @@ public static class ItemDtoMappings
 
     public static Models.CreateActionItemRequest ToServiceRequest(this Dtos.CreateActionItemRequest dto) => new()
     {
-        Assignee = dto.Assignee,
+        Assignees = dto.Assignees,
         ColumnId = dto.ColumnId,
         Description = dto.Description,
         Position = dto.Position,
@@ -27,7 +27,7 @@ public static class ItemDtoMappings
     {
         Description = dto.Description,
         Position = dto.Position,
-        Assignee = dto.Assignee,
+        Assignees = dto.Assignees,
         IsCompleted = dto.IsCompleted,
     };
 
@@ -54,7 +54,7 @@ public static class ItemDtoMappings
         CreatedByNickname = item.CreatedByNickname,
         CreatedAt = item.CreatedAt,
         UpdatedAt = item.UpdatedAt,
-        Assignee = item.Assignee,
+        Assignees = [.. item.Assignees],
         IsCompleted = item.IsCompleted,
         Iterations = item.Iterations,
         ClosedBy = item.ClosedBy,

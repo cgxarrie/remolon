@@ -114,7 +114,7 @@ public class RetrospectiveService : IRetrospectiveService
                 pendingColumn.Items.Add(new ActionItem(
                     actingUser,
                     item.CreatedByNickname,
-                    item.Assignee,
+                    item.Assignees,
                     pendingColumn.Id,
                     item.Description,
                     position++,
@@ -133,7 +133,7 @@ public class RetrospectiveService : IRetrospectiveService
                 pendingColumn.Items.Add(new ActionItem(
                     actingUser,
                     item.CreatedByNickname,
-                    item.Assignee,
+                    item.Assignees,
                     pendingColumn.Id,
                     item.Description,
                     position++,

@@ -21,17 +21,20 @@ public class RetrospectivesController : ControllerBase
     private readonly IRetroAuthorizationService _authzService;
     private readonly RetroDbContext _context;
     private readonly IRetrospectiveLiveNotifier _liveNotifier;
+    private readonly IClosedRetrospectiveActionItemMailer _actionItemMailer;
 
     public RetrospectivesController(
         IRetrospectiveService service,
         IRetroAuthorizationService authzService,
         RetroDbContext context,
-        IRetrospectiveLiveNotifier liveNotifier)
+        IRetrospectiveLiveNotifier liveNotifier,
+        IClosedRetrospectiveActionItemMailer actionItemMailer)
     {
         _service = service;
         _authzService = authzService;
         _context = context;
         _liveNotifier = liveNotifier;
+        _actionItemMailer = actionItemMailer;
     }
 
     /// <summary>Retrieves retrospective boards grouped by title.</summary>
@@ -261,6 +264,7 @@ public class RetrospectivesController : ControllerBase
             return existing is null ? NotFound() : Conflict(new { message = "Retrospective is already closed." });
         }
 
+        await _actionItemMailer.NotifyAsync(existingRetro);
         await _liveNotifier.NotifyRetrospectiveClosedAsync(id);
         if (next.Id == id)
             return Ok(id);

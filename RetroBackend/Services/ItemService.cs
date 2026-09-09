@@ -39,7 +39,7 @@ public class ItemService : IItemService
 
     public async Task<ActionItem> CreateActionItemAsync(CreateActionItemRequest request)
     {
-        var item = new ActionItem(request.CreatedBy, request.CreatedByNickname, request.Assignee, request.ColumnId, request.Description, request.Position);
+        var item = new ActionItem(request.CreatedBy, request.CreatedByNickname, request.Assignees, request.ColumnId, request.Description, request.Position);
         return (ActionItem)await _repository.AddAsync(item);
     }
 
@@ -57,8 +57,8 @@ public class ItemService : IItemService
         if (request.Position is not null)
             actionItem.Position = request.Position.Value;
 
-        if (request.Assignee is not null)
-            actionItem.Assign(request.Assignee);
+        if (request.Assignees is not null)
+            actionItem.Assign(request.Assignees);
 
         if (request.IsCompleted is true)
             actionItem.Complete(string.Empty);

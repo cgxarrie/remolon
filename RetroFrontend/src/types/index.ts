@@ -101,7 +101,7 @@ export interface GetItemDto {
 }
 
 export interface GetActionItemDto extends GetItemDto {
-    assignee: string;
+    assignees: string[];
     isCompleted: boolean;
     iterations: number;
     closedBy: string | null;
@@ -175,13 +175,13 @@ export interface CreateActionItemRequest {
     columnId: string;
     description: string;
     position: number;
-    assignee?: string;
+    assignees?: string[];
 }
 
 export interface UpdateActionItemRequest {
     description?: string;
     position?: number;
-    assignee?: string;
+    assignees?: string[];
     isCompleted?: boolean;
 }
 

@@ -32,7 +32,8 @@ public class RetrospectiveManagerRulesTests
             service,
             new RetroAuthorizationService(context),
             context,
-            new RecordingLiveNotifier())
+            new RecordingLiveNotifier(),
+            new NoOpClosedRetrospectiveActionItemMailer())
         {
             ControllerContext = ControllerContext(Roles.Manager, organization.Id),
         };
@@ -297,7 +298,8 @@ public class RetrospectiveManagerRulesTests
             new RetrospectiveService(new EfRetrospectiveRepository(context)),
             new RetroAuthorizationService(context),
             context,
-            notifier)
+            notifier,
+            new NoOpClosedRetrospectiveActionItemMailer())
         {
             ControllerContext = ControllerContext(Roles.Manager, organization.Id),
         };
@@ -318,7 +320,8 @@ public class RetrospectiveManagerRulesTests
             new RetrospectiveService(new EfRetrospectiveRepository(context)),
             new RetroAuthorizationService(context),
             context,
-            notifier)
+            notifier,
+            new NoOpClosedRetrospectiveActionItemMailer())
         {
             ControllerContext = ControllerContext(Roles.Manager),
         };
@@ -344,7 +347,8 @@ public class RetrospectiveManagerRulesTests
             new RetrospectiveService(new EfRetrospectiveRepository(context)),
             new RetroAuthorizationService(context),
             context,
-            notifier)
+            notifier,
+            new NoOpClosedRetrospectiveActionItemMailer())
         {
             ControllerContext = ControllerContext(Roles.Manager, organization.Id),
         };
@@ -370,7 +374,8 @@ public class RetrospectiveManagerRulesTests
             new RetrospectiveService(new EfRetrospectiveRepository(context)),
             new RetroAuthorizationService(context),
             context,
-            notifier)
+            notifier,
+            new NoOpClosedRetrospectiveActionItemMailer())
         {
             ControllerContext = ControllerContext(Roles.Manager, organization.Id),
         };
@@ -437,7 +442,8 @@ public class RetrospectiveManagerRulesTests
             new RetrospectiveService(new EfRetrospectiveRepository(context)),
             new RetroAuthorizationService(context),
             context,
-            new RecordingLiveNotifier())
+            new RecordingLiveNotifier(),
+            new NoOpClosedRetrospectiveActionItemMailer())
         {
             ControllerContext = ControllerContext(Roles.Manager, organizationId),
         };

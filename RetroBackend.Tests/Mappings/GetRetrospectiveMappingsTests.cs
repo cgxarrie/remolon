@@ -27,8 +27,8 @@ public class GetRetrospectiveMappingsTests
     {
         var retro = BuildRetroWithItems();
         var pending = retro.Columns.OfType<ActionColumn>().Single(c => c.Title == "Pending Action Items");
-        pending.Items.Add(new ActionItem("alice", "Alice", "Alice", pending.Id, "Alice pending", 0));
-        pending.Items.Add(new ActionItem("bob", "Bob", "Bob", pending.Id, "Bob pending", 1));
+        pending.Items.Add(new ActionItem("alice", "Alice", ["Alice"], pending.Id, "Alice pending", 0));
+        pending.Items.Add(new ActionItem("bob", "Bob", ["Bob"], pending.Id, "Bob pending", 1));
 
         var dto = retro.ToGetDto("alice");
         var column = dto.ActionColumns.Single(c => c.Title == "Pending Action Items");

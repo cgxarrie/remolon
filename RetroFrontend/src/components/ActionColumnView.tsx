@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { actionItemsApi } from '../api/actionItems';
 import { ActionItemCard } from './ActionItemCard';
+import { AssigneePicker } from './AssigneePicker';
 import { ITEM_DESCRIPTION_MAX_LENGTH, type GetActionColumnDto } from '../types';
 import { invalidateRetrospective } from '../query/retrospectiveQueries';
 
@@ -27,7 +28,7 @@ export function ActionColumnView({
     const queryClient = useQueryClient();
     const [addingItem, setAddingItem] = useState(false);
     const [description, setDescription] = useState('');
-    const [assignee, setAssignee] = useState('');
+    const [assignees, setAssignees] = useState<string[]>([]);
     const [error, setError] = useState('');
 
     const participantAssignees = useMemo(() => {
@@ -35,16 +36,9 @@ export function ActionColumnView({
         return Array.from(unique).sort((a, b) => a.localeCompare(b));
     }, [assigneeOptions]);
 
-    const availableAssignees = useMemo(
-        () => ['', 'all', ...participantAssignees],
-        [participantAssignees]
-    );
-
     useEffect(() => {
-        if (!availableAssignees.includes(assignee)) {
-            setAssignee('');
-        }
-    }, [availableAssignees, assignee]);
+        setAssignees((current) => current.filter((name) => name === 'all' || participantAssignees.includes(name)));
+    }, [participantAssignees]);
 
     const addItemMutation = useMutation({
         mutationFn: () =>
@@ -52,12 +46,12 @@ export function ActionColumnView({
                 columnId: column.id,
                 description: description.trim(),
                 position: column.items.length,
-                assignee: assignee.trim(),
+                assignees,
             }),
         onSuccess: () => {
             invalidateRetrospective(queryClient, retroId);
             setDescription('');
-            setAssignee('');
+            setAssignees([]);
             setError('');
             setAddingItem(false);
         },
@@ -112,17 +106,11 @@ export function ActionColumnView({
                                     placeholder="Action item description…"
                                     className="w-full text-sm border border-slate-300 rounded-md px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                                 />
-                                <select
-                                    value={assignee}
-                                    onChange={(e) => setAssignee(e.target.value)}
-                                    className="w-full text-sm border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                                >
-                                    <option value="">--</option>
-                                    <option value="all">all</option>
-                                    {participantAssignees.map((name) => (
-                                        <option key={name} value={name}>{name}</option>
-                                    ))}
-                                </select>
+                                <AssigneePicker
+                                    options={participantAssignees}
+                                    selected={assignees}
+                                    onChange={setAssignees}
+                                />
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => addItemMutation.mutate()}
@@ -132,7 +120,7 @@ export function ActionColumnView({
                                         Add
                                     </button>
                                     <button
-                                        onClick={() => { setAddingItem(false); setDescription(''); setAssignee(''); setError(''); }}
+                                        onClick={() => { setAddingItem(false); setDescription(''); setAssignees([]); setError(''); }}
                                         className="px-3 py-1 text-xs text-slate-600 hover:text-slate-800"
                                     >
                                         Cancel
