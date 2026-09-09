@@ -18,34 +18,95 @@ interface Props {
     participantRef?: (participantId: string, element: HTMLDivElement | null) => void;
 }
 
-interface TableGeometry {
-    radiusX: number;
-    radiusY: number;
-    width: number;
-    height: number;
+interface Seat {
+    left: number;
+    top: number;
+    transform: string;
 }
 
-const CIRCLE_MAX_SEATS = 7;
-const MIN_SEAT_SPACING = 74;
-const MIN_TABLE_RADIUS = 120;
-const MAX_TABLE_ASPECT = 1.9;
-const SEAT_FOOTPRINT = 84;
+interface TableLayout {
+    width: number;
+    height: number;
+    tableLeft: number;
+    tableWidth: number;
+    tableTop: number;
+    seats: Seat[];
+}
+
+const SEAT_WIDTH = 148;
+const SEAT_HEIGHT = 56;
+// Seats hang over the table edge so the block stays as short as the avatars allow.
+const SEAT_OVERLAP = 6;
+const MAX_SEAT_SPACING = 168;
+const TABLE_HEIGHT = 80;
+const TABLE_MIN_WIDTH = 280;
+const TABLE_MAX_WIDTH = 1040;
 const GRID_FALLBACK_WIDTH = 420;
 
-// Seats are spread over equal angles, so the tightest gap between two neighbours is
-// radiusY * (2π / seats) — that lower bound is what keeps avatars from overlapping.
-function tableGeometry(seatCount: number): TableGeometry {
-    const radiusY = Math.max(MIN_TABLE_RADIUS, (MIN_SEAT_SPACING * seatCount) / (2 * Math.PI));
-    const aspect = seatCount > CIRCLE_MAX_SEATS
-        ? Math.min(MAX_TABLE_ASPECT, 1.25 + (seatCount - CIRCLE_MAX_SEATS - 1) * 0.1)
-        : 1;
-    const radiusX = radiusY * aspect;
+function rowPositions(count: number, width: number): number[] {
+    if (count === 0) return [];
+    if (count === 1) return [width / 2];
+
+    const spacing = Math.min(MAX_SEAT_SPACING, (width - SEAT_WIDTH) / (count - 1));
+    const start = (width - spacing * (count - 1)) / 2;
+
+    return Array.from({ length: count }, (_, index) => start + spacing * index);
+}
+
+// Seats are handed out around the perimeter — long edges first, then the short
+// sides — and returned clockwise starting at the top-left.
+function tableLayout(seatCount: number, availableWidth: number): TableLayout {
+    const outerWidth = Math.min(TABLE_MAX_WIDTH, Math.max(TABLE_MIN_WIDTH, availableWidth));
+    // The short edges only hold one seat each, and only if the table still has room to breathe.
+    const sideCount = outerWidth >= TABLE_MIN_WIDTH + 2 * SEAT_WIDTH
+        ? Math.min(2, Math.max(0, seatCount - 2))
+        : 0;
+    const rightCount = sideCount >= 1 ? 1 : 0;
+    const leftCount = sideCount >= 2 ? 1 : 0;
+    const rowCount = seatCount - rightCount - leftCount;
+    const topCount = Math.ceil(rowCount / 2);
+    const bottomCount = rowCount - topCount;
+
+    const tableLeft = sideCount > 0 ? SEAT_WIDTH : 0;
+    const tableWidth = Math.min(
+        outerWidth - 2 * tableLeft,
+        Math.max(TABLE_MIN_WIDTH, topCount * SEAT_WIDTH),
+    );
+    const rowHeight = SEAT_HEIGHT - SEAT_OVERLAP;
+    const tableTop = topCount > 0 ? rowHeight : 0;
+    const tableBottom = tableTop + TABLE_HEIGHT;
+    const tableMiddle = tableTop + TABLE_HEIGHT / 2;
+
+    const seats: Seat[] = [
+        ...rowPositions(topCount, tableWidth).map((x) => ({
+            left: tableLeft + x,
+            top: tableTop + SEAT_OVERLAP,
+            transform: 'translate(-50%, -100%)',
+        })),
+        ...Array.from({ length: rightCount }, () => ({
+            left: tableLeft + tableWidth - SEAT_OVERLAP,
+            top: tableMiddle,
+            transform: 'translate(0, -50%)',
+        })),
+        ...rowPositions(bottomCount, tableWidth).reverse().map((x) => ({
+            left: tableLeft + x,
+            top: tableBottom - SEAT_OVERLAP,
+            transform: 'translate(-50%, 0)',
+        })),
+        ...Array.from({ length: leftCount }, () => ({
+            left: tableLeft + SEAT_OVERLAP,
+            top: tableMiddle,
+            transform: 'translate(-100%, -50%)',
+        })),
+    ];
 
     return {
-        radiusX,
-        radiusY,
-        width: radiusX * 2 + SEAT_FOOTPRINT,
-        height: radiusY * 2 + SEAT_FOOTPRINT,
+        width: tableWidth + 2 * tableLeft,
+        height: tableBottom + (bottomCount > 0 ? rowHeight : 0),
+        tableLeft,
+        tableWidth,
+        tableTop,
+        seats,
     };
 }
 
@@ -65,12 +126,12 @@ function AvatarPill({
     const clickable = Boolean(onClick);
 
     return (
-        <div className="flex flex-col items-center gap-1 text-center">
+        <div className="flex items-center gap-2">
             <div
                 ref={avatarRef}
                 onClick={onClick}
                 className={[
-                    'h-12 w-12 rounded-full overflow-hidden border transition-all',
+                    'h-12 w-12 flex-shrink-0 rounded-full overflow-hidden border transition-all',
                     isCurrent ? 'border-indigo-700 ring-4 ring-indigo-200' : 'border-white',
                     clickable ? 'cursor-pointer hover:scale-105 hover:shadow-md' : '',
                     isTargeted ? 'ring-4 ring-amber-300 scale-105' : '',
@@ -95,14 +156,16 @@ function AvatarPill({
                     fallbackClassName={isCurrent ? 'bg-indigo-600 text-white' : undefined}
                 />
             </div>
-            <p className="text-[11px] leading-tight text-slate-500 max-w-16 truncate" title={user.name}>
-                {user.name}
-            </p>
-            {user.subtitle && (
-                <p className="text-[10px] leading-tight text-slate-400 max-w-16 truncate" title={user.subtitle}>
-                    {user.subtitle}
+            <div className="min-w-0 text-left">
+                <p className="text-[11px] leading-tight text-slate-500 max-w-20 truncate" title={user.name}>
+                    {user.name}
                 </p>
-            )}
+                {user.subtitle && (
+                    <p className="text-[10px] leading-tight text-slate-400 max-w-20 truncate" title={user.subtitle}>
+                        {user.subtitle}
+                    </p>
+                )}
+            </div>
         </div>
     );
 }
@@ -133,19 +196,14 @@ export function ParticipantsTable({
         return () => observer.disconnect();
     }, []);
 
-    const geometry = tableGeometry(participants.length);
-    const centerX = geometry.width / 2;
-    const centerY = geometry.height / 2;
-    // The table keeps its natural size and is only scaled down visually, so the seat
-    // maths never has to account for the width the page happens to give it.
-    const scale = availableWidth > 0 ? Math.min(1, availableWidth / geometry.width) : 1;
+    const layout = tableLayout(participants.length, availableWidth);
     const useGrid = availableWidth > 0 && availableWidth < GRID_FALLBACK_WIDTH;
 
     const currentUserSeat = (
-        <>
+        <div className="flex items-center gap-2">
             <div
                 ref={currentUserRef}
-                className="h-14 w-14 rounded-full overflow-hidden border border-indigo-700 ring-4 ring-indigo-200"
+                className="h-12 w-12 flex-shrink-0 rounded-full overflow-hidden border border-indigo-700 ring-4 ring-indigo-200"
                 title={currentUser.name}
                 aria-label={currentUser.name}
             >
@@ -153,27 +211,24 @@ export function ParticipantsTable({
                     userId={currentUser.id}
                     avatarUrl={currentUser.avatarUrl ?? null}
                     name={currentUser.name}
-                    className="h-14 w-14 text-sm border-0"
+                    className="h-12 w-12 text-sm border-0"
                     fallbackClassName="bg-indigo-600 text-white"
                 />
             </div>
-            <span className="px-2 py-0.5 rounded-full bg-indigo-600 text-white text-[10px] font-semibold tracking-wide uppercase">
-                You
-            </span>
-            <p className="text-[11px] leading-tight text-slate-500 max-w-24 truncate" title={currentUser.name}>
-                {currentUser.name}
-            </p>
-            {centerAction}
-        </>
+            <div className="min-w-0 text-left">
+                <p className="text-[11px] leading-tight text-slate-500 max-w-20 truncate" title={currentUser.name}>
+                    {currentUser.name}
+                </p>
+                {centerAction}
+            </div>
+        </div>
     );
 
     return (
         <div ref={containerRef} className="w-full">
             {useGrid ? (
                 <div className="flex flex-col items-center gap-4">
-                    <div className="flex flex-col items-center gap-1 text-center">
-                        {currentUserSeat}
-                    </div>
+                    {currentUserSeat}
                     {participants.length === 0 ? (
                         <p className="text-xs text-slate-400 text-center">No other people yet</p>
                     ) : (
@@ -191,60 +246,48 @@ export function ParticipantsTable({
                     )}
                 </div>
             ) : (
-                <div className="relative overflow-hidden" style={{ height: geometry.height * scale }}>
+                <div className="relative mx-auto" style={{ width: layout.width, height: layout.height }}>
                     <div
-                        className="absolute left-1/2 top-0"
+                        className="absolute rounded-2xl border border-slate-200 bg-slate-100/70 shadow-inner"
                         style={{
-                            width: geometry.width,
-                            height: geometry.height,
-                            marginLeft: -centerX,
-                            transform: `scale(${scale})`,
-                            transformOrigin: 'top center',
+                            left: layout.tableLeft,
+                            width: layout.tableWidth,
+                            top: layout.tableTop,
+                            height: TABLE_HEIGHT,
+                        }}
+                    />
+
+                    <div
+                        className="absolute flex flex-col items-center gap-1 text-center -translate-x-1/2 -translate-y-1/2"
+                        style={{
+                            left: layout.tableLeft + layout.tableWidth / 2,
+                            top: layout.tableTop + TABLE_HEIGHT / 2,
                         }}
                     >
-                        <div
-                            className="absolute rounded-[50%] border border-slate-200 bg-slate-100/70 shadow-inner"
-                            style={{
-                                left: centerX - geometry.radiusX,
-                                top: centerY - geometry.radiusY,
-                                width: geometry.radiusX * 2,
-                                height: geometry.radiusY * 2,
-                            }}
-                        />
-
-                        <div
-                            className="absolute flex flex-col items-center gap-1 text-center"
-                            style={{ left: centerX, top: centerY, transform: 'translate(-50%, -50%)' }}
-                        >
-                            {currentUserSeat}
-                            {participants.length === 0 && (
-                                <p className="text-[11px] text-slate-400">No other people yet</p>
-                            )}
-                        </div>
-
-                        {participants.map((participant, index) => {
-                            const angle = (index / participants.length) * Math.PI * 2 - Math.PI / 2;
-
-                            return (
-                                <div
-                                    key={participant.id}
-                                    className="absolute"
-                                    style={{
-                                        left: centerX + geometry.radiusX * Math.cos(angle),
-                                        top: centerY + geometry.radiusY * Math.sin(angle),
-                                        transform: 'translate(-50%, -50%)',
-                                    }}
-                                >
-                                    <AvatarPill
-                                        user={participant}
-                                        isTargeted={targetedIds.includes(participant.id)}
-                                        onClick={onParticipantClick && (() => onParticipantClick(participant.id))}
-                                        avatarRef={participantRef && ((element: HTMLDivElement | null) => participantRef(participant.id, element))}
-                                    />
-                                </div>
-                            );
-                        })}
+                        {currentUserSeat}
+                        {participants.length === 0 && (
+                            <p className="text-[11px] text-slate-400">No other people yet</p>
+                        )}
                     </div>
+
+                    {participants.map((participant, index) => (
+                        <div
+                            key={participant.id}
+                            className="absolute"
+                            style={{
+                                left: layout.seats[index].left,
+                                top: layout.seats[index].top,
+                                transform: layout.seats[index].transform,
+                            }}
+                        >
+                            <AvatarPill
+                                user={participant}
+                                isTargeted={targetedIds.includes(participant.id)}
+                                onClick={onParticipantClick && (() => onParticipantClick(participant.id))}
+                                avatarRef={participantRef && ((element: HTMLDivElement | null) => participantRef(participant.id, element))}
+                            />
+                        </div>
+                    ))}
                 </div>
             )}
         </div>

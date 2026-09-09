@@ -16,7 +16,12 @@ const queryClient = new QueryClient({
     defaultOptions: {
         queries: {
             retry: 1,
-            staleTime: 30_000,
+            // Cached data is only a placeholder while the fresh copy loads: every
+            // mount, window focus, and reconnect re-reads from the API.
+            staleTime: 0,
+            refetchOnMount: 'always',
+            refetchOnWindowFocus: 'always',
+            refetchOnReconnect: 'always',
         },
     },
 });

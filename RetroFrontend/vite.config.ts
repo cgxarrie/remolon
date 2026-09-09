@@ -13,7 +13,7 @@ export default defineConfig({
             'Referrer-Policy': 'strict-origin-when-cross-origin',
             'X-Frame-Options': 'DENY',
             'Content-Security-Policy':
-                "default-src 'self'; img-src 'self' data:; connect-src 'self' ws: wss:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+                "default-src 'self'; img-src 'self' data: blob:; connect-src 'self' ws: wss:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
         },
         proxy: {
             '/api': {

@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { authApi } from '../api/auth';
 import { PasswordField, PasswordMatchStatus, getPasswordMatchState } from './PasswordField';
+import { useAuthStore } from '../store/authStore';
 import { PASSWORD_MIN_LENGTH } from '../types';
 
 export function ProfilePasswordForm() {
+    const setAuth = useAuthStore((s) => s.setAuth);
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -28,7 +30,8 @@ export function ProfilePasswordForm() {
 
         setLoading(true);
         try {
-            await authApi.changePassword({ currentPassword, newPassword });
+            const session = await authApi.changePassword({ currentPassword, newPassword });
+            setAuth(session);
             setCurrentPassword('');
             setNewPassword('');
             setConfirmPassword('');

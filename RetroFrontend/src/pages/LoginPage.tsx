@@ -151,7 +151,11 @@ export function LoginPage() {
                             {loading ? 'Signing in…' : 'Sign In'}
                         </button>
                         <p className="text-sm text-center">
-                            <Link to="/forgot-password" className="text-indigo-600 hover:underline">
+                            <Link
+                                to="/forgot-password"
+                                state={{ email: email.trim() }}
+                                className="text-indigo-600 hover:underline"
+                            >
                                 Forgot password?
                             </Link>
                         </p>

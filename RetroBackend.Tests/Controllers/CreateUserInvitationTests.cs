@@ -17,6 +17,7 @@ using RetroBackend.Data;
 using RetroBackend.Dtos;
 using RetroBackend.Models;
 using RetroBackend.Services;
+using RetroBackend.Tests.Config;
 using RetroBackend.Tests.Fakes;
 using Xunit;
 
@@ -92,15 +93,22 @@ public class CreateUserInvitationTests
             emails,
             Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" }),
             NullLogger<AuthController>.Instance,
-            new UnusedAuthTokenService(),
-            new TestHostEnvironment());
+            new AuthTokenService(userManager, context, TestJwt.Configuration),
+            new TestHostEnvironment())
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
+        };
 
         var result = await authController.ResetPassword(new ResetPasswordRequest(
             "new@acme.test",
             encodedToken,
             "Correct-Horse-1!"));
 
-        Assert.IsType<OkObjectResult>(result);
+        var session = Assert.IsType<AuthTokenResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Equal("new@acme.test", session.Email);
+        Assert.Equal(Roles.StandardUser, session.Role);
+        Assert.False(string.IsNullOrWhiteSpace(session.Token));
+        Assert.False(string.IsNullOrWhiteSpace(session.RefreshToken));
         var user = await userManager.FindByEmailAsync("new@acme.test");
         Assert.True(await userManager.CheckPasswordAsync(user!, "Correct-Horse-1!"));
         Assert.DoesNotContain((await userManager.GetClaimsAsync(user!)), c => c.Type == AuthClaims.MustChangePassword);

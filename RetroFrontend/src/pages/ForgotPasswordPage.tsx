@@ -1,9 +1,17 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { authApi } from '../api/auth';
 
+function emailFromNavigation(state: unknown): string {
+    if (state && typeof state === 'object' && 'email' in state && typeof state.email === 'string') {
+        return state.email.trim();
+    }
+    return '';
+}
+
 export function ForgotPasswordPage() {
-    const [email, setEmail] = useState('');
+    const location = useLocation();
+    const [email, setEmail] = useState(() => emailFromNavigation(location.state));
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);

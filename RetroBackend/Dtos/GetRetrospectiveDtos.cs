@@ -26,6 +26,14 @@ public class GetActionColumnDto
     public List<GetActionItemDto> Items { get; set; } = [];
 }
 
+public class GetRetrospectiveBoardDto
+{
+    public string Title { get; set; } = string.Empty;
+    public int SessionCount { get; set; }
+    public Guid? OpenSessionId { get; set; }
+    public Guid? LatestClosedSessionId { get; set; }
+}
+
 public class GetRetrospectiveSummaryDto
 {
     public Guid Id { get; set; }

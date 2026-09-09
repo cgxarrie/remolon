@@ -1,6 +1,7 @@
 import client from './client';
 import type {
     CreateRetrospectiveRequest,
+    GetRetrospectiveBoardDto,
     GetRetrospectiveDto,
     GetRetrospectiveSummaryDto,
     UpdateRetrospectiveRequest,
@@ -9,8 +10,13 @@ import type {
 
 export const retrospectivesApi = {
     getAll: (organizationId: string, page = 1, pageSize = 20) =>
-        client.get<PagedResponse<GetRetrospectiveSummaryDto>>('/retrospectives', {
+        client.get<PagedResponse<GetRetrospectiveBoardDto>>('/retrospectives', {
             params: { organizationId, page, pageSize },
+        }).then((r) => r.data),
+
+    getSessions: (organizationId: string, title: string, page = 1, pageSize = 20) =>
+        client.get<PagedResponse<GetRetrospectiveSummaryDto>>('/retrospectives/sessions', {
+            params: { organizationId, title, page, pageSize },
         }).then((r) => r.data),
 
     getById: (id: string) =>

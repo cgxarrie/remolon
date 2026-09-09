@@ -206,7 +206,7 @@ export function RetroBoard({ retro, assigneeOptions }: Props) {
             onDragEnd={handleDragEnd}
         >
             <div className="space-y-6">
-                {pendingColumn && (
+                {pendingColumn && pendingColumn.items.length > 0 && (
                     <ActionColumnView
                         column={pendingColumn}
                         retroId={retro.id}

@@ -18,13 +18,13 @@ export const authApi = {
         client.post<ForgotPasswordResponse>('/auth/forgot-password', data).then((r) => r.data),
 
     resetPassword: (data: ResetPasswordRequest) =>
-        client.post('/auth/reset-password', data).then((r) => r.data),
+        client.post<AuthTokenResponse>('/auth/reset-password', data).then((r) => r.data),
 
     changeInitialPassword: (data: InitialPasswordChangeRequest) =>
         client.post<AuthTokenResponse>('/auth/change-initial-password', data).then((r) => r.data),
 
     changePassword: (data: ChangePasswordRequest) =>
-        client.post('/auth/change-password', data).then((r) => r.data),
+        client.post<AuthTokenResponse>('/auth/change-password', data).then((r) => r.data),
 
     register: (data: RegisterRequest) =>
         client.post<AuthTokenResponse>('/auth/register', data).then((r) => r.data),
