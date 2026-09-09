@@ -66,9 +66,9 @@ public class AuthController : ControllerBase
             ? request.Nickname.Trim()
             : request.Email.Split('@')[0];
         if (await _userManager.Users.AnyAsync(u => u.Nickname.ToLower() == nickname.ToLower()))
-            return BadRequest(new { message = "A user with this nickname already exists." });
+            return BadRequest(new { message = "Could not create account." });
         if (await _context.Organizations.AnyAsync(o => o.Name.ToLower() == organizationName.ToLower()))
-            return Conflict(new { message = "An organization with this name already exists." });
+            return BadRequest(new { message = "Could not create account." });
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
         try
@@ -82,6 +82,8 @@ public class AuthController : ControllerBase
             if (!result.Succeeded)
             {
                 await transaction.RollbackAsync();
+                if (result.Errors.Any(e => e.Code is "DuplicateEmail" or "DuplicateUserName"))
+                    return BadRequest(new { message = "Could not create account." });
                 return BadRequest(result.Errors);
             }
 
@@ -98,7 +100,7 @@ public class AuthController : ControllerBase
         catch (DbUpdateException ex) when (IsOrganizationNameUniqueViolation(ex))
         {
             await transaction.RollbackAsync();
-            return Conflict(new { message = "An organization with this name already exists." });
+            return BadRequest(new { message = "Could not create account." });
         }
     }
 
@@ -149,6 +151,8 @@ public class AuthController : ControllerBase
         var user = await _userManager.FindByEmailAsync(request.Email);
         if (user is not null)
             await TrySendPasswordResetEmailAsync(user);
+        else
+            await PadForgotPasswordTimingAsync();
 
         return Ok(new ForgotPasswordResponse(ForgotPasswordMessage));
     }
@@ -315,6 +319,19 @@ public class AuthController : ControllerBase
 
         await _authTokenService.RevokeAllForUserAsync(user.Id);
         return NoContent();
+    }
+
+    private async Task PadForgotPasswordTimingAsync()
+    {
+        var pad = new AppUser($"pad-{Guid.NewGuid():N}@invalid", "pad");
+        try
+        {
+            await _userManager.GeneratePasswordResetTokenAsync(pad);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Forgot-password timing pad failed.");
+        }
     }
 
     private async Task TrySendPasswordResetEmailAsync(AppUser user)

@@ -105,7 +105,7 @@ public class UsersController : ControllerBase
 
         var existing = await _userManager.FindByEmailAsync(request.Email);
         if (existing is not null)
-            return BadRequest(new { message = "A user with this email already exists." });
+            return BadRequest(new { message = "Could not create user." });
 
         var atIndex = request.Email.IndexOf('@');
         var fallbackNickname = atIndex > 0 ? request.Email[..atIndex] : request.Email;
@@ -114,7 +114,7 @@ public class UsersController : ControllerBase
         {
             nickname = request.Nickname.Trim();
             if (await NicknameTakenAsync(nickname))
-                return BadRequest(new { message = "A user with this nickname already exists." });
+                return BadRequest(new { message = "Could not create user." });
         }
         else
         {
@@ -124,7 +124,7 @@ public class UsersController : ControllerBase
         var user = new AppUser(request.Email, nickname) { OrganizationId = organizationId };
         var createResult = await _userManager.CreateAsync(user);
         if (!createResult.Succeeded)
-            return BadRequest(createResult.Errors);
+            return BadRequest(new { message = "Could not create user." });
 
         var roleResult = await _userManager.AddToRoleAsync(user, role);
         if (!roleResult.Succeeded)

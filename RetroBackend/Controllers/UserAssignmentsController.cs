@@ -34,25 +34,27 @@ public class UserAssignmentsController : ControllerBase
         _hubMembership = hubMembership;
     }
 
+    private const string CannotAssignMessage = "Cannot assign the user to this retrospective.";
+
     /// <summary>Assigns a user to a retrospective. Manager.</summary>
     /// <param name="request">The user email and retrospective ID.</param>
     /// <returns>Confirmation message.</returns>
     [HttpPost]
     [Authorize(Roles = Roles.Manager)]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> AssignUser([FromBody] AssignUserRequest request)
     {
-        var user = await _userManager.FindByEmailAsync(request.UserEmail);
-        if (user is null) return NotFound(new { message = "User not found." });
-
         var retro = await _context.Retrospectives.FindAsync(request.RetrospectiveId);
         if (retro is null) return NotFound(new { message = "Retrospective not found." });
-        if (user.OrganizationId is null || user.OrganizationId != retro.OrganizationId)
-            return BadRequest(new { message = "User and retrospective must belong to the same organization." });
         if (!await CanManageRetrospectiveAsync(retro)) return Forbid();
+
+        var user = await _userManager.FindByEmailAsync(request.UserEmail);
+        if (user is null || user.OrganizationId is null || user.OrganizationId != retro.OrganizationId)
+            return BadRequest(new { message = CannotAssignMessage });
 
         var alreadyAssigned = await _context.UserRetrospectives
             .AnyAsync(ur => ur.UserId == user.Id && ur.RetrospectiveId == request.RetrospectiveId);
@@ -146,16 +148,17 @@ public class UserAssignmentsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UnassignUser([FromBody] AssignUserRequest request)
     {
+        var retro = await _context.Retrospectives.FindAsync(request.RetrospectiveId);
+        if (retro is null) return NotFound(new { message = "Retrospective not found." });
+        if (!await CanManageRetrospectiveAsync(retro)) return Forbid();
+
         var user = await _userManager.FindByEmailAsync(request.UserEmail);
-        if (user is null) return NotFound(new { message = "User not found." });
+        if (user is null || user.OrganizationId != retro.OrganizationId)
+            return BadRequest(new { message = CannotAssignMessage });
 
         var assignment = await _context.UserRetrospectives
             .FirstOrDefaultAsync(ur => ur.UserId == user.Id && ur.RetrospectiveId == request.RetrospectiveId);
         if (assignment is null) return NotFound(new { message = "Assignment not found." });
-        var retro = await _context.Retrospectives.FindAsync(request.RetrospectiveId);
-        if (retro is null || user.OrganizationId != retro.OrganizationId)
-            return BadRequest(new { message = "User and retrospective must belong to the same organization." });
-        if (!await CanManageRetrospectiveAsync(retro)) return Forbid();
 
         if (await _userManager.IsInRoleAsync(user, Roles.Manager))
         {
