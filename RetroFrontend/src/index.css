@@ -23,6 +23,11 @@ body {
         background-color: var(--theme-header-hover);
     }
 
+    /* Static lighter shade of the header, for surfaces that are not interactive. */
+    .theme-header-soft {
+        background-color: var(--theme-header-hover);
+    }
+
     .theme-header-hover:hover {
         background-color: var(--theme-accent);
     }
