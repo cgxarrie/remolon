@@ -20,13 +20,21 @@ public class UserAssignmentsController : ControllerBase
     private readonly RetroDbContext _context;
     private readonly UserManager<AppUser> _userManager;
     private readonly IRetroAuthorizationService _authzService;
+    private readonly IRetrospectiveHubMembership _hubMembership;
 
-    public UserAssignmentsController(RetroDbContext context, UserManager<AppUser> userManager, IRetroAuthorizationService authzService)
+    public UserAssignmentsController(
+        RetroDbContext context,
+        UserManager<AppUser> userManager,
+        IRetroAuthorizationService authzService,
+        IRetrospectiveHubMembership hubMembership)
     {
         _context = context;
         _userManager = userManager;
         _authzService = authzService;
+        _hubMembership = hubMembership;
     }
+
+    private const string CannotAssignMessage = "Cannot assign the user to this retrospective.";
 
     /// <summary>Assigns a user to a retrospective. Manager.</summary>
     /// <param name="request">The user email and retrospective ID.</param>
@@ -34,19 +42,19 @@ public class UserAssignmentsController : ControllerBase
     [HttpPost]
     [Authorize(Roles = Roles.Manager)]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> AssignUser([FromBody] AssignUserRequest request)
     {
-        var user = await _userManager.FindByEmailAsync(request.UserEmail);
-        if (user is null) return NotFound(new { message = "User not found." });
-
         var retro = await _context.Retrospectives.FindAsync(request.RetrospectiveId);
         if (retro is null) return NotFound(new { message = "Retrospective not found." });
-        if (user.OrganizationId is null || user.OrganizationId != retro.OrganizationId)
-            return BadRequest(new { message = "User and retrospective must belong to the same organization." });
         if (!await CanManageRetrospectiveAsync(retro)) return Forbid();
+
+        var user = await _userManager.FindByEmailAsync(request.UserEmail);
+        if (user is null || user.OrganizationId is null || user.OrganizationId != retro.OrganizationId)
+            return BadRequest(new { message = CannotAssignMessage });
 
         var alreadyAssigned = await _context.UserRetrospectives
             .AnyAsync(ur => ur.UserId == user.Id && ur.RetrospectiveId == request.RetrospectiveId);
@@ -121,6 +129,12 @@ public class UserAssignmentsController : ControllerBase
         _context.UserRetrospectives.RemoveRange(removals);
         await _context.SaveChangesAsync();
 
+        foreach (var removal in removals)
+        {
+            if (!await _authzService.IsRetrospectiveOwnerAsync(removal.UserId, request.RetrospectiveId))
+                await _hubMembership.RemoveUserFromRetrospectiveAsync(removal.UserId, request.RetrospectiveId);
+        }
+
         return Ok(new { assignedCount = assignments.Count, removedCount = removals.Count });
     }
 
@@ -134,16 +148,17 @@ public class UserAssignmentsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UnassignUser([FromBody] AssignUserRequest request)
     {
+        var retro = await _context.Retrospectives.FindAsync(request.RetrospectiveId);
+        if (retro is null) return NotFound(new { message = "Retrospective not found." });
+        if (!await CanManageRetrospectiveAsync(retro)) return Forbid();
+
         var user = await _userManager.FindByEmailAsync(request.UserEmail);
-        if (user is null) return NotFound(new { message = "User not found." });
+        if (user is null || user.OrganizationId != retro.OrganizationId)
+            return BadRequest(new { message = CannotAssignMessage });
 
         var assignment = await _context.UserRetrospectives
             .FirstOrDefaultAsync(ur => ur.UserId == user.Id && ur.RetrospectiveId == request.RetrospectiveId);
         if (assignment is null) return NotFound(new { message = "Assignment not found." });
-        var retro = await _context.Retrospectives.FindAsync(request.RetrospectiveId);
-        if (retro is null || user.OrganizationId != retro.OrganizationId)
-            return BadRequest(new { message = "User and retrospective must belong to the same organization." });
-        if (!await CanManageRetrospectiveAsync(retro)) return Forbid();
 
         if (await _userManager.IsInRoleAsync(user, Roles.Manager))
         {
@@ -167,6 +182,9 @@ public class UserAssignmentsController : ControllerBase
         _context.UserRetrospectives.Remove(assignment);
         await _context.SaveChangesAsync();
 
+        if (!await _authzService.IsRetrospectiveOwnerAsync(user.Id, request.RetrospectiveId))
+            await _hubMembership.RemoveUserFromRetrospectiveAsync(user.Id, request.RetrospectiveId);
+
         return NoContent();
     }
 
@@ -177,20 +195,12 @@ public class UserAssignmentsController : ControllerBase
     [Authorize(Roles = Roles.Manager + "," + Roles.StandardUser)]
     [ProducesResponseType(typeof(IEnumerable<UserSummaryDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetRetrospectiveParticipants(Guid retrospectiveId)
     {
-        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-        var isManager = User.HasRole(Roles.Manager);
-
-        if (!isManager)
-        {
-            var isOwner = await _authzService.IsRetrospectiveOwnerAsync(currentUserId, retrospectiveId);
-            var isAssigned = await _context.UserRetrospectives
-                .AnyAsync(ur => ur.UserId == currentUserId && ur.RetrospectiveId == retrospectiveId);
-
-            if (!isOwner && !isAssigned)
-                return Forbid();
-        }
+        var retro = await _context.Retrospectives.FindAsync(retrospectiveId);
+        if (retro is null) return NotFound();
+        if (!await CanAccessRetrospectiveAsync(retro)) return Forbid();
 
         var users = await _context.UserRetrospectives
             .Where(ur => ur.RetrospectiveId == retrospectiveId)
@@ -262,11 +272,24 @@ public class UserAssignmentsController : ControllerBase
         && Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var managerOrganizationId)
         && managerOrganizationId == organizationId;
 
+    private async Task<bool> CanAccessRetrospectiveAsync(Retrospective retro)
+    {
+        if (!Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var organizationId)
+            || organizationId != retro.OrganizationId)
+        {
+            return false;
+        }
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId)) return false;
+
+        return await _authzService.IsRetrospectiveOwnerAsync(userId, retro.Id)
+            || await _authzService.IsAssignedToRetrospectiveAsync(userId, retro.Id);
+    }
+
     private async Task<bool> CanManageRetrospectiveAsync(Retrospective retro)
     {
         if (!CanManage(retro.OrganizationId)) return false;
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-        return await _authzService.IsRetrospectiveOwnerAsync(userId, retro.Id)
-            || await _authzService.IsAssignedToRetrospectiveAsync(userId, retro.Id);
+        return await CanAccessRetrospectiveAsync(retro);
     }
 }

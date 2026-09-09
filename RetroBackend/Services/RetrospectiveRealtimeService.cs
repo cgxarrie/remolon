@@ -52,6 +52,10 @@ public class RetrospectiveRealtimeService : IRetrospectiveRealtimeService
         if (string.Equals(userId, targetUserId, StringComparison.OrdinalIgnoreCase)) return null;
         if (!ThrowableObjects.Allowed.Contains(objectId)) return null;
 
+        var targetOnBoard = await _authzService.IsRetrospectiveOwnerAsync(targetUserId, retrospectiveId)
+            || await _authzService.IsAssignedToRetrospectiveAsync(targetUserId, retrospectiveId);
+        if (!targetOnBoard) return null;
+
         return new ObjectThrownDto(userId, targetUserId, objectId.ToLowerInvariant());
     }
 }

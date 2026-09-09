@@ -14,6 +14,8 @@ using RetroBackend.Data;
 using RetroBackend.Dtos;
 using RetroBackend.Models;
 using RetroBackend.Services;
+using RetroBackend.Tests.Config;
+using RetroBackend.Tests.Fakes;
 using Xunit;
 
 namespace RetroBackend.Tests.Controllers;
@@ -176,24 +178,14 @@ public class MultiTenancyControllerTests
     }
 
     private static IAuthTokenService TokenService(UserManager<AppUser> userManager, RetroDbContext context) =>
-        new AuthTokenService(userManager, context, TestJwtConfiguration());
-
-    private static IConfiguration TestJwtConfiguration() =>
-        new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Jwt:Key"] = "CHANGE_THIS_SECRET_KEY_MIN_32_CHARS_LONG_!!",
-                ["Jwt:Issuer"] = "RetroBackend",
-                ["Jwt:Audience"] = "RetroBackendClients",
-            })
-            .Build();
+        new AuthTokenService(userManager, context, TestJwt.Configuration);
 
     private static UsersController CreateUsersController(
         UserManager<AppUser> userManager,
         RetroDbContext context,
         string role,
         Guid? organizationId) =>
-        new(userManager, context, new FakeEmailSender(), EmailOptions(), NullLogger<UsersController>.Instance, TokenService(userManager, context))
+        new(userManager, context, new FakeEmailSender(), EmailOptions(), NullLogger<UsersController>.Instance, TokenService(userManager, context), new TestHostEnvironment())
         {
             ControllerContext = ControllerContext(role, organizationId),
         };

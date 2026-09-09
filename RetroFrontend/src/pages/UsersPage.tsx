@@ -84,10 +84,8 @@ export function UsersPage() {
             setEmail('');
             setError('');
             setSuccess(created.invitationEmailSent
-                ? `User created. An invitation with a temporary password was sent to ${created.email}.`
-                : created.temporaryPassword
-                    ? `User created, but the invitation email could not be sent. Temporary password: ${created.temporaryPassword}`
-                    : 'User created.');
+                ? `User created. A one-time set-password link was sent to ${created.email}.`
+                : `User created, but the invitation email could not be sent. Ask them to wait, or delete the user and try again.`);
         },
         onError: (value: unknown) => {
             const e = value as { response?: { data?: { message?: string } } };

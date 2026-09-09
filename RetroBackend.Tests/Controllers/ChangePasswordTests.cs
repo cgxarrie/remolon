@@ -13,6 +13,8 @@ using RetroBackend.Data;
 using RetroBackend.Dtos;
 using RetroBackend.Models;
 using RetroBackend.Services;
+using RetroBackend.Tests.Config;
+using RetroBackend.Tests.Fakes;
 using Xunit;
 
 namespace RetroBackend.Tests.Controllers;
@@ -55,11 +57,12 @@ public class ChangePasswordTests
         string userId) =>
         new(
             userManager,
-            new ConfigurationBuilder().Build(),
             context,
             new FakeEmailSender(),
             Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" }),
-            NullLogger<AuthController>.Instance)
+            NullLogger<AuthController>.Instance,
+            new AuthTokenService(userManager, context, TestJwt.Configuration),
+            new TestHostEnvironment())
         {
             ControllerContext = new ControllerContext
             {

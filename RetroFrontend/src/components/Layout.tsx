@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { authApi } from '../api/auth';
 import { organizationsApi } from '../api/organizations';
 import { usersApi } from '../api/users';
 import { UserAvatar } from './UserAvatar';
@@ -68,7 +69,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         if (!me) return;
-        setProfile({ nickname: me.nickname, avatarUrl: me.avatarUrl });
+        setProfile({
+            nickname: me.nickname,
+            avatarUrl: me.avatarUrl,
+            role: me.role,
+            userId: me.id,
+            organizationId: me.organizationId,
+        });
     }, [me, setProfile]);
 
     const { data: ownOrganizations } = useQuery({
@@ -104,6 +111,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     }, [menuOpen]);
 
     function handleLogout() {
+        void authApi.logout().catch(() => undefined);
         clearOrganizationQueries(queryClient);
         clearAuth();
         navigate('/login');

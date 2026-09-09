@@ -15,6 +15,7 @@ public class GetColumnDto
     public string? HeaderColor { get; set; }
     public List<GetItemDto> Items { get; set; } = [];
     public List<ColumnAuthorCountDto> HiddenAuthorCounts { get; set; } = [];
+    public int HiddenItemCount { get; set; }
 }
 
 public class GetActionColumnDto

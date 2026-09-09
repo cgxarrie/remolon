@@ -1,11 +1,11 @@
 // Auth
 export interface AuthTokenResponse {
-    token: string;
     email: string;
     role: string;
     nickname: string;
     organizationId?: string;
     organizationName?: string | null;
+    userId?: string;
 }
 
 export interface RegisterRequest {
@@ -55,6 +55,8 @@ export interface CurrentUserDto {
     nickname: string;
     role: Role;
     avatarUrl: string | null;
+    id: string;
+    organizationId: string | null;
 }
 
 export interface UpdateMeRequest {
@@ -112,6 +114,7 @@ export interface GetColumnDto {
     headerColor: string | null;
     items: GetItemDto[];
     hiddenAuthorCounts: ColumnAuthorCountDto[];
+    hiddenItemCount: number;
 }
 
 export interface GetActionColumnDto {
@@ -192,6 +195,9 @@ export interface BatchAssignUsersResponse {
 
 export type Role = 'Manager' | 'StandardUser';
 
+export const ITEM_DESCRIPTION_MAX_LENGTH = 4000;
+export const PASSWORD_MIN_LENGTH = 12;
+
 export interface UserSummaryDto {
     id: string;
     email: string;
@@ -254,5 +260,4 @@ export interface CreateUserResponse {
     nickname: string;
     role: Role;
     invitationEmailSent: boolean;
-    temporaryPassword?: string | null;
 }

@@ -1,7 +1,12 @@
 using System.Text;
 using System.Security.Claims;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -15,7 +20,23 @@ using RetroBackend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Schema-only run: the migration job does not serve requests, so it must not
+// require the Data Protection key ring that reset and invite links depend on.
+var migrateOnly = args.Any(argument =>
+    string.Equals(argument, "--migrate", StringComparison.OrdinalIgnoreCase));
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 builder.Services.AddControllers();
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = AvatarImage.MaxBytes;
+});
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?? ["http://localhost:5173", "http://localhost:3000"];
@@ -69,22 +90,33 @@ builder.Services
     .AddIdentity<AppUser, IdentityRole>(options =>
     {
         options.User.RequireUniqueEmail = true;
-        options.Password.RequiredLength = 8;
-        options.Password.RequireDigit = true;
-        options.Password.RequireNonAlphanumeric = false;
-        options.Password.RequireUppercase = false;
-        options.Password.RequireLowercase = false;
+        IdentityPasswordPolicy.Apply(options);
         options.Tokens.PasswordResetTokenProvider = PasswordResetTokenProviderOptions.ProviderName;
+        options.Lockout.AllowedForNewUsers = true;
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
     })
     .AddEntityFrameworkStores<RetroDbContext>()
     .AddDefaultTokenProviders()
-    .AddTokenProvider<PasswordResetTokenProvider<AppUser>>(PasswordResetTokenProviderOptions.ProviderName);
+    .AddTokenProvider<PasswordResetTokenProvider<AppUser>>(PasswordResetTokenProviderOptions.ProviderName)
+    .AddTokenProvider<InvitationTokenProvider<AppUser>>(InvitationTokenProviderOptions.ProviderName);
 
 builder.Services.Configure<PasswordResetTokenProviderOptions>(options =>
 {
     options.Name = PasswordResetTokenProviderOptions.ProviderName;
     options.TokenLifespan = TimeSpan.FromMinutes(30);
 });
+
+builder.Services.Configure<InvitationTokenProviderOptions>(options =>
+{
+    options.Name = InvitationTokenProviderOptions.ProviderName;
+    options.TokenLifespan = TimeSpan.FromDays(30);
+});
+
+if (!migrateOnly)
+    DataProtectionKeys.AddPersisted(builder.Services, builder.Configuration, builder.Environment);
+
+var jwtSigningKey = JwtSigningKey.Resolve(builder.Configuration);
 
 builder.Services
     .AddAuthentication(options =>
@@ -100,18 +132,29 @@ builder.Services
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
+            ClockSkew = TimeSpan.Zero,
             NameClaimType = ClaimTypes.NameIdentifier,
             RoleClaimType = ClaimTypes.Role,
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)),
+                Encoding.UTF8.GetBytes(jwtSigningKey)),
         };
 
         options.Events = new JwtBearerEvents
         {
             OnMessageReceived = context =>
             {
+                if (!string.IsNullOrEmpty(context.Token))
+                    return Task.CompletedTask;
+
+                if (context.Request.Cookies.TryGetValue(AuthCookies.Access, out var cookieToken)
+                    && !string.IsNullOrEmpty(cookieToken))
+                {
+                    context.Token = cookieToken;
+                    return Task.CompletedTask;
+                }
+
                 var accessToken = context.Request.Query["access_token"];
                 var path = context.HttpContext.Request.Path;
                 if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
@@ -119,10 +162,26 @@ builder.Services
 
                 return Task.CompletedTask;
             },
-            OnTokenValidated = context =>
+            OnTokenValidated = async context =>
             {
                 if (context.Principal?.Identity is not ClaimsIdentity identity)
-                    return Task.CompletedTask;
+                    return;
+
+                var userId = identity.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var presentedStamp = identity.FindFirst(AuthClaims.SecurityStamp)?.Value;
+                if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(presentedStamp))
+                {
+                    context.Fail("Invalid token.");
+                    return;
+                }
+
+                var userManager = context.HttpContext.RequestServices.GetRequiredService<UserManager<AppUser>>();
+                var user = await userManager.FindByIdAsync(userId);
+                if (user is null || await userManager.GetSecurityStampAsync(user) != presentedStamp)
+                {
+                    context.Fail("Token is no longer valid.");
+                    return;
+                }
 
                 var roleValues = identity.Claims
                     .Where(c =>
@@ -141,13 +200,32 @@ builder.Services
                     if (!identity.HasClaim("role", roleValue))
                         identity.AddClaim(new Claim("role", roleValue));
                 }
-
-                return Task.CompletedTask;
             }
         };
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = (context, _) =>
+    {
+        context.HttpContext.Response.Headers.RetryAfter = "60";
+        return ValueTask.CompletedTask;
+    };
+    options.AddPolicy("auth", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                AutoReplenishment = true,
+                PermitLimit = 10,
+                QueueLimit = 0,
+                Window = TimeSpan.FromMinutes(1),
+            }));
+});
+builder.Services.AddSingleton<IUserIdProvider, NameIdentifierUserIdProvider>();
+builder.Services.AddSingleton<RetrospectiveHubConnectionTracker>();
 builder.Services.AddSignalR();
 
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
@@ -161,13 +239,35 @@ builder.Services.AddScoped<IItemService, ItemService>();
 builder.Services.AddScoped<IRetroAuthorizationService, RetroAuthorizationService>();
 builder.Services.AddScoped<IRetrospectiveRealtimeService, RetrospectiveRealtimeService>();
 builder.Services.AddScoped<IRetrospectiveLiveNotifier, RetrospectiveLiveNotifier>();
+builder.Services.AddSingleton<IRetrospectiveHubMembership, RetrospectiveHubMembership>();
 
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<RetroDbContext>();
-    await db.Database.MigrateAsync();
+    if (migrateOnly)
+    {
+        await db.Database.MigrateAsync();
+        await IdentityBootstrap.EnsureRolesAsync(scope.ServiceProvider);
+        return;
+    }
+
+    if (!await db.Database.CanConnectAsync())
+    {
+        throw new InvalidOperationException("Cannot connect to the database.");
+    }
+
+    var pending = await db.Database.GetPendingMigrationsAsync();
+    var pendingList = pending.ToList();
+    if (pendingList.Count > 0)
+    {
+        throw new InvalidOperationException(
+            "Database schema is missing migrations: "
+            + string.Join(", ", pendingList)
+            + ". Start the API with --migrate (Compose migrate service) or run `dotnet ef database update`.");
+    }
+
     await IdentityBootstrap.EnsureRolesAsync(scope.ServiceProvider);
 }
 
@@ -181,7 +281,12 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+app.UseForwardedHeaders();
+if (!app.Environment.IsDevelopment())
+    app.UseHsts();
+
 app.UseCors();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

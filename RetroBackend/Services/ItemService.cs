@@ -6,10 +6,12 @@ namespace RetroBackend.Services;
 public class ItemService : IItemService
 {
     private readonly IItemRepository _repository;
+    private readonly IRetroAuthorizationService _authzService;
 
-    public ItemService(IItemRepository repository)
+    public ItemService(IItemRepository repository, IRetroAuthorizationService authzService)
     {
         _repository = repository;
+        _authzService = authzService;
     }
 
     public Task<Item> CreateItemAsync(CreateItemRequest request)
@@ -79,6 +81,11 @@ public class ItemService : IItemService
         var item = await _repository.GetByIdAsync(itemId);
         var target = await _repository.GetByIdAsync(targetItemId);
         if (item is null || target is null) return null;
+
+        var sourceRetroId = await _authzService.GetRetrospectiveIdByItemAsync(itemId);
+        var targetRetroId = await _authzService.GetRetrospectiveIdByItemAsync(targetItemId);
+        if (sourceRetroId is null || targetRetroId is null || sourceRetroId != targetRetroId)
+            return null;
 
         // Determine the shared group ID
         var groupId = item.GroupId ?? target.GroupId ?? Guid.NewGuid();

@@ -304,7 +304,8 @@ namespace RetroBackend.Migrations
 
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
 
                     b.Property<Guid?>("GroupId")
                         .HasColumnType("uuid");
@@ -430,6 +431,37 @@ namespace RetroBackend.Migrations
                     b.HasIndex("RetrospectiveId");
 
                     b.ToTable("UserRetrospectives");
+                });
+
+            modelBuilder.Entity("RetroBackend.Models.RefreshToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("RefreshTokens");
                 });
 
             modelBuilder.Entity("RetroBackend.Models.ActionColumn", b =>
@@ -567,6 +599,17 @@ namespace RetroBackend.Migrations
                         .IsRequired();
 
                     b.Navigation("Retrospective");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("RetroBackend.Models.RefreshToken", b =>
+                {
+                    b.HasOne("RetroBackend.Models.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("User");
                 });

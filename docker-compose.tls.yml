@@ -1,0 +1,27 @@
+# TLS at the frontend edge. Default compose stays HTTP on port 3000.
+#
+#   mkdir -p certs
+#   openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+#     -keyout certs/privkey.pem -out certs/fullchain.pem \
+#     -subj "/CN=localhost"
+#   docker compose -f docker-compose.yml -f docker-compose.tls.yml up --build
+#
+# Then open https://localhost (self-signed). HTTP on port 80 redirects to HTTPS.
+# Set ALLOWED_HOSTS if the Host header is not localhost (e.g. example.com).
+
+services:
+  frontend:
+    ports:
+      - "80:8080"
+      - "443:8443"
+    volumes:
+      - ./certs/fullchain.pem:/etc/nginx/certs/fullchain.pem:ro
+      - ./certs/privkey.pem:/etc/nginx/certs/privkey.pem:ro
+      - ./RetroFrontend/nginx.tls.conf:/etc/nginx/conf.d/default.conf:ro
+
+  backend:
+    environment:
+      ASPNETCORE_ALLOWEDHOSTS: "${ALLOWED_HOSTS:-localhost;127.0.0.1}"
+      Email__FrontendBaseUrl: "https://localhost"
+      Cors__AllowedOrigins__0: "https://localhost"
+      Cors__AllowedOrigins__1: "http://localhost:5173"

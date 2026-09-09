@@ -7,7 +7,7 @@ namespace RetroBackend.Tests.Mappings;
 public class GetRetrospectiveMappingsTests
 {
     [Fact]
-    public void ToGetDto_WhenUnrevealed_ReturnsOwnItemsAndOtherAuthorCounts()
+    public void ToGetDto_WhenUnrevealed_ReturnsOwnItemsAndAnonymousHiddenCount()
     {
         var retro = BuildRetroWithItems();
 
@@ -18,13 +18,24 @@ public class GetRetrospectiveMappingsTests
         Assert.Equal(2, column.Items.Count);
         Assert.All(column.Items, item => Assert.Equal("alice", item.CreatedBy));
         Assert.Equal(["Alice item 1", "Alice item 2"], column.Items.Select(i => i.Description));
+        Assert.Empty(column.HiddenAuthorCounts);
+        Assert.Equal(2, column.HiddenItemCount);
+    }
 
-        var hidden = column.HiddenAuthorCounts.Single();
-        Assert.Equal("bob", hidden.CreatedBy);
-        Assert.Equal("Bob", hidden.CreatedByNickname);
-        Assert.Equal(2, hidden.Count);
-        Assert.DoesNotContain(column.HiddenAuthorCounts, c => c.CreatedBy == "charlie");
-        Assert.DoesNotContain(column.HiddenAuthorCounts, c => c.CreatedBy == "alice");
+    [Fact]
+    public void ToGetDto_WhenUnrevealed_HidesOthersPendingActionItems()
+    {
+        var retro = BuildRetroWithItems();
+        var pending = retro.Columns.OfType<ActionColumn>().Single(c => c.Title == "Pending Action Items");
+        pending.Items.Add(new ActionItem("alice", "Alice", "Alice", pending.Id, "Alice pending", 0));
+        pending.Items.Add(new ActionItem("bob", "Bob", "Bob", pending.Id, "Bob pending", 1));
+
+        var dto = retro.ToGetDto("alice");
+        var column = dto.ActionColumns.Single(c => c.Title == "Pending Action Items");
+
+        var item = Assert.Single(column.Items);
+        Assert.Equal("Alice pending", item.Description);
+        Assert.DoesNotContain(column.Items, i => i.Description == "Bob pending");
     }
 
     [Fact]
@@ -39,6 +50,7 @@ public class GetRetrospectiveMappingsTests
         Assert.True(dto.IsRevealed);
         Assert.Equal(4, column.Items.Count);
         Assert.Empty(column.HiddenAuthorCounts);
+        Assert.Equal(0, column.HiddenItemCount);
         Assert.Contains(column.Items, i => i.CreatedBy == "bob" && i.Description == "Bob item 1");
     }
 

@@ -76,35 +76,43 @@ docker run -d \
   --name retrodb \
   -e POSTGRES_DB=retrodb \
   -e POSTGRES_USER=retro \
-  -e POSTGRES_PASSWORD=retro_password \
+  -e POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
   -p 5432:5432 \
   postgres:16-alpine
 ```
 
+Use a password that is not `retro_password` on any shared or production database. That value was committed historically and is burned.
+
 ### 2. Configure
 
-Edit `appsettings.Development.json` (or set environment variables):
+Secrets are not stored in `appsettings.json`. Set environment variables (or user secrets) before `dotnet run`. `appsettings.Development.json` may contain a localhost connection string for local Postgres only.
 
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Port=5432;Database=retrodb;Username=retro;Password=retro_password"
-  },
-  "Jwt": {
-    "Key": "your-secret-key-at-least-32-chars-long",
-    "Issuer": "RetroBackend",
-    "Audience": "RetroBackendClients"
-  }
-}
+```bash
+export Jwt__Key='a-random-secret-at-least-32-chars'
+# Optional if not using appsettings.Development.json:
+# export ConnectionStrings__DefaultConnection="Host=localhost;Port=5432;Database=retrodb;Username=retro;Password=$POSTGRES_PASSWORD"
 ```
 
-Invitation emails (when a Manager creates a user) are sent via SMTP. Local Docker uses [Mailpit](https://github.com/axllent/mailpit) at `http://localhost:8025`. Configure `Email` in `appsettings.json` for other environments.
+The process exits on startup if `Jwt:Key` is missing, shorter than 32 characters, or still the committed placeholder `CHANGE_THIS_SECRET_KEY_MIN_32_CHARS_LONG_!!`.
+
+Development stores Data Protection keys in `.dataprotection-keys/` (gitignored) so reset and invitation links survive `dotnet run` restarts. Production and Compose require `DataProtection__KeysDirectory`. Deleting those keys invalidates outstanding links.
+
+Invitation emails (when a Manager creates a user) are sent via SMTP. Local Compose with `docker-compose.dev.yml` uses [Mailpit](https://github.com/axllent/mailpit) at `http://localhost:8025`. Set `Email__SmtpUser` / `Email__SmtpPassword` for authenticated SMTP.
 
 ### 3. Apply migrations
+
+The API no longer migrates on every start. Apply schema first:
 
 ```bash
 cd RetroBackend
 dotnet ef database update
+```
+
+Or run the app once with `--migrate` and then start it normally:
+
+```bash
+dotnet run -- --migrate
+dotnet run
 ```
 
 ### 4. Run
@@ -122,8 +130,11 @@ API available at `http://localhost:5145`. Swagger UI at `http://localhost:5145/s
 From the repository root:
 
 ```bash
-docker compose up backend postgres --build
+cp .env.example .env   # set POSTGRES_PASSWORD and JWT_KEY
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
+
+The `migrate` service applies EF migrations, then `backend` starts. The backend port is not published; use `http://localhost:3000`.
 
 ---
 
@@ -143,8 +154,10 @@ Obtain a token by calling `POST /api/auth/login` with valid credentials. Tokens 
 
 | Key                              | Description                                  |
 |----------------------------------|----------------------------------------------|
-| `ConnectionStrings:DefaultConnection` | PostgreSQL connection string            |
-| `Jwt:Key`                        | Signing key (min 32 characters)              |
+| `ConnectionStrings:DefaultConnection` | PostgreSQL connection string (from env in Production / Compose) |
+| `Jwt:Key` / `Jwt__Key`           | Signing key; required; min 32 characters; must not be the burned placeholder |
 | `Jwt:Issuer`                     | Token issuer                                 |
 | `Jwt:Audience`                   | Token audience                               |
 | `Cors:AllowedOrigins`            | Array of allowed frontend origins            |
+| `Email__SmtpUser` / `Email__SmtpPassword` | Optional SMTP credentials          |
+| `DataProtection:KeysDirectory` / `DataProtection__KeysDirectory` | Directory for Data Protection keys (reset/invite tokens). Required outside Development. Deleting or rotating keys invalidates outstanding links. |

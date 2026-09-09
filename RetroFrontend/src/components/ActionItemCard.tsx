@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { actionItemsApi } from '../api/actionItems';
-import type { GetActionItemDto } from '../types';
+import { ITEM_DESCRIPTION_MAX_LENGTH, type GetActionItemDto } from '../types';
 import { invalidateRetrospective } from '../query/retrospectiveQueries';
 
 interface Props {
@@ -77,6 +77,7 @@ export function ActionItemCard({ item, retroId, assigneeOptions, isClosed, canEd
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         rows={2}
+                        maxLength={ITEM_DESCRIPTION_MAX_LENGTH}
                         className="w-full text-sm border border-slate-300 rounded px-2 py-1 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                     <select

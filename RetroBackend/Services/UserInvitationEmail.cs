@@ -4,12 +4,16 @@ public static class UserInvitationEmail
 {
     public static string Subject => "Your ReMolon account";
 
-    public static string HtmlBody(string email, string temporaryPassword, string loginUrl) =>
-        $"""
-        <p>An account has been created for you on ReMolon.</p>
-        <p><strong>Email:</strong> {System.Net.WebUtility.HtmlEncode(email)}</p>
-        <p><strong>Temporary password:</strong> {System.Net.WebUtility.HtmlEncode(temporaryPassword)}</p>
-        <p>Sign in here: <a href="{System.Net.WebUtility.HtmlEncode(loginUrl)}">{System.Net.WebUtility.HtmlEncode(loginUrl)}</a></p>
-        <p>You will be asked to choose a new password on first login.</p>
-        """;
+    public static string HtmlBody(string email, string setPasswordUrl)
+    {
+        var safeEmail = System.Net.WebUtility.HtmlEncode(email);
+        var safeUrl = System.Net.WebUtility.HtmlEncode(setPasswordUrl);
+        return $"""
+            <p>An account has been created for you on ReMolon.</p>
+            <p><strong>Email:</strong> {safeEmail}</p>
+            <p>Choose a password using this link (valid for 30 days):</p>
+            <p><a href="{safeUrl}">{safeUrl}</a></p>
+            <p>You cannot sign in until you set a password. If the link expires, ask a manager to send a new invitation.</p>
+            """;
+    }
 }

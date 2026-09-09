@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../api/auth';
 import { PasswordField, PasswordMatchStatus, getPasswordMatchState } from '../components/PasswordField';
 import { useAuthStore } from '../store/authStore';
-import type { PasswordChangeRequiredResponse } from '../types';
+import { PASSWORD_MIN_LENGTH, type PasswordChangeRequiredResponse } from '../types';
 
 export function LoginPage() {
     const navigate = useNavigate();
@@ -23,7 +23,7 @@ export function LoginPage() {
         setLoading(true);
         try {
             const res = await authApi.login({ email, password });
-            setAuth(res.token, res.email, res.role, res.nickname, res.organizationName);
+            setAuth(res);
             navigate('/retrospectives');
         } catch (err: unknown) {
             const axiosErr = err as { response?: { status?: number; data?: PasswordChangeRequiredResponse } };
@@ -58,7 +58,7 @@ export function LoginPage() {
                 currentPassword: password,
                 newPassword,
             });
-            setAuth(res.token, res.email, res.role, res.nickname, res.organizationName);
+            setAuth(res);
             navigate('/retrospectives');
         } catch {
             setError('Could not change password. Ensure it meets policy requirements.');
@@ -96,7 +96,7 @@ export function LoginPage() {
                                 value={newPassword}
                                 onChange={setNewPassword}
                                 required
-                                minLength={8}
+                                minLength={PASSWORD_MIN_LENGTH}
                                 autoComplete="new-password"
                             />
                         </div>
@@ -106,7 +106,7 @@ export function LoginPage() {
                                 value={confirmPassword}
                                 onChange={setConfirmPassword}
                                 required
-                                minLength={8}
+                                minLength={PASSWORD_MIN_LENGTH}
                                 autoComplete="new-password"
                                 toggleLabel="confirm password"
                                 aria-describedby="password-match-status"

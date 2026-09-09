@@ -102,6 +102,8 @@ public class AvatarsController : ControllerBase
         if (target.AvatarBytes is not { Length: > 0 } || string.IsNullOrWhiteSpace(target.AvatarContentType))
             return NotFound();
 
+        Response.Headers.CacheControl = "private, max-age=3600";
+        Response.Headers.Append("Vary", "Authorization");
         return File(target.AvatarBytes, target.AvatarContentType);
     }
 }

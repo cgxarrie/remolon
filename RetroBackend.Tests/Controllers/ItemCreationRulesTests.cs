@@ -79,6 +79,63 @@ public class ItemCreationRulesTests
     }
 
     [Fact]
+    public async Task UpdateActionItem_AssignedManagerWhoDoesNotOwnRetrospective_IsAllowed()
+    {
+        var setup = await SeedAsync();
+        var action = new ActionItem(setup.AssignedUserId, "Alice", "Alice", setup.ActionColumnId, "Original", 0);
+        setup.Context.Items.Add(action);
+        await setup.Context.SaveChangesAsync();
+        var controller = CreateActionItemsController(setup.Context, setup.AssignedManagerId, Roles.Manager);
+
+        var result = await controller.UpdateActionItem(action.Id, new Dtos.UpdateActionItemRequest
+        {
+            Description = "Edited by assigned manager",
+        });
+
+        Assert.Equal("Edited by assigned manager",
+            Assert.IsType<GetActionItemDto>(Assert.IsType<OkObjectResult>(result).Value).Description);
+    }
+
+    [Fact]
+    public async Task CreateItem_WhenRetrospectiveIsClosed_IsConflict()
+    {
+        var setup = await SeedAsync(closed: true);
+        var controller = new ItemsController(
+            new ItemService(new EfItemRepository(setup.Context), new RetroAuthorizationService(setup.Context)),
+            new RetroAuthorizationService(setup.Context),
+            new RecordingLiveNotifier())
+        {
+            ControllerContext = ControllerContext(setup.AssignedUserId, Roles.StandardUser),
+        };
+
+        var result = await controller.CreateItem(new Dtos.CreateItemRequest
+        {
+            ColumnId = setup.ColumnId,
+            Description = "Too late",
+            Position = 0,
+        });
+
+        Assert.IsType<ConflictObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task UpdateActionItem_WhenRetrospectiveIsClosed_IsConflict()
+    {
+        var setup = await SeedAsync(closed: true);
+        var action = new ActionItem(setup.AssignedUserId, "Alice", "Alice", setup.ActionColumnId, "Original", 0);
+        setup.Context.Items.Add(action);
+        await setup.Context.SaveChangesAsync();
+        var controller = CreateActionItemsController(setup.Context, setup.AssignedUserId, Roles.StandardUser);
+
+        var result = await controller.UpdateActionItem(action.Id, new Dtos.UpdateActionItemRequest
+        {
+            Description = "Nope",
+        });
+
+        Assert.IsType<ConflictObjectResult>(result);
+    }
+
+    [Fact]
     public async Task CreateActionItem_UnrelatedUser_IsForbidden()
     {
         var setup = await SeedAsync();
@@ -103,7 +160,7 @@ public class ItemCreationRulesTests
         var setup = await SeedAsync();
         var notifier = new RecordingLiveNotifier();
         var controller = new ItemsController(
-            new ItemService(new EfItemRepository(setup.Context)),
+            new ItemService(new EfItemRepository(setup.Context), new RetroAuthorizationService(setup.Context)),
             new RetroAuthorizationService(setup.Context),
             notifier)
         {
@@ -210,7 +267,7 @@ public class ItemCreationRulesTests
 
         var notifier = new RecordingLiveNotifier();
         var controller = new ItemsController(
-            new ItemService(new EfItemRepository(setup.Context)),
+            new ItemService(new EfItemRepository(setup.Context), new RetroAuthorizationService(setup.Context)),
             new RetroAuthorizationService(setup.Context),
             notifier)
         {
@@ -233,7 +290,7 @@ public class ItemCreationRulesTests
 
         var notifier = new RecordingLiveNotifier();
         var controller = new ItemsController(
-            new ItemService(new EfItemRepository(setup.Context)),
+            new ItemService(new EfItemRepository(setup.Context), new RetroAuthorizationService(setup.Context)),
             new RetroAuthorizationService(setup.Context),
             notifier)
         {
@@ -256,7 +313,7 @@ public class ItemCreationRulesTests
 
         var notifier = new RecordingLiveNotifier();
         var controller = new ItemsController(
-            new ItemService(new EfItemRepository(setup.Context)),
+            new ItemService(new EfItemRepository(setup.Context), new RetroAuthorizationService(setup.Context)),
             new RetroAuthorizationService(setup.Context),
             notifier)
         {
@@ -322,7 +379,7 @@ public class ItemCreationRulesTests
         string role,
         IRetrospectiveLiveNotifier? notifier = null) =>
         new(
-            new ItemService(new EfItemRepository(context)),
+            new ItemService(new EfItemRepository(context), new RetroAuthorizationService(context)),
             new RetroAuthorizationService(context),
             notifier ?? new RecordingLiveNotifier())
         {
@@ -343,7 +400,7 @@ public class ItemCreationRulesTests
         },
     };
 
-    private static async Task<Setup> SeedAsync()
+    private static async Task<Setup> SeedAsync(bool closed = false)
     {
         var context = new RetroDbContext(new DbContextOptionsBuilder<RetroDbContext>()
             .UseInMemoryDatabase($"item-creation-{Guid.NewGuid()}")
@@ -357,6 +414,7 @@ public class ItemCreationRulesTests
         var retro = Retrospective.CreateNew(ownerId, "Sprint", organization.Id);
         retro.AddColumn(ownerId, "Went Well", 1);
         retro.Reveal();
+        if (closed) retro.Close();
 
         context.Organizations.Add(organization);
         context.Retrospectives.Add(retro);

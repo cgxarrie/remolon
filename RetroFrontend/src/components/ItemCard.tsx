@@ -3,7 +3,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { itemsApi } from '../api/items';
-import type { GetItemDto } from '../types';
+import { ITEM_DESCRIPTION_MAX_LENGTH, type GetItemDto } from '../types';
 import { invalidateRetrospective } from '../query/retrospectiveQueries';
 
 interface Props {
@@ -77,6 +77,7 @@ export function ItemCard({ item, retroId, isClosed, canEdit, canDelete, isMergeT
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         rows={3}
+                        maxLength={ITEM_DESCRIPTION_MAX_LENGTH}
                         className="w-full text-sm border border-slate-300 rounded px-2 py-1 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                     <div className="flex gap-2">

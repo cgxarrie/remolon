@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { authApi } from '../api/auth';
 import { PasswordField, PasswordMatchStatus, getPasswordMatchState } from './PasswordField';
+import { PASSWORD_MIN_LENGTH } from '../types';
 
 export function ProfilePasswordForm() {
     const [currentPassword, setCurrentPassword] = useState('');
@@ -65,7 +66,7 @@ export function ProfilePasswordForm() {
                     onChange={setNewPassword}
                     toggleLabel="new password"
                     autoComplete="new-password"
-                    minLength={8}
+                    minLength={PASSWORD_MIN_LENGTH}
                     matchState={passwordsMismatch ? 'mismatch' : passwordsMatch ? 'match' : 'none'}
                 />
             </label>

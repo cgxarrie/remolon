@@ -11,6 +11,7 @@ using RetroBackend.Data;
 using RetroBackend.Dtos;
 using RetroBackend.Models;
 using RetroBackend.Services;
+using RetroBackend.Tests.Fakes;
 using Xunit;
 
 namespace RetroBackend.Tests.Controllers;
@@ -50,7 +51,7 @@ public class AuthPasswordResetTests
         var sent = Assert.Single(emails.Sent);
         Assert.Equal("alice@example.com", sent.To);
         Assert.Equal(PasswordResetEmail.Subject, sent.Subject);
-        Assert.Contains("/reset-password?", sent.HtmlBody);
+        Assert.Contains("/reset-password#", sent.HtmlBody);
         Assert.Contains("alice%40example.com", sent.HtmlBody);
         Assert.DoesNotContain("resetToken", System.Text.Json.JsonSerializer.Serialize(response));
     }
@@ -75,11 +76,12 @@ public class AuthPasswordResetTests
         IEmailSender emailSender) =>
         new(
             userManager,
-            new ConfigurationBuilder().Build(),
             context,
             emailSender,
             Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" }),
-            NullLogger<AuthController>.Instance);
+            NullLogger<AuthController>.Instance,
+            new UnusedAuthTokenService(),
+            new TestHostEnvironment());
 
     private static RetroDbContext CreateContext() =>
         new(new DbContextOptionsBuilder<RetroDbContext>()
@@ -129,5 +131,18 @@ public class AuthPasswordResetTests
     {
         public Task SendAsync(string to, string subject, string htmlBody, CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("SMTP unavailable");
+    }
+
+    private sealed class UnusedAuthTokenService : IAuthTokenService
+    {
+        public Task<AuthTokenResponse> BuildAuthResponseAsync(AppUser user, string role) =>
+            throw new NotSupportedException();
+
+        public Task<AuthTokenResponse?> RefreshAsync(string refreshToken) =>
+            throw new NotSupportedException();
+
+        public Task RevokeAllForUserAsync(string userId) => Task.CompletedTask;
+
+        public Task RevokeAsync(string refreshToken) => Task.CompletedTask;
     }
 }

@@ -14,6 +14,7 @@ public class RetroDbContext : IdentityDbContext<AppUser>
       public DbSet<Item> Items => Set<Item>();
       public DbSet<Column> Columns => Set<Column>();
       public DbSet<UserRetrospective> UserRetrospectives => Set<UserRetrospective>();
+      public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
       protected override void OnModelCreating(ModelBuilder modelBuilder)
       {
@@ -48,7 +49,8 @@ public class RetroDbContext : IdentityDbContext<AppUser>
                   entity.HasKey(i => i.Id);
                   entity.Property(i => i.Description)
                     .HasField("_description")
-                    .UsePropertyAccessMode(PropertyAccessMode.Field);
+                    .UsePropertyAccessMode(PropertyAccessMode.Field)
+                    .HasMaxLength(ItemLimits.DescriptionMaxLength);
                   entity.Property(i => i.Position)
                     .HasField("_position")
                     .UsePropertyAccessMode(PropertyAccessMode.Field);
@@ -139,6 +141,18 @@ public class RetroDbContext : IdentityDbContext<AppUser>
                   entity.HasOne(ur => ur.Retrospective)
                     .WithMany()
                     .HasForeignKey(ur => ur.RetrospectiveId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<RefreshToken>(entity =>
+            {
+                  entity.HasKey(t => t.Id);
+                  entity.Property(t => t.UserId).IsRequired();
+                  entity.Property(t => t.TokenHash).IsRequired().HasMaxLength(64);
+                  entity.HasIndex(t => t.TokenHash).IsUnique();
+                  entity.HasOne(t => t.User)
+                    .WithMany()
+                    .HasForeignKey(t => t.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
       }

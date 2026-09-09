@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { authApi } from '../api/auth';
 import { PasswordField, PasswordMatchStatus, getPasswordMatchState } from '../components/PasswordField';
+import { PASSWORD_MIN_LENGTH } from '../types';
 
 function extractApiErrorMessage(err: unknown, fallback: string): string {
     const axiosErr = err as {
@@ -26,10 +27,22 @@ function extractApiErrorMessage(err: unknown, fallback: string): string {
     return fallback;
 }
 
+function credentialsFromLocation(searchParams: URLSearchParams) {
+    const hash = window.location.hash.startsWith('#')
+        ? window.location.hash.slice(1)
+        : '';
+    const fromHash = new URLSearchParams(hash);
+    const purpose = fromHash.get('purpose') ?? searchParams.get('purpose');
+    return {
+        email: (fromHash.get('email') ?? searchParams.get('email') ?? '').trim(),
+        token: (fromHash.get('token') ?? searchParams.get('token') ?? '').trim(),
+        isInvite: purpose === 'invite',
+    };
+}
+
 export function ResetPasswordPage() {
     const [searchParams] = useSearchParams();
-    const email = (searchParams.get('email') ?? '').trim();
-    const token = (searchParams.get('token') ?? '').trim();
+    const { email, token, isInvite } = credentialsFromLocation(searchParams);
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [message, setMessage] = useState('');
@@ -60,7 +73,9 @@ export function ResetPasswordPage() {
                 token,
                 newPassword,
             });
-            setMessage('Password reset successfully. You can sign in now.');
+            setMessage(isInvite
+                ? 'Password set successfully. You can sign in now.'
+                : 'Password reset successfully. You can sign in now.');
             setNewPassword('');
             setConfirmPassword('');
         } catch (err: unknown) {
@@ -73,7 +88,9 @@ export function ResetPasswordPage() {
     return (
         <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
             <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
-                <h1 className="text-2xl font-bold text-indigo-700 mb-6 text-center">Reset Password</h1>
+                <h1 className="text-2xl font-bold text-indigo-700 mb-6 text-center">
+                    {isInvite ? 'Set Password' : 'Reset Password'}
+                </h1>
 
                 {message && (
                     <p className="mb-4 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md p-3">
@@ -97,8 +114,8 @@ export function ResetPasswordPage() {
                 ) : message ? null : (
                     <form onSubmit={handleResetPassword} className="space-y-4">
                         <p className="text-sm text-slate-600">
-                            Choose a new password for <span className="font-medium">{email}</span>. This link expires 30
-                            minutes after it was sent.
+                            Choose a new password for <span className="font-medium">{email}</span>. This link expires{' '}
+                            {isInvite ? '30 days' : '30 minutes'} after it was sent.
                         </p>
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">New Password</label>
@@ -106,7 +123,7 @@ export function ResetPasswordPage() {
                                 value={newPassword}
                                 onChange={setNewPassword}
                                 required
-                                minLength={8}
+                                minLength={PASSWORD_MIN_LENGTH}
                                 autoComplete="new-password"
                             />
                         </div>
@@ -116,7 +133,7 @@ export function ResetPasswordPage() {
                                 value={confirmPassword}
                                 onChange={setConfirmPassword}
                                 required
-                                minLength={8}
+                                minLength={PASSWORD_MIN_LENGTH}
                                 autoComplete="new-password"
                                 toggleLabel="confirm password"
                                 aria-describedby="password-match-status"
@@ -129,7 +146,7 @@ export function ResetPasswordPage() {
                             disabled={loading || passwordsMismatch}
                             className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium py-2 rounded-md transition-colors"
                         >
-                            {loading ? 'Resetting…' : 'Reset Password'}
+                            {loading ? (isInvite ? 'Saving…' : 'Resetting…') : isInvite ? 'Set Password' : 'Reset Password'}
                         </button>
                     </form>
                 )}

@@ -14,6 +14,7 @@ using RetroBackend.Data;
 using RetroBackend.Dtos;
 using RetroBackend.Models;
 using RetroBackend.Services;
+using RetroBackend.Tests.Fakes;
 using Xunit;
 
 namespace RetroBackend.Tests.Controllers;
@@ -39,6 +40,8 @@ public class UserProfileTests
         Assert.Equal("alice", dto.Nickname);
         Assert.Equal(Roles.StandardUser, dto.Role);
         Assert.Null(dto.AvatarUrl);
+        Assert.Equal(user.Id, dto.Id);
+        Assert.Equal(organization.Id, dto.OrganizationId);
     }
 
     [Fact]
@@ -106,7 +109,8 @@ public class UserProfileTests
             new FakeEmailSender(),
             Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" }),
             NullLogger<UsersController>.Instance,
-            new AuthTokenService(userManager, context, TestJwtConfiguration()))
+            new AuthTokenService(userManager, context, TestJwtConfiguration()),
+            new TestHostEnvironment())
         {
             ControllerContext = ControllerContext(userId, role, organizationId),
         };
@@ -115,7 +119,7 @@ public class UserProfileTests
         new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Jwt:Key"] = "CHANGE_THIS_SECRET_KEY_MIN_32_CHARS_LONG_!!",
+                ["Jwt:Key"] = "unit-test-jwt-signing-key-32ch!!",
                 ["Jwt:Issuer"] = "RetroBackend",
                 ["Jwt:Audience"] = "RetroBackendClients",
             })

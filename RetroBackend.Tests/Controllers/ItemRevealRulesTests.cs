@@ -87,7 +87,7 @@ public class ItemRevealRulesTests
     }
 
     private static ItemsController CreateController(RetroDbContext context, string userId, string role) =>
-        new(new ItemService(new EfItemRepository(context)), new RetroAuthorizationService(context), new RecordingLiveNotifier())
+        new(new ItemService(new EfItemRepository(context), new RetroAuthorizationService(context)), new RetroAuthorizationService(context), new RecordingLiveNotifier())
         {
             ControllerContext = new ControllerContext
             {

@@ -49,7 +49,7 @@ export function ProfilePage() {
         setLoading(true);
         try {
             const res = await usersApi.updateMe({ nickname: next });
-            setAuth(res.token, res.email, res.role, res.nickname, res.organizationName);
+            setAuth(res);
             setSuccess('Nickname updated.');
         } catch (err: unknown) {
             const axiosErr = err as { response?: { data?: { message?: string } } };

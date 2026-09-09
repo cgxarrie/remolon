@@ -1,0 +1,13 @@
+# Local-only host ports. Not used by a plain `docker compose up`.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  mailpit:
+    ports:
+      - "8025:8025"
+      - "1025:1025"

@@ -14,6 +14,7 @@ namespace RetroBackend.Controllers;
 [Produces("application/json")]
 public class ActionItemsController : ControllerBase
 {
+    private const string ClosedBoardMessage = "Cannot modify items on a closed retrospective.";
     private readonly IItemService _service;
     private readonly IRetroAuthorizationService _authzService;
     private readonly IRetrospectiveLiveNotifier _liveNotifier;
@@ -35,6 +36,7 @@ public class ActionItemsController : ControllerBase
     [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> CreateActionItem([FromBody] Dtos.CreateActionItemRequest request)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -43,6 +45,8 @@ public class ActionItemsController : ControllerBase
             || await _authzService.IsRetrospectiveOwnerByColumnAsync(userId, request.ColumnId);
 
         if (!allowed) return Forbid();
+        if (await _authzService.IsRetrospectiveClosedByColumnAsync(request.ColumnId))
+            return Conflict(new { message = ClosedBoardMessage });
 
         var svcReq = request.ToServiceRequest();
         svcReq.CreatedBy = userId;
@@ -52,7 +56,7 @@ public class ActionItemsController : ControllerBase
         return StatusCode(StatusCodes.Status201Created, item.Id);
     }
 
-    /// <summary>Updates an existing action item. Standard users can only update their own; Managers can update any in their retrospectives.</summary>
+    /// <summary>Updates an existing action item. Creators can update their own; managers can update any on a board they own or are assigned to.</summary>
     /// <param name="id">The action item's unique identifier.</param>
     /// <param name="request">The fields to update.</param>
     /// <returns>The updated action item data.</returns>
@@ -60,15 +64,18 @@ public class ActionItemsController : ControllerBase
     [ProducesResponseType(typeof(GetActionItemDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateActionItem(Guid id, [FromBody] Dtos.UpdateActionItemRequest request)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
         var allowed = User.HasRole(Roles.Manager)
-            ? await _authzService.IsRetrospectiveOwnerByItemAsync(userId, id)
+            ? await CanManagerActOnBoardByItemAsync(userId, id)
             : await _authzService.IsItemOwnerAsync(userId, id);
 
         if (!allowed) return Forbid();
+        if (await _authzService.IsRetrospectiveClosedByItemAsync(id))
+            return Conflict(new { message = ClosedBoardMessage });
 
         var item = await _service.UpdateActionItemAsync(id, request.ToServiceRequest());
         if (item is null) return NotFound();
@@ -77,13 +84,14 @@ public class ActionItemsController : ControllerBase
         return Ok(item.ToDto());
     }
 
-    /// <summary>Marks an action item as completed. The user must own the retrospective or be assigned to it.</summary>
+    /// <summary>Marks an action item as completed. Any owner or assigned participant on the board can complete it.</summary>
     /// <param name="id">The action item's unique identifier.</param>
     /// <returns>The updated action item data.</returns>
     [HttpPost("{id:guid}/close")]
     [ProducesResponseType(typeof(GetActionItemDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> CloseActionItem(Guid id)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -91,6 +99,8 @@ public class ActionItemsController : ControllerBase
             || await _authzService.IsRetrospectiveOwnerByItemAsync(userId, id);
 
         if (!allowed) return Forbid();
+        if (await _authzService.IsRetrospectiveClosedByItemAsync(id))
+            return Conflict(new { message = ClosedBoardMessage });
 
         var closedBy = User.FindFirstValue(ClaimTypes.Email)!;
         var item = await _service.CloseActionItemAsync(id, closedBy);
@@ -100,22 +110,25 @@ public class ActionItemsController : ControllerBase
         return Ok(item.ToDto());
     }
 
-    /// <summary>Deletes an action item. Standard users can only delete their own; Managers can delete any in their retrospectives.</summary>
+    /// <summary>Deletes an action item. Creators can delete their own; managers can delete any on a board they own or are assigned to.</summary>
     /// <param name="id">The action item's unique identifier.</param>
     /// <returns>No content if deleted, or not found if the action item does not exist.</returns>
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> DeleteActionItem(Guid id)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
         var allowed = User.HasRole(Roles.Manager)
-            ? await _authzService.IsRetrospectiveOwnerByItemAsync(userId, id)
+            ? await CanManagerActOnBoardByItemAsync(userId, id)
             : await _authzService.IsItemOwnerAsync(userId, id);
 
         if (!allowed) return Forbid();
+        if (await _authzService.IsRetrospectiveClosedByItemAsync(id))
+            return Conflict(new { message = ClosedBoardMessage });
 
         var retrospectiveId = await _authzService.GetRetrospectiveIdByItemAsync(id);
         var deleted = await _service.DeleteAsync(id);
@@ -125,6 +138,10 @@ public class ActionItemsController : ControllerBase
             await _liveNotifier.NotifyItemsChangedAsync(retrospectiveId.Value);
         return NoContent();
     }
+
+    private async Task<bool> CanManagerActOnBoardByItemAsync(string userId, Guid itemId) =>
+        await _authzService.IsRetrospectiveOwnerByItemAsync(userId, itemId)
+        || await _authzService.IsAssignedToRetrospectiveByItemAsync(userId, itemId);
 
     private async Task NotifyItemsChangedAsync(Guid columnId)
     {

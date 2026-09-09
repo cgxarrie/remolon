@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../api/auth';
 import { PasswordField, PasswordMatchStatus, getPasswordMatchState } from '../components/PasswordField';
+import { PASSWORD_MIN_LENGTH } from '../types';
 import { useAuthStore } from '../store/authStore';
 
-// The API reports failures three ways: Identity error arrays, a { message } conflict,
-// and ASP.NET validation problem details keyed by field name.
+        // The API reports failures as { message } or ASP.NET validation problem details.
 function describeRegistrationError(data: unknown): string {
     const fallback = 'Registration failed. Please try again.';
     if (Array.isArray(data)) {
@@ -52,7 +52,7 @@ export function RegisterPage() {
                 nickname: nickname.trim() || undefined,
                 organizationName: organizationName.trim(),
             });
-            setAuth(res.token, res.email, res.role, res.nickname, res.organizationName);
+            setAuth(res);
             navigate('/retrospectives');
         } catch (err: unknown) {
             setError(describeRegistrationError((err as { response?: { data?: unknown } }).response?.data));
@@ -111,13 +111,13 @@ export function RegisterPage() {
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">
                             Password{' '}
-                            <span className="text-slate-400 font-normal">(min 8 chars)</span>
+                            <span className="text-slate-400 font-normal">(min {PASSWORD_MIN_LENGTH} chars, upper, lower, number, symbol)</span>
                         </label>
                         <PasswordField
                             value={password}
                             onChange={setPassword}
                             required
-                            minLength={8}
+                            minLength={PASSWORD_MIN_LENGTH}
                             autoComplete="new-password"
                         />
                     </div>
@@ -127,7 +127,7 @@ export function RegisterPage() {
                             value={confirmPassword}
                             onChange={setConfirmPassword}
                             required
-                            minLength={8}
+                            minLength={PASSWORD_MIN_LENGTH}
                             autoComplete="new-password"
                             toggleLabel="confirm password"
                             aria-describedby="password-match-status"
