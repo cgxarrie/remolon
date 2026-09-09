@@ -29,7 +29,7 @@ public class ItemCreationRulesTests
             ColumnId = setup.ActionColumnId,
             Description = "Do the thing",
             Position = 0,
-            Assignee = "Alice",
+            Assignees = ["Alice"],
         });
 
         Assert.Equal(StatusCodes.Status201Created, Assert.IsType<ObjectResult>(result).StatusCode);
@@ -40,8 +40,71 @@ public class ItemCreationRulesTests
             .Single(c => c.Title == "Action Items");
         var item = Assert.Single(column.Items);
         Assert.Equal("Do the thing", item.Description);
-        Assert.Equal("Alice", item.Assignee);
+        Assert.Equal(["Alice"], item.Assignees);
         Assert.Equal([setup.RetrospectiveId], notifier.ItemsChangedNotifications);
+    }
+
+    [Fact]
+    public async Task CreateActionItem_MultipleAssignees_ArePersisted()
+    {
+        var setup = await SeedAsync();
+        var controller = CreateActionItemsController(setup.Context, setup.AssignedUserId, Roles.StandardUser);
+
+        var result = await controller.CreateActionItem(new Dtos.CreateActionItemRequest
+        {
+            ColumnId = setup.ActionColumnId,
+            Description = "Shared work",
+            Position = 0,
+            Assignees = ["Alice", " Bob ", "Alice", ""],
+        });
+
+        Assert.Equal(StatusCodes.Status201Created, Assert.IsType<ObjectResult>(result).StatusCode);
+
+        var retro = await new RetrospectiveService(new EfRetrospectiveRepository(setup.Context))
+            .GetByIdAsync(setup.RetrospectiveId);
+        var item = Assert.Single(retro!.ToGetDto(setup.AssignedUserId).ActionColumns
+            .Single(c => c.Title == "Action Items").Items);
+        Assert.Equal(["Alice", "Bob"], item.Assignees);
+    }
+
+    [Fact]
+    public async Task CreateActionItem_EmptyAssignees_IsPersistedUnassigned()
+    {
+        var setup = await SeedAsync();
+        var controller = CreateActionItemsController(setup.Context, setup.AssignedUserId, Roles.StandardUser);
+
+        var result = await controller.CreateActionItem(new Dtos.CreateActionItemRequest
+        {
+            ColumnId = setup.ActionColumnId,
+            Description = "Unassigned work",
+            Position = 0,
+            Assignees = [],
+        });
+
+        Assert.Equal(StatusCodes.Status201Created, Assert.IsType<ObjectResult>(result).StatusCode);
+
+        var retro = await new RetrospectiveService(new EfRetrospectiveRepository(setup.Context))
+            .GetByIdAsync(setup.RetrospectiveId);
+        var item = Assert.Single(retro!.ToGetDto(setup.AssignedUserId).ActionColumns
+            .Single(c => c.Title == "Action Items").Items);
+        Assert.Empty(item.Assignees);
+    }
+
+    [Fact]
+    public async Task UpdateActionItem_EmptyAssignees_ClearsAssignment()
+    {
+        var setup = await SeedAsync();
+        var action = new ActionItem(setup.AssignedUserId, "Alice", ["Alice", "Bob"], setup.ActionColumnId, "Original", 0);
+        setup.Context.Items.Add(action);
+        await setup.Context.SaveChangesAsync();
+        var controller = CreateActionItemsController(setup.Context, setup.AssignedUserId, Roles.StandardUser);
+
+        var result = await controller.UpdateActionItem(action.Id, new Dtos.UpdateActionItemRequest
+        {
+            Assignees = [],
+        });
+
+        Assert.Empty(Assert.IsType<GetActionItemDto>(Assert.IsType<OkObjectResult>(result).Value).Assignees);
     }
 
     [Fact]
@@ -55,7 +118,7 @@ public class ItemCreationRulesTests
             ColumnId = setup.ActionColumnId,
             Description = "Manager action",
             Position = 0,
-            Assignee = "all",
+            Assignees = ["all"],
         });
 
         Assert.Equal(StatusCodes.Status201Created, Assert.IsType<ObjectResult>(result).StatusCode);
@@ -72,7 +135,7 @@ public class ItemCreationRulesTests
             ColumnId = setup.ActionColumnId,
             Description = "Owner action",
             Position = 0,
-            Assignee = "all",
+            Assignees = ["all"],
         });
 
         Assert.Equal(StatusCodes.Status201Created, Assert.IsType<ObjectResult>(result).StatusCode);
@@ -82,7 +145,7 @@ public class ItemCreationRulesTests
     public async Task UpdateActionItem_AssignedManagerWhoDoesNotOwnRetrospective_IsAllowed()
     {
         var setup = await SeedAsync();
-        var action = new ActionItem(setup.AssignedUserId, "Alice", "Alice", setup.ActionColumnId, "Original", 0);
+        var action = new ActionItem(setup.AssignedUserId, "Alice", ["Alice"], setup.ActionColumnId, "Original", 0);
         setup.Context.Items.Add(action);
         await setup.Context.SaveChangesAsync();
         var controller = CreateActionItemsController(setup.Context, setup.AssignedManagerId, Roles.Manager);
@@ -122,7 +185,7 @@ public class ItemCreationRulesTests
     public async Task UpdateActionItem_WhenRetrospectiveIsClosed_IsConflict()
     {
         var setup = await SeedAsync(closed: true);
-        var action = new ActionItem(setup.AssignedUserId, "Alice", "Alice", setup.ActionColumnId, "Original", 0);
+        var action = new ActionItem(setup.AssignedUserId, "Alice", ["Alice"], setup.ActionColumnId, "Original", 0);
         setup.Context.Items.Add(action);
         await setup.Context.SaveChangesAsync();
         var controller = CreateActionItemsController(setup.Context, setup.AssignedUserId, Roles.StandardUser);
@@ -147,7 +210,7 @@ public class ItemCreationRulesTests
             ColumnId = setup.ActionColumnId,
             Description = "Nope",
             Position = 0,
-            Assignee = "all",
+            Assignees = ["all"],
         });
 
         Assert.IsType<ForbidResult>(result);
@@ -330,7 +393,7 @@ public class ItemCreationRulesTests
     public async Task UpdateActionItem_NotifiesOpenRetrospectiveClients()
     {
         var setup = await SeedAsync();
-        var action = new ActionItem(setup.AssignedUserId, "Alice", "Alice", setup.ActionColumnId, "Original", 0);
+        var action = new ActionItem(setup.AssignedUserId, "Alice", ["Alice"], setup.ActionColumnId, "Original", 0);
         setup.Context.Items.Add(action);
         await setup.Context.SaveChangesAsync();
 
@@ -340,10 +403,12 @@ public class ItemCreationRulesTests
         var result = await controller.UpdateActionItem(action.Id, new Dtos.UpdateActionItemRequest
         {
             Description = "Edited action",
-            Assignee = "Bob",
+            Assignees = ["Bob", "Carol"],
         });
 
-        Assert.Equal("Edited action", Assert.IsType<GetActionItemDto>(Assert.IsType<OkObjectResult>(result).Value).Description);
+        var dto = Assert.IsType<GetActionItemDto>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Equal("Edited action", dto.Description);
+        Assert.Equal(["Bob", "Carol"], dto.Assignees);
         Assert.Equal([setup.RetrospectiveId], notifier.ItemsChangedNotifications);
     }
 
@@ -351,7 +416,7 @@ public class ItemCreationRulesTests
     public async Task DeleteActionItem_NotifiesOpenRetrospectiveClients()
     {
         var setup = await SeedAsync();
-        var action = new ActionItem(setup.AssignedUserId, "Alice", "Alice", setup.ActionColumnId, "To delete", 0);
+        var action = new ActionItem(setup.AssignedUserId, "Alice", ["Alice"], setup.ActionColumnId, "To delete", 0);
         setup.Context.Items.Add(action);
         await setup.Context.SaveChangesAsync();
 
@@ -367,7 +432,7 @@ public class ItemCreationRulesTests
     private static async Task<ActionItem> AddPendingActionItemAsync(Setup setup)
     {
         var pendingColumnId = setup.Context.Columns.Single(c => c.Title == "Pending Action Items").Id;
-        var pending = new ActionItem(setup.AssignedUserId, "Alice", "Alice", pendingColumnId, "Carry over", 0);
+        var pending = new ActionItem(setup.AssignedUserId, "Alice", ["Alice"], pendingColumnId, "Carry over", 0);
         setup.Context.Items.Add(pending);
         await setup.Context.SaveChangesAsync();
         return pending;

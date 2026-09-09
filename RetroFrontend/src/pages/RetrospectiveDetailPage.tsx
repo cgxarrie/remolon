@@ -207,8 +207,11 @@ export function RetrospectiveDetailPage() {
             if (name) uniqueNames.add(name);
         });
 
+        const selfName = nickname?.trim() || email?.trim() || '';
+        if (selfName) uniqueNames.add(selfName);
+
         return Array.from(uniqueNames).sort((a, b) => a.localeCompare(b));
-    }, [assignedParticipants]);
+    }, [assignedParticipants, nickname, email]);
 
     useEffect(() => {
         return () => {

@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { actionItemsApi } from '../api/actionItems';
 import { ITEM_DESCRIPTION_MAX_LENGTH, type GetActionItemDto } from '../types';
 import { invalidateRetrospective } from '../query/retrospectiveQueries';
+import { AssigneePicker } from './AssigneePicker';
 
 interface Props {
     item: GetActionItemDto;
@@ -18,25 +19,16 @@ export function ActionItemCard({ item, retroId, assigneeOptions, isClosed, canEd
     const queryClient = useQueryClient();
     const [editing, setEditing] = useState(false);
     const [description, setDescription] = useState(item.description);
-    const [assignee, setAssignee] = useState(item.assignee);
+    const [assignees, setAssignees] = useState(item.assignees ?? []);
 
     const participantAssignees = useMemo(() => {
         const unique = new Set(assigneeOptions.map((name) => name.trim()).filter(Boolean));
-        if (item.assignee.trim()) unique.add(item.assignee.trim());
+        (item.assignees ?? []).forEach((name) => {
+            const trimmed = name.trim();
+            if (trimmed && trimmed !== 'all') unique.add(trimmed);
+        });
         return Array.from(unique).sort((a, b) => a.localeCompare(b));
-    }, [assigneeOptions, item.assignee]);
-
-    const availableAssignees = useMemo(
-        () => ['', 'all', ...participantAssignees],
-        [participantAssignees]
-    );
-
-    useEffect(() => {
-        if (!editing) return;
-        if (!availableAssignees.includes(assignee)) {
-            setAssignee('');
-        }
-    }, [editing, assignee, availableAssignees]);
+    }, [assigneeOptions, item.assignees]);
 
     function invalidate() {
         invalidateRetrospective(queryClient, retroId);
@@ -46,7 +38,7 @@ export function ActionItemCard({ item, retroId, assigneeOptions, isClosed, canEd
         mutationFn: () =>
             actionItemsApi.update(item.id, {
                 description: description.trim() || undefined,
-                assignee: assignee.trim(),
+                assignees,
             }),
         onSuccess: () => { invalidate(); setEditing(false); },
     });
@@ -60,6 +52,8 @@ export function ActionItemCard({ item, retroId, assigneeOptions, isClosed, canEd
         mutationFn: () => actionItemsApi.delete(item.id),
         onSuccess: invalidate,
     });
+
+    const assigneeLabel = (item.assignees ?? []).join(', ') || '—';
 
     return (
         <div
@@ -80,17 +74,11 @@ export function ActionItemCard({ item, retroId, assigneeOptions, isClosed, canEd
                         maxLength={ITEM_DESCRIPTION_MAX_LENGTH}
                         className="w-full text-sm border border-slate-300 rounded px-2 py-1 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
-                    <select
-                        value={assignee}
-                        onChange={(e) => setAssignee(e.target.value)}
-                        className="w-full text-sm border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    >
-                        <option value="">--</option>
-                        <option value="all">all</option>
-                        {participantAssignees.map((name) => (
-                            <option key={name} value={name}>{name}</option>
-                        ))}
-                    </select>
+                    <AssigneePicker
+                        options={participantAssignees}
+                        selected={assignees}
+                        onChange={setAssignees}
+                    />
                     <div className="flex gap-2">
                         <button
                             onClick={() => updateMutation.mutate()}
@@ -100,7 +88,7 @@ export function ActionItemCard({ item, retroId, assigneeOptions, isClosed, canEd
                             Save
                         </button>
                         <button
-                            onClick={() => { setEditing(false); setDescription(item.description); setAssignee(item.assignee); }}
+                            onClick={() => { setEditing(false); setDescription(item.description); setAssignees(item.assignees ?? []); }}
                             className="px-3 py-1 text-xs text-slate-600 hover:text-slate-800"
                         >
                             Cancel
@@ -114,7 +102,7 @@ export function ActionItemCard({ item, retroId, assigneeOptions, isClosed, canEd
                             {item.description}
                         </p>
                         <p className="text-xs text-slate-500 mt-1">
-                            Assignee: <span className="font-medium">{item.assignee || '—'}</span>
+                            Assignee: <span className="font-medium">{assigneeLabel}</span>
                             {item.iterations > 1 && (
                                 <span className="ml-2 text-amber-600">↻ {item.iterations} sprints</span>
                             )}
@@ -139,7 +127,11 @@ export function ActionItemCard({ item, retroId, assigneeOptions, isClosed, canEd
                             )}
                             {canEdit && (
                                 <button
-                                    onClick={() => setEditing(true)}
+                                    onClick={() => {
+                                        setDescription(item.description);
+                                        setAssignees(item.assignees ?? []);
+                                        setEditing(true);
+                                    }}
                                     className="text-xs text-slate-400 hover:text-indigo-600 px-1"
                                     title="Edit"
                                 >

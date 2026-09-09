@@ -54,7 +54,7 @@ public class CreateActionItemRequest
     [Required]
     public int Position { get; set; }
 
-    public string Assignee { get; set; } = string.Empty;
+    public List<string> Assignees { get; set; } = [];
 }
 
 public class UpdateActionItemRequest
@@ -62,13 +62,13 @@ public class UpdateActionItemRequest
     [MaxLength(ItemDescriptionLimits.MaxLength)]
     public string? Description { get; set; }
     public int? Position { get; set; }
-    public string? Assignee { get; set; }
+    public List<string>? Assignees { get; set; }
     public bool? IsCompleted { get; set; }
 }
 
 public class GetActionItemDto : GetItemDto
 {
-    public string Assignee { get; set; } = string.Empty;
+    public List<string> Assignees { get; set; } = [];
     public bool IsCompleted { get; set; }
     public int Iterations { get; set; }
     public string? ClosedBy { get; set; }

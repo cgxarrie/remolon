@@ -25,13 +25,13 @@ public class RetrospectiveServiceTests
             original.Reveal();
 
             var pending = original.Columns.OfType<ActionColumn>().Single(c => c.Title == "Pending Action Items");
-            pending.Items.Add(new ActionItem(ownerUserId, "Mgr", "Alice", pending.Id, "Finish docs", 0, 2));
-            var completedPending = new ActionItem(ownerUserId, "Mgr", "Bob", pending.Id, "Already done", 1, 1);
+            pending.Items.Add(new ActionItem(ownerUserId, "Mgr", ["Alice", "Dave"], pending.Id, "Finish docs", 0, 2));
+            var completedPending = new ActionItem(ownerUserId, "Mgr", ["Bob"], pending.Id, "Already done", 1, 1);
             completedPending.Complete(ownerUserId);
             pending.Items.Add(completedPending);
 
             var actions = original.Columns.OfType<ActionColumn>().Single(c => c.Title == "Action Items");
-            actions.Items.Add(new ActionItem(ownerUserId, "Mgr", "Carol", actions.Id, "Ship feature", 0));
+            actions.Items.Add(new ActionItem(ownerUserId, "Mgr", ["Carol"], actions.Id, "Ship feature", 0));
 
             seedContext.Retrospectives.Add(original);
             await seedContext.SaveChangesAsync();
@@ -70,11 +70,11 @@ public class RetrospectiveServiceTests
             var copied = pending.Items.OfType<ActionItem>().OrderBy(i => i.Position).ToList();
             Assert.Equal(2, copied.Count);
             Assert.Equal("Finish docs", copied[0].Description);
-            Assert.Equal("Alice", copied[0].Assignee);
+            Assert.Equal(["Alice", "Dave"], copied[0].Assignees);
             Assert.Equal(3, copied[0].Iterations);
             Assert.False(copied[0].IsCompleted);
             Assert.Equal("Ship feature", copied[1].Description);
-            Assert.Equal("Carol", copied[1].Assignee);
+            Assert.Equal(["Carol"], copied[1].Assignees);
             Assert.Equal(1, copied[1].Iterations);
             Assert.DoesNotContain(copied, i => i.Description == "Already done");
         }
@@ -174,9 +174,9 @@ public class RetrospectiveServiceTests
             closed.Reveal();
             closed.Close();
             var pending = closed.Columns.OfType<ActionColumn>().Single(c => c.Title == "Pending Action Items");
-            pending.Items.Add(new ActionItem("manager-1", "Mgr", "Alice", pending.Id, "Carry this", 0, 2));
+            pending.Items.Add(new ActionItem("manager-1", "Mgr", ["Alice", "Eve"], pending.Id, "Carry this", 0, 2));
             var actions = closed.Columns.OfType<ActionColumn>().Single(c => c.Title == "Action Items");
-            actions.Items.Add(new ActionItem("manager-1", "Mgr", "Bob", actions.Id, "New action", 0));
+            actions.Items.Add(new ActionItem("manager-1", "Mgr", ["Bob"], actions.Id, "New action", 0));
             seedContext.Retrospectives.Add(closed);
             await seedContext.SaveChangesAsync();
             closedId = closed.Id;
@@ -204,8 +204,10 @@ public class RetrospectiveServiceTests
             var copied = pending.Items.OfType<ActionItem>().OrderBy(i => i.Position).ToList();
             Assert.Equal(2, copied.Count);
             Assert.Equal("Carry this", copied[0].Description);
+            Assert.Equal(["Alice", "Eve"], copied[0].Assignees);
             Assert.Equal(3, copied[0].Iterations);
             Assert.Equal("New action", copied[1].Description);
+            Assert.Equal(["Bob"], copied[1].Assignees);
             Assert.Equal(1, copied[1].Iterations);
         }
     }

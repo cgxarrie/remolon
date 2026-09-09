@@ -44,7 +44,7 @@ public class Item : BaseEntity
 public class ActionItem : Item
 {
     private bool _isCompleted = false;
-    private string _asseignee = string.Empty;
+    private List<string> _assignees = [];
     private int _iterations = 0;
     private string? _closedBy;
     private DateTime? _closedAt;
@@ -55,10 +55,10 @@ public class ActionItem : Item
         private set => SetField(ref _isCompleted, value);
     }
 
-    public string Assignee
+    public IReadOnlyList<string> Assignees
     {
-        get => _asseignee;
-        private set => SetField(ref _asseignee, value);
+        get => _assignees;
+        private set => _assignees = NormalizeAssignees(value);
     }
 
     public int Iterations
@@ -79,16 +79,15 @@ public class ActionItem : Item
         private set => SetField(ref _closedAt, value);
     }
 
-    public ActionItem(string createdBy, string createdByNickname, string assignee, Guid columnId,
+    public ActionItem(string createdBy, string createdByNickname, IReadOnlyList<string> assignees, Guid columnId,
         string description, int position) : base(createdBy, createdByNickname, columnId, description, position)
     {
-        Assignee = assignee;
+        Assign(assignees);
     }
 
-    public ActionItem(string createdBy, string createdByNickname, string assignee, Guid columnId,
-        string description, int position, int iterations) : base(createdBy, createdByNickname, columnId, description, position)
+    public ActionItem(string createdBy, string createdByNickname, IReadOnlyList<string> assignees, Guid columnId,
+        string description, int position, int iterations) : this(createdBy, createdByNickname, assignees, columnId, description, position)
     {
-        Assignee = assignee;
         _iterations = iterations;
     }
 
@@ -99,8 +98,15 @@ public class ActionItem : Item
         ClosedAt = DateTime.UtcNow;
     }
 
-    public void Assign(string assignee)
+    public void Assign(IEnumerable<string> assignees)
     {
-        Assignee = assignee;
+        _assignees = NormalizeAssignees(assignees);
     }
+
+    private static List<string> NormalizeAssignees(IEnumerable<string>? assignees) =>
+        (assignees ?? [])
+            .Select(assignee => assignee.Trim())
+            .Where(assignee => assignee.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
 }

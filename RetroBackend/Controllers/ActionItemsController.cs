@@ -30,7 +30,7 @@ public class ActionItemsController : ControllerBase
     }
 
     /// <summary>Creates a new action item. The user must own the retrospective or be assigned to it.</summary>
-    /// <param name="request">The action item data including assignee.</param>
+    /// <param name="request">The action item data including assignees.</param>
     /// <returns>The ID of the newly created action item.</returns>
     [HttpPost("")]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]

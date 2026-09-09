@@ -102,7 +102,8 @@ public class ListRetrospectiveBoardsTests
             new RetrospectiveService(new EfRetrospectiveRepository(context)),
             new RetroAuthorizationService(context),
             context,
-            new RecordingLiveNotifier())
+            new RecordingLiveNotifier(),
+            new NoOpClosedRetrospectiveActionItemMailer())
         {
             ControllerContext = new ControllerContext
             {
