@@ -7,6 +7,7 @@ using RetroBackend.Auth;
 using RetroBackend.Data;
 using RetroBackend.Dtos;
 using RetroBackend.Models;
+using RetroBackend.Services;
 
 namespace RetroBackend.Controllers;
 
@@ -15,7 +16,6 @@ namespace RetroBackend.Controllers;
 [Authorize(Roles = Roles.Manager + "," + Roles.StandardUser)]
 public class OrganizationsController : ControllerBase
 {
-    private static readonly HashSet<string> ThemeKeys = ["default", "ocean", "forest", "sunset", "custom"];
     private static readonly Regex HexColor = new("^#[0-9a-fA-F]{6}$", RegexOptions.Compiled);
     private readonly RetroDbContext _context;
 
@@ -102,10 +102,10 @@ public class OrganizationsController : ControllerBase
     private static string? ValidateTheme(SaveOrganizationRequest request)
     {
         var themeKey = request.ThemeKey.Trim().ToLowerInvariant();
-        if (!ThemeKeys.Contains(themeKey))
-            return "ThemeKey must be one of: default, ocean, forest, sunset, custom.";
+        if (!OrganizationThemes.IsKnown(themeKey))
+            return $"ThemeKey must be '{OrganizationThemes.Custom}' or one of the preset themes.";
 
-        if (themeKey != "custom") return null;
+        if (themeKey != OrganizationThemes.Custom) return null;
 
         var colors = new[]
         {
@@ -123,7 +123,7 @@ public class OrganizationsController : ControllerBase
     private static void ApplyTheme(Organization organization, SaveOrganizationRequest request)
     {
         organization.ThemeKey = request.ThemeKey.Trim().ToLowerInvariant();
-        var isCustom = organization.ThemeKey == "custom";
+        var isCustom = organization.ThemeKey == OrganizationThemes.Custom;
         organization.ThemeHeaderColor = isCustom ? request.HeaderColor : null;
         organization.ThemeHeaderHoverColor = isCustom ? request.HeaderHoverColor : null;
         organization.ThemeAccentColor = isCustom ? request.AccentColor : null;

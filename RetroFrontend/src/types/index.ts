@@ -233,7 +233,35 @@ export interface Organization extends SelectedOrganization {
     theme: OrganizationTheme;
 }
 
-export type ThemeKey = 'default' | 'ocean' | 'forest' | 'sunset' | 'custom';
+// Every preset key needs a palette in themePresets (theme.tsx) and an entry in the
+// backend's OrganizationThemes.Keys, which rejects keys it does not know.
+export type PresetThemeKey =
+    | 'default'
+    | 'azure'
+    | 'ocean'
+    | 'lagoon'
+    | 'teal'
+    | 'emerald'
+    | 'forest'
+    | 'meadow'
+    | 'marigold'
+    | 'amber'
+    | 'tangerine'
+    | 'sunset'
+    | 'ember'
+    | 'crimson'
+    | 'rose'
+    | 'blossom'
+    | 'orchid'
+    | 'plum'
+    | 'violet'
+    | 'aurora'
+    | 'midnight'
+    | 'slate'
+    | 'graphite'
+    | 'mocha';
+
+export type ThemeKey = PresetThemeKey | 'custom';
 
 export interface OrganizationTheme {
     themeKey: ThemeKey;

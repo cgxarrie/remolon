@@ -54,7 +54,7 @@ public class AvatarsController : ControllerBase
         if (!result.Succeeded)
             return BadRequest(result.Errors);
 
-        return Ok(new AvatarUploadResponse($"/api/users/{user.Id}/avatar"));
+        return Ok(new AvatarUploadResponse(AvatarImage.UrlFor(user)!));
     }
 
     /// <summary>Removes the authenticated user's avatar.</summary>
@@ -102,7 +102,12 @@ public class AvatarsController : ControllerBase
         if (target.AvatarBytes is not { Length: > 0 } || string.IsNullOrWhiteSpace(target.AvatarContentType))
             return NotFound();
 
-        Response.Headers.CacheControl = "private, max-age=3600";
+        // Only a URL pinned to the current image may be cached; an unversioned or outdated
+        // request must always hit the server so a replaced avatar shows up immediately.
+        var requestedVersion = Request.Query["v"].ToString();
+        Response.Headers.CacheControl = requestedVersion == AvatarImage.VersionFor(target.AvatarBytes)
+            ? "private, max-age=3600"
+            : "private, no-cache";
         Response.Headers.Append("Vary", "Authorization");
         return File(target.AvatarBytes, target.AvatarContentType);
     }

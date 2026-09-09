@@ -51,7 +51,7 @@ export function UserAvatar({
         let cancelled = false;
 
         avatarsApi
-            .get(userId)
+            .get(avatarUrl)
             .then((blob) => {
                 if (cancelled) return;
                 loadedUrl = URL.createObjectURL(blob);
