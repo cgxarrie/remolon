@@ -101,9 +101,18 @@ Invitation emails (when a Manager creates a user) are sent via SMTP. Local Compo
 
 ### 3. Apply migrations
 
+The API no longer migrates on every start. Apply schema first:
+
 ```bash
 cd RetroBackend
 dotnet ef database update
+```
+
+Or run the app once with `--migrate` and then start it normally:
+
+```bash
+dotnet run -- --migrate
+dotnet run
 ```
 
 ### 4. Run
@@ -122,8 +131,10 @@ From the repository root:
 
 ```bash
 cp .env.example .env   # set POSTGRES_PASSWORD and JWT_KEY
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up backend postgres --build
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
+
+The `migrate` service applies EF migrations, then `backend` starts. The backend port is not published; use `http://localhost:3000`.
 
 ---
 

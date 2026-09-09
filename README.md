@@ -42,14 +42,15 @@ cp .env.example .env
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
 
-`docker-compose.dev.yml` publishes Postgres `5432` and Mailpit `1025`/`8025` on the host for local work. Default `docker compose up` does not publish those ports.
+`docker-compose.dev.yml` publishes Postgres `5432` and Mailpit `1025`/`8025` on the host for local work. Default `docker compose up` does not publish those ports, and does not publish the backend. The API is only reachable through the frontend proxy (`http://localhost:3000/api`). Apply schema with the Compose `migrate` service (`dotnet RetroBackend.dll --migrate`) before the API starts.
 
 | Service  | URL                          |
 |----------|------------------------------|
 | Frontend | http://localhost:3000        |
-| Backend  | http://localhost:5145        |
-| Swagger  | http://localhost:5145/swagger|
-| Mailpit  | http://localhost:8025        |
+| API (via nginx) | http://localhost:3000/api |
+| Mailpit (with docker-compose.dev.yml) | http://localhost:8025 |
+
+Local Vite still expects a backend on `http://localhost:5145` (`dotnet run` in RetroBackend). Do not expose `5145` from Compose.
 
 Register a Manager account from the frontend to create an organization.
 

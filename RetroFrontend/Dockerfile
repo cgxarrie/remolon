@@ -6,8 +6,8 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Stage 2: serve via nginx
-FROM nginx:alpine
+# Stage 2: serve via nginx (non-root, port 8080)
+FROM nginxinc/nginx-unprivileged:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
+EXPOSE 8080

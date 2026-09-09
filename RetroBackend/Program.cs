@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.SignalR;
@@ -18,6 +19,13 @@ using RetroBackend.Repositories;
 using RetroBackend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 builder.Services.AddControllers();
 builder.Services.Configure<FormOptions>(options =>
@@ -219,10 +227,34 @@ builder.Services.AddSingleton<IRetrospectiveHubMembership, RetrospectiveHubMembe
 
 var app = builder.Build();
 
+var migrateOnly = args.Any(argument =>
+    string.Equals(argument, "--migrate", StringComparison.OrdinalIgnoreCase));
+
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<RetroDbContext>();
-    await db.Database.MigrateAsync();
+    if (migrateOnly)
+    {
+        await db.Database.MigrateAsync();
+        await IdentityBootstrap.EnsureRolesAsync(scope.ServiceProvider);
+        return;
+    }
+
+    if (!await db.Database.CanConnectAsync())
+    {
+        throw new InvalidOperationException("Cannot connect to the database.");
+    }
+
+    var pending = await db.Database.GetPendingMigrationsAsync();
+    var pendingList = pending.ToList();
+    if (pendingList.Count > 0)
+    {
+        throw new InvalidOperationException(
+            "Database schema is missing migrations: "
+            + string.Join(", ", pendingList)
+            + ". Start the API with --migrate (Compose migrate service) or run `dotnet ef database update`.");
+    }
+
     await IdentityBootstrap.EnsureRolesAsync(scope.ServiceProvider);
 }
 
@@ -235,6 +267,10 @@ if (app.Environment.IsDevelopment())
         options.RoutePrefix = string.Empty;
     });
 }
+
+app.UseForwardedHeaders();
+if (!app.Environment.IsDevelopment())
+    app.UseHsts();
 
 app.UseCors();
 app.UseRateLimiter();

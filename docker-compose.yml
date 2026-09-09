@@ -16,21 +16,42 @@ services:
       timeout: 5s
       retries: 10
 
-  # ── Backend (.NET) ──────────────────────────────────────────────────────────
-  backend:
+  keys-init:
+    image: busybox:1.37
+    command: ["chown", "-R", "1654:1654", "/var/dataprotection-keys"]
+    user: "0"
+    volumes:
+      - dataprotection_keys:/var/dataprotection-keys
+
+  migrate:
     build:
       context: ./RetroBackend
       dockerfile: Dockerfile
-    restart: unless-stopped
-    ports:
-      - "5145:8080"   # exposes backend directly for dev/Swagger access
+    command: ["dotnet", "RetroBackend.dll", "--migrate"]
+    restart: "no"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=retrodb;Username=retro;Password=${POSTGRES_PASSWORD}"
       Jwt__Key: "${JWT_KEY:?Set JWT_KEY in .env}"
       Jwt__Issuer: RetroBackend
       Jwt__Audience: RetroBackendClients
-      # frontend container is on port 3000 – allow it as CORS origin
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Backend (.NET) ──────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./RetroBackend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_ALLOWEDHOSTS: "localhost;127.0.0.1"
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=retrodb;Username=retro;Password=${POSTGRES_PASSWORD}"
+      Jwt__Key: "${JWT_KEY:?Set JWT_KEY in .env}"
+      Jwt__Issuer: RetroBackend
+      Jwt__Audience: RetroBackendClients
       Cors__AllowedOrigins__0: "http://localhost:3000"
       Cors__AllowedOrigins__1: "http://localhost:5173"
       Email__SmtpHost: mailpit
@@ -45,6 +66,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      keys-init:
+        condition: service_completed_successfully
       mailpit:
         condition: service_started
 
@@ -60,7 +85,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - "3000:8080"
     depends_on:
       - backend
 
