@@ -97,7 +97,7 @@ The process exits on startup if `Jwt:Key` is missing, shorter than 32 characters
 
 Development stores Data Protection keys in `.dataprotection-keys/` (gitignored) so reset and invitation links survive `dotnet run` restarts. Production and Compose require `DataProtection__KeysDirectory`. Deleting those keys invalidates outstanding links.
 
-Invitation emails (when a Manager creates a user) are sent via SMTP by default, or Resend's HTTPS API when `Email__Provider=resend`. Local Compose with `docker-compose.dev.yml` uses [Mailpit](https://github.com/axllent/mailpit) at `http://localhost:8025`. For a cdmon mailbox set `Email__SmtpHost` (`smtp.yourdomain.com`), `Email__SmtpPort` (`587` or `465`), `Email__EnableSsl`, `Email__SmtpUser` (full address), `Email__SmtpPassword`, and `Email__From`. On Railway Hobby/Trial/Free, outbound SMTP is blocked — use Resend instead.
+Invitation emails (when a Manager creates a user) are sent via SMTP. Local Compose with `docker-compose.dev.yml` uses [Mailpit](https://github.com/axllent/mailpit) at `http://localhost:8025`. For a cdmon mailbox set `Email__SmtpHost` (`smtp.yourdomain.com`), `Email__SmtpPort` (`587` or `465`), `Email__EnableSsl`, `Email__SmtpUser` (full address), `Email__SmtpPassword`, and `Email__From`. Railway Hobby/Trial/Free block outbound SMTP.
 
 ### 3. Apply migrations
 
@@ -162,7 +162,5 @@ Obtain a token by calling `POST /api/auth/login` with valid credentials. Tokens 
 | `ASPNETCORE_ALLOWEDHOSTS`        | Semicolon-separated hosts accepted in the `Host` header; replaces the `AllowedHosts` default. Requests from other hosts get `400` |
 | `Email__SmtpHost` / `Email__SmtpPort` / `Email__EnableSsl` | SMTP server; Mailpit locally, or cdmon `smtp.yourdomain.com` on 587/465 with SSL |
 | `Email__SmtpUser` / `Email__SmtpPassword` | Optional SMTP credentials (full mailbox address on cdmon) |
-| `Email__Provider` | `smtp` (default) or `resend` (HTTPS; required on Railway Hobby) |
-| `Email__ApiKey` | Resend API key when Provider is `resend` |
-| `Email__From` | From address; use the cdmon mailbox, or a verified Resend sender |
+| `Email__From` | From address; use the cdmon mailbox |
 | `DataProtection:KeysDirectory` / `DataProtection__KeysDirectory` | Directory for Data Protection keys (reset/invite tokens). Required outside Development. Deleting or rotating keys invalidates outstanding links. |

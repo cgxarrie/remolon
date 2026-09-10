@@ -79,20 +79,7 @@ NGINX_RESOLVER=[fd12::10] ipv6=on valid=1s
 
 On the backend service set `ASPNETCORE_ALLOWEDHOSTS` to the frontend's public host (nginx forwards the original `Host`) and `Email__FrontendBaseUrl` to the frontend's public URL. The private network is IPv6-only, so the API must listen on `[::]`.
 
-Hobby, Trial, and Free plans block outbound SMTP, so a cdmon mailbox will not send from those plans. Use Resend over HTTPS instead:
-
-1. Create a [Resend](https://resend.com/) account and an API key.
-2. Add and verify a sending domain (SPF + DKIM). Until then you can only send from `beth.t@example.com` to the email you signed up with.
-3. On the **backend** service, set:
-
-```env
-Email__Provider=resend
-Email__ApiKey=re_xxxxxxxx
-Email__From=ReMolon <noreply@your-verified-domain.com>
-Email__FrontendBaseUrl=https://your-frontend.up.railway.app
-```
-
-Redeploy the backend. Local Compose stays on Mailpit unless you override SMTP in `.env`.
+Hobby, Trial, and Free plans block outbound SMTP, so a cdmon mailbox will not send from those plans.
 
 ### cdmon SMTP (Compose / VPS)
 
@@ -119,7 +106,6 @@ Copy `.env.example` to `.env` (gitignored) and set:
 | `JWT_KEY` | JWT signing key, at least 32 characters; maps to `Jwt__Key` |
 | `EMAIL_SMTP_HOST` / `EMAIL_SMTP_PORT` / `EMAIL_SMTP_ENABLE_SSL` | Optional; defaults are Mailpit (`mailpit:1025`, SSL off). For cdmon use `smtp.yourdomain.com`, `587` or `465`, and `true` |
 | `EMAIL_SMTP_USER` / `EMAIL_SMTP_PASSWORD` / `EMAIL_FROM` | Mailbox login and From address; leave empty for Mailpit |
-| `Email__Provider` / `Email__ApiKey` / `Email__From` | Railway Hobby: `resend` plus a Resend API key and verified From address |
 | `BACKEND_UPSTREAM` / `NGINX_RESOLVER` | Optional; nginx proxy target for `/api` and `/hubs` and the DNS server used to resolve it. Compose defaults work as-is; override when the API is not the Compose `backend` service |
 
 Do not commit `.env` or `docker-compose.override.yml`.
