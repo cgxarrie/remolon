@@ -17,7 +17,7 @@ services:
     volumes:
       - ./certs/fullchain.pem:/etc/nginx/certs/fullchain.pem:ro
       - ./certs/privkey.pem:/etc/nginx/certs/privkey.pem:ro
-      - ./RetroFrontend/nginx.tls.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./RetroFrontend/nginx.tls.conf:/etc/nginx/templates/default.conf.template:ro
 
   backend:
     environment:
