@@ -27,25 +27,35 @@ public class SmtpEmailSender : IEmailSender
         };
         message.To.Add(to);
 
+        var timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds > 0 ? _options.TimeoutSeconds : 15);
+
         using var client = new SmtpClient(_options.SmtpHost, _options.SmtpPort)
         {
             EnableSsl = _options.EnableSsl,
             DeliveryMethod = SmtpDeliveryMethod.Network,
+            Timeout = (int)timeout.TotalMilliseconds,
         };
 
         if (!string.IsNullOrWhiteSpace(_options.SmtpUser))
             client.Credentials = new NetworkCredential(_options.SmtpUser, _options.SmtpPassword);
 
+        // SmtpClient.Timeout does not apply to the async path, so cancellation has to enforce it.
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(timeout);
+
         try
         {
-            await client.SendMailAsync(message, cancellationToken);
+            await client.SendMailAsync(message, deadline.Token);
+        }
+        // A cancelled send surfaces as SmtpException rather than OperationCanceledException,
+        // so the deadline has to be checked before classifying the failure.
+        catch (Exception ex) when (deadline.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            throw new SmtpException($"{Describe()} did not respond within {timeout.TotalSeconds:0}s.", ex);
         }
         catch (SmtpException ex)
         {
-            throw new SmtpException(
-                $"SMTP send to {_options.SmtpHost}:{_options.SmtpPort} failed "
-                    + $"(EnableSsl={_options.EnableSsl}, user={(string.IsNullOrWhiteSpace(_options.SmtpUser) ? "<none>" : _options.SmtpUser)}).",
-                ex);
+            throw new SmtpException($"{Describe()} failed.", ex);
         }
 
         _logger.LogInformation(
@@ -55,6 +65,10 @@ public class SmtpEmailSender : IEmailSender
             _options.SmtpHost,
             _options.SmtpPort);
     }
+
+    private string Describe() =>
+        $"SMTP send to {_options.SmtpHost}:{_options.SmtpPort} "
+            + $"(EnableSsl={_options.EnableSsl}, user={(string.IsNullOrWhiteSpace(_options.SmtpUser) ? "<none>" : _options.SmtpUser)})";
 
     public static MailAddress CreateFrom(string from)
     {

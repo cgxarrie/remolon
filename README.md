@@ -79,7 +79,9 @@ NGINX_RESOLVER=[fd12::10] ipv6=on valid=1s
 
 On the backend service set `ASPNETCORE_ALLOWEDHOSTS` to the frontend's public host (nginx forwards the original `Host`) and `Email__FrontendBaseUrl` to the frontend's public URL. The private network is IPv6-only, so the API must listen on `[::]`.
 
-Railway does not read `docker-compose.yml`, so the `EMAIL_*` variables below have no effect there. Set the `Email__SmtpHost` / `Email__SmtpPort` / `Email__EnableSsl` / `Email__SmtpUser` / `Email__SmtpPassword` / `Email__From` keys directly on the backend service. Note that Hobby, Trial, and Free plans block outbound SMTP, so a cdmon mailbox may still not send from those plans.
+Railway does not read `docker-compose.yml`, so the `EMAIL_*` variables below have no effect there. Set the `Email__SmtpHost` / `Email__SmtpPort` / `Email__EnableSsl` / `Email__SmtpUser` / `Email__SmtpPassword` / `Email__From` keys directly on the backend service.
+
+**Outbound SMTP requires the Pro plan.** Railway [blocks ports 25, 465, 587, and 2525](https://docs.railway.com/networking/outbound-networking) on Free, Trial, and Hobby, so a cdmon mailbox cannot deliver from those plans no matter how it is configured. The block drops packets rather than refusing them, so the symptom is a connect timeout — `Email__TimeoutSeconds` (default 15) caps how long that stalls a request. To keep cdmon SMTP, upgrade to Pro and redeploy the backend; otherwise send through a provider with an HTTPS API.
 
 ### cdmon SMTP (Compose / VPS)
 
@@ -117,6 +119,7 @@ Copy `.env.example` to `.env` (gitignored) and set:
 | `JWT_KEY` | JWT signing key, at least 32 characters; maps to `Jwt__Key` |
 | `EMAIL_SMTP_HOST` / `EMAIL_SMTP_PORT` / `EMAIL_SMTP_ENABLE_SSL` | Compose only; defaults are Mailpit (`mailpit:1025`, SSL off). For cdmon use `smtp.yourdomain.com`, `587`, and `true` |
 | `EMAIL_SMTP_USER` / `EMAIL_SMTP_PASSWORD` / `EMAIL_FROM` | Mailbox login and From address; leave empty for Mailpit |
+| `Email__TimeoutSeconds` | Optional; per-send SMTP deadline, default `15`. Stops a firewalled SMTP port from hanging the request until the proxy returns 504 |
 | `BACKEND_UPSTREAM` / `NGINX_RESOLVER` | Optional; nginx proxy target for `/api` and `/hubs` and the DNS server used to resolve it. Compose defaults work as-is; override when the API is not the Compose `backend` service |
 
 Do not commit `.env` or `docker-compose.override.yml`.

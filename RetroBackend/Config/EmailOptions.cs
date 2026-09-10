@@ -11,4 +11,10 @@ public class EmailOptions
     public bool EnableSsl { get; set; }
     public string From { get; set; } = "noreply@remolon.local";
     public string FrontendBaseUrl { get; set; } = "http://localhost:3000";
+
+    /// <summary>
+    /// Caps how long a single SMTP send may block. A firewalled SMTP port drops packets
+    /// instead of refusing them, so without this the request hangs until the proxy returns 504.
+    /// </summary>
+    public int TimeoutSeconds { get; set; } = 15;
 }
