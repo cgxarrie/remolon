@@ -20,7 +20,7 @@ public class SmtpEmailSender : IEmailSender
     {
         using var message = new MailMessage
         {
-            From = new MailAddress(_options.From, "ReMolon"),
+            From = CreateFrom(_options.From),
             Subject = subject,
             Body = htmlBody,
             IsBodyHtml = true,
@@ -38,5 +38,13 @@ public class SmtpEmailSender : IEmailSender
 
         await client.SendMailAsync(message, cancellationToken);
         _logger.LogInformation("Sent email '{Subject}' to {To}", subject, to);
+    }
+
+    public static MailAddress CreateFrom(string from)
+    {
+        var parsed = new MailAddress(from);
+        return string.IsNullOrWhiteSpace(parsed.DisplayName)
+            ? new MailAddress(parsed.Address, "ReMolon")
+            : parsed;
     }
 }

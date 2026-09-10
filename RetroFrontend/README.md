@@ -126,7 +126,7 @@ nginx proxies `/api` and `/hubs` to `BACKEND_UPSTREAM`, resolving that name on e
 | `BACKEND_UPSTREAM` | `http://backend:8080` | `http://<backend-service>.railway.internal:8080` |
 | `NGINX_RESOLVER` | `127.0.0.11 ipv6=off valid=10s` | `[fd12::10] ipv6=on valid=1s` |
 
-`BACKEND_UPSTREAM` is scheme, host and port only: no trailing slash and no path. Per-request resolution is required on Railway, where the private IP changes on every backend redeploy and the name does not resolve while nginx is starting.
+`BACKEND_UPSTREAM` must be a full URL. The `http://` prefix is required — nginx fails the request with `invalid URL prefix` without it — and the value carries no trailing slash and no path. Per-request resolution is required on Railway, where the private IP changes on every backend redeploy and the name does not resolve while nginx is starting.
 
 ---
 

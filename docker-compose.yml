@@ -54,11 +54,13 @@ services:
       Jwt__Audience: RetroBackendClients
       Cors__AllowedOrigins__0: "http://localhost:3000"
       Cors__AllowedOrigins__1: "http://localhost:5173"
-      Email__SmtpHost: mailpit
-      Email__SmtpPort: "1025"
+      Email__Provider: smtp
+      Email__SmtpHost: "${EMAIL_SMTP_HOST:-mailpit}"
+      Email__SmtpPort: "${EMAIL_SMTP_PORT:-1025}"
       Email__SmtpUser: "${EMAIL_SMTP_USER:-}"
       Email__SmtpPassword: "${EMAIL_SMTP_PASSWORD:-}"
-      Email__From: "noreply@remolon.local"
+      Email__EnableSsl: "${EMAIL_SMTP_ENABLE_SSL:-false}"
+      Email__From: "${EMAIL_FROM:-noreply@remolon.local}"
       Email__FrontendBaseUrl: "http://localhost:3000"
       DataProtection__KeysDirectory: /var/dataprotection-keys
     volumes:

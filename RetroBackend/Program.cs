@@ -237,7 +237,18 @@ builder.Services.AddSingleton<RetrospectiveHubConnectionTracker>();
 builder.Services.AddSignalR();
 
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
-builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+var emailProvider = builder.Configuration[$"{EmailOptions.SectionName}:Provider"];
+if (string.Equals(emailProvider, "resend", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddHttpClient<IEmailSender, ResendEmailSender>(client =>
+    {
+        client.BaseAddress = new Uri(ResendEmailSender.ApiBaseAddress);
+    });
+}
+else
+{
+    builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+}
 
 builder.Services.AddScoped<IClosedRetrospectiveActionItemMailer, ClosedRetrospectiveActionItemMailer>();
 builder.Services.AddScoped<IAuthTokenService, AuthTokenService>();
