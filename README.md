@@ -79,11 +79,11 @@ NGINX_RESOLVER=[fd12::10] ipv6=on valid=1s
 
 On the backend service set `ASPNETCORE_ALLOWEDHOSTS` to the frontend's public host (nginx forwards the original `Host`) and `Email__FrontendBaseUrl` to the frontend's public URL. The private network is IPv6-only, so the API must listen on `[::]`.
 
-Hobby, Trial, and Free plans block outbound SMTP, so a cdmon mailbox will not send from those plans.
+Railway does not read `docker-compose.yml`, so the `EMAIL_*` variables below have no effect there. Set the `Email__SmtpHost` / `Email__SmtpPort` / `Email__EnableSsl` / `Email__SmtpUser` / `Email__SmtpPassword` / `Email__From` keys directly on the backend service. Note that Hobby, Trial, and Free plans block outbound SMTP, so a cdmon mailbox may still not send from those plans.
 
 ### cdmon SMTP (Compose / VPS)
 
-Create a mailbox in cdmon (for example `noreply@yourdomain.com`) and put its SMTP settings in `.env`. Username is the **full email address**. cdmon has closed port 25; use 587 with STARTTLS (`EMAIL_SMTP_ENABLE_SSL=true`) or 465 with SSL.
+Create a mailbox in cdmon (for example `noreply@yourdomain.com`) and put its SMTP settings in `.env`. Username is the **full email address**, and the password is the plain mailbox password. cdmon has closed port 25, so use **587 with STARTTLS** (`EMAIL_SMTP_ENABLE_SSL=true`). Do not use 465: `System.Net.Mail.SmtpClient` only speaks STARTTLS and cannot open the implicit-TLS connection that 465 requires.
 
 ```env
 EMAIL_SMTP_HOST=smtp.yourdomain.com
@@ -94,7 +94,18 @@ EMAIL_SMTP_PASSWORD=your-mailbox-password
 EMAIL_FROM=ReMolon <noreply@yourdomain.com>
 ```
 
-`EMAIL_FROM` should be that same mailbox (or another address the server is allowed to send as). Restart the backend after changing `.env`. Leave these blank to keep catching mail in Mailpit (`http://localhost:8025` with `docker-compose.dev.yml`).
+`EMAIL_SMTP_HOST` is `smtp.` plus your hosting domain (`smtp.cdmon.com` also works). `EMAIL_FROM` should be that same mailbox (or another address the server is allowed to send as). Restart the backend after changing `.env`. Leave these blank to keep catching mail in Mailpit (`http://localhost:8025` with `docker-compose.dev.yml`).
+
+The `EMAIL_*` names above only exist in `docker-compose.yml`, which maps them onto the `Email__*` keys the API reads. Outside Compose — Railway, or any platform that runs `RetroBackend/Dockerfile` directly — set the `Email__*` keys instead, or the API silently falls back to the `appsettings.json` default of `localhost:1025` and every send fails with `Connection refused`:
+
+```env
+Email__SmtpHost=smtp.yourdomain.com
+Email__SmtpPort=587
+Email__EnableSsl=true
+Email__SmtpUser=noreply@yourdomain.com
+Email__SmtpPassword=your-mailbox-password
+Email__From=ReMolon <noreply@yourdomain.com>
+```
 
 ### Required environment
 
@@ -104,7 +115,7 @@ Copy `.env.example` to `.env` (gitignored) and set:
 |----------|---------|
 | `POSTGRES_PASSWORD` | Postgres password; interpolated into the backend connection string |
 | `JWT_KEY` | JWT signing key, at least 32 characters; maps to `Jwt__Key` |
-| `EMAIL_SMTP_HOST` / `EMAIL_SMTP_PORT` / `EMAIL_SMTP_ENABLE_SSL` | Optional; defaults are Mailpit (`mailpit:1025`, SSL off). For cdmon use `smtp.yourdomain.com`, `587` or `465`, and `true` |
+| `EMAIL_SMTP_HOST` / `EMAIL_SMTP_PORT` / `EMAIL_SMTP_ENABLE_SSL` | Compose only; defaults are Mailpit (`mailpit:1025`, SSL off). For cdmon use `smtp.yourdomain.com`, `587`, and `true` |
 | `EMAIL_SMTP_USER` / `EMAIL_SMTP_PASSWORD` / `EMAIL_FROM` | Mailbox login and From address; leave empty for Mailpit |
 | `BACKEND_UPSTREAM` / `NGINX_RESOLVER` | Optional; nginx proxy target for `/api` and `/hubs` and the DNS server used to resolve it. Compose defaults work as-is; override when the API is not the Compose `backend` service |
 

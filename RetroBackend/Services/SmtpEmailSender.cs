@@ -36,8 +36,24 @@ public class SmtpEmailSender : IEmailSender
         if (!string.IsNullOrWhiteSpace(_options.SmtpUser))
             client.Credentials = new NetworkCredential(_options.SmtpUser, _options.SmtpPassword);
 
-        await client.SendMailAsync(message, cancellationToken);
-        _logger.LogInformation("Sent email '{Subject}' to {To}", subject, to);
+        try
+        {
+            await client.SendMailAsync(message, cancellationToken);
+        }
+        catch (SmtpException ex)
+        {
+            throw new SmtpException(
+                $"SMTP send to {_options.SmtpHost}:{_options.SmtpPort} failed "
+                    + $"(EnableSsl={_options.EnableSsl}, user={(string.IsNullOrWhiteSpace(_options.SmtpUser) ? "<none>" : _options.SmtpUser)}).",
+                ex);
+        }
+
+        _logger.LogInformation(
+            "Sent email '{Subject}' to {To} via {SmtpHost}:{SmtpPort}",
+            subject,
+            to,
+            _options.SmtpHost,
+            _options.SmtpPort);
     }
 
     public static MailAddress CreateFrom(string from)
