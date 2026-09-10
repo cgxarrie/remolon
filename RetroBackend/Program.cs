@@ -2,6 +2,7 @@ using System.Text;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HostFiltering;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
@@ -24,6 +25,13 @@ var builder = WebApplication.CreateBuilder(args);
 // require the Data Protection key ring that reset and invite links depend on.
 var migrateOnly = args.Any(argument =>
     string.Equals(argument, "--migrate", StringComparison.OrdinalIgnoreCase));
+
+var allowedHostsOverride = AllowedHostsOverride.Resolve(builder.Configuration);
+if (allowedHostsOverride is not null)
+{
+    builder.Services.Configure<HostFilteringOptions>(
+        options => options.AllowedHosts = allowedHostsOverride);
+}
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {

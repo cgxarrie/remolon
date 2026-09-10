@@ -159,5 +159,6 @@ Obtain a token by calling `POST /api/auth/login` with valid credentials. Tokens 
 | `Jwt:Issuer`                     | Token issuer                                 |
 | `Jwt:Audience`                   | Token audience                               |
 | `Cors:AllowedOrigins`            | Array of allowed frontend origins            |
+| `ASPNETCORE_ALLOWEDHOSTS`        | Semicolon-separated hosts accepted in the `Host` header; replaces the `AllowedHosts` default. Requests from other hosts get `400` |
 | `Email__SmtpUser` / `Email__SmtpPassword` | Optional SMTP credentials          |
 | `DataProtection:KeysDirectory` / `DataProtection__KeysDirectory` | Directory for Data Protection keys (reset/invite tokens). Required outside Development. Deleting or rotating keys invalidates outstanding links. |
