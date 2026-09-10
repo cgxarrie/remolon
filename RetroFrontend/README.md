@@ -117,7 +117,16 @@ From the repository root:
 docker compose up frontend --build
 ```
 
-App available at `http://localhost:3000`. nginx proxies `/api` and `/hubs` to `BACKEND_UPSTREAM` (default `http://backend:8080`). On Railway, set that on the frontend service to the private backend URL with no trailing slash, for example `http://backend.railway.internal:8080`.
+App available at `http://localhost:3000`.
+
+nginx proxies `/api` and `/hubs` to `BACKEND_UPSTREAM`, resolving that name on every request through `NGINX_RESOLVER`.
+
+| Variable | Compose default | Railway |
+|----------|-----------------|---------|
+| `BACKEND_UPSTREAM` | `http://backend:8080` | `http://<backend-service>.railway.internal:8080` |
+| `NGINX_RESOLVER` | `127.0.0.11 ipv6=off valid=10s` | `[fd12::10] ipv6=on valid=1s` |
+
+`BACKEND_UPSTREAM` is scheme, host and port only: no trailing slash and no path. Per-request resolution is required on Railway, where the private IP changes on every backend redeploy and the name does not resolve while nginx is starting.
 
 ---
 

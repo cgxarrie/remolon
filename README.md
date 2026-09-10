@@ -68,6 +68,17 @@ Then use `https://localhost`. Port 80 redirects to HTTPS. Cookies are `Secure` w
 
 Register a Manager account from the frontend to create an organization.
 
+### Deploying behind a platform proxy (e.g. Railway)
+
+The SPA always calls `/api` and `/hubs` on its own origin, so only nginx needs to know where the API lives. On the frontend service set:
+
+```env
+BACKEND_UPSTREAM=http://<backend-service>.railway.internal:8080
+NGINX_RESOLVER=[fd12::10] ipv6=on valid=1s
+```
+
+On the backend service set `ASPNETCORE_ALLOWEDHOSTS` to the frontend's public host (nginx forwards the original `Host`) and `Email__FrontendBaseUrl` to the frontend's public URL. The private network is IPv6-only, so the API must listen on `[::]`.
+
 ### Required environment
 
 Copy `.env.example` to `.env` (gitignored) and set:
@@ -77,6 +88,7 @@ Copy `.env.example` to `.env` (gitignored) and set:
 | `POSTGRES_PASSWORD` | Postgres password; interpolated into the backend connection string |
 | `JWT_KEY` | JWT signing key, at least 32 characters; maps to `Jwt__Key` |
 | `EMAIL_SMTP_USER` / `EMAIL_SMTP_PASSWORD` | Optional; leave empty for Mailpit |
+| `BACKEND_UPSTREAM` / `NGINX_RESOLVER` | Optional; nginx proxy target for `/api` and `/hubs` and the DNS server used to resolve it. Compose defaults work as-is; override when the API is not the Compose `backend` service |
 
 Do not commit `.env` or `docker-compose.override.yml`.
 
