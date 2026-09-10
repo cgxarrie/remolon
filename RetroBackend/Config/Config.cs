@@ -12,6 +12,5 @@ internal static class Config
     );
 
 
-    public static string PGConnectionString => _instance.Value.GetConnectionString("DefaultConnection")
-        ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+    public static string PGConnectionString => PostgresConnectionString.Resolve(_instance.Value);
 }

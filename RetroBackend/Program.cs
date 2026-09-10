@@ -84,7 +84,7 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 builder.Services.AddDbContext<RetroDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(PostgresConnectionString.Resolve(builder.Configuration)));
 
 builder.Services
     .AddIdentity<AppUser, IdentityRole>(options =>
