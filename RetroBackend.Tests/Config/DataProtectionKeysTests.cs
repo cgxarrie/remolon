@@ -45,6 +45,25 @@ public class DataProtectionKeysTests
     }
 
     [Fact]
+    public void EnsureDirectory_LeavesWritableDirectoryWithoutProbeFiles()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"dp-{Guid.NewGuid():N}", "keys");
+        try
+        {
+            DataProtectionKeys.EnsureDirectory(directory);
+
+            Assert.True(Directory.Exists(directory));
+            Assert.Empty(Directory.GetFileSystemEntries(directory));
+        }
+        finally
+        {
+            var root = Path.GetDirectoryName(directory)!;
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void AddPersisted_ProtectsPayloadAfterNewServiceProvider()
     {
         var root = Path.Combine(Path.GetTempPath(), $"dp-{Guid.NewGuid():N}");
