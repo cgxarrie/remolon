@@ -133,7 +133,7 @@ public class UsersController : ControllerBase
         }
 
         var user = new AppUser(request.Email, nickname) { OrganizationId = organizationId };
-        var createResult = await _userManager.CreateAsync(user);
+        var createResult = await _userManager.CreateAsync(user, DefaultUserPassword.Value);
         if (!createResult.Succeeded)
             return BadRequest(new { message = "Could not create user." });
 

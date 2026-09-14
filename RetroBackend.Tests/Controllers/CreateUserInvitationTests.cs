@@ -51,7 +51,7 @@ public class CreateUserInvitationTests
 
         var user = await userManager.FindByEmailAsync("new@acme.test");
         Assert.NotNull(user);
-        Assert.Null(user!.PasswordHash);
+        Assert.True(await userManager.CheckPasswordAsync(user!, DefaultUserPassword.Value));
         var claims = await userManager.GetClaimsAsync(user);
         Assert.Contains(claims, c => c.Type == AuthClaims.MustChangePassword && c.Value == "true");
     }
@@ -87,17 +87,7 @@ public class CreateUserInvitationTests
             "new@acme.test", "newbie", Roles.StandardUser, organization.Id));
 
         var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes("raw-reset-token"));
-        var authController = new AuthController(
-            userManager,
-            context,
-            new ImmediateBackgroundEmailQueue(emails),
-            Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" }),
-            NullLogger<AuthController>.Instance,
-            new AuthTokenService(userManager, context, TestJwt.Configuration),
-            new TestHostEnvironment())
-        {
-            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
-        };
+        var authController = CreateAuthController(userManager, context, emails);
 
         var result = await authController.ResetPassword(new ResetPasswordRequest(
             "new@acme.test",
@@ -113,6 +103,52 @@ public class CreateUserInvitationTests
         Assert.True(await userManager.CheckPasswordAsync(user!, "Correct-Horse-1!"));
         Assert.DoesNotContain((await userManager.GetClaimsAsync(user!)), c => c.Type == AuthClaims.MustChangePassword);
     }
+
+    [Fact]
+    public async Task DefaultPassword_SignsInAndMustBeChanged()
+    {
+        await using var context = CreateContext();
+        var organization = await SeedOrganizationWithStandardRoleAsync(context);
+        using var userManager = CreateUserManager(context);
+        var emails = new RecordingEmailSender();
+        var usersController = CreateUsersController(userManager, context, organization.Id, emails);
+        await usersController.Create(new CreateUserRequest(
+            "new@acme.test", "newbie", Roles.StandardUser, organization.Id));
+        var authController = CreateAuthController(userManager, context, emails);
+
+        var loginResult = await authController.Login(
+            new LoginRequest("new@acme.test", DefaultUserPassword.Value));
+
+        var forbidden = Assert.IsType<ObjectResult>(loginResult);
+        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
+        Assert.True(Assert.IsType<PasswordChangeRequiredResponse>(forbidden.Value).RequiresPasswordChange);
+
+        var changeResult = await authController.ChangeInitialPassword(new InitialPasswordChangeRequest(
+            "new@acme.test", DefaultUserPassword.Value, "Correct-Horse-1!"));
+
+        var session = Assert.IsType<AuthTokenResponse>(Assert.IsType<OkObjectResult>(changeResult).Value);
+        Assert.Equal(Roles.StandardUser, session.Role);
+        var user = await userManager.FindByEmailAsync("new@acme.test");
+        Assert.True(await userManager.CheckPasswordAsync(user!, "Correct-Horse-1!"));
+        Assert.False(await userManager.CheckPasswordAsync(user!, DefaultUserPassword.Value));
+        Assert.DoesNotContain((await userManager.GetClaimsAsync(user!)), c => c.Type == AuthClaims.MustChangePassword);
+    }
+
+    private static AuthController CreateAuthController(
+        UserManager<AppUser> userManager,
+        RetroDbContext context,
+        IEmailSender emailSender) =>
+        new(
+            userManager,
+            context,
+            new ImmediateBackgroundEmailQueue(emailSender),
+            Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" }),
+            NullLogger<AuthController>.Instance,
+            new AuthTokenService(userManager, context, TestJwt.Configuration),
+            new TestHostEnvironment())
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
+        };
 
     private static UsersController CreateUsersController(
         UserManager<AppUser> userManager,

@@ -13,7 +13,7 @@ public static class UserInvitationEmail
             <p><strong>Email:</strong> {safeEmail}</p>
             <p>Choose a password using this link (valid for 30 days):</p>
             <p><a href="{safeUrl}">{safeUrl}</a></p>
-            <p>You cannot sign in until you set a password. If the link expires, ask a manager to send a new invitation.</p>
+            <p>You can also sign in with the password your manager gave you; you will be asked to change it straight away. If the link expires, ask a manager to send a new invitation.</p>
             """;
     }
 }
