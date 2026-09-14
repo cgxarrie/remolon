@@ -21,22 +21,33 @@ interface Props {
 
 type Edge = 'top' | 'bottom' | 'right' | 'left';
 
-// Side stacks eat horizontal room, so they only appear once the board still has
-// space to breathe next to them.
+// Side stacks eat horizontal room, so groups of 10+ only use them when the
+// board still has space to breathe next to them.
 const SIDE_STACK_MIN_WIDTH = 1024;
+const SIDE_ONLY_MAX_USERS = 10;
 const MAX_TOP = 4;
 const MAX_BOTTOM = 6;
 const MAX_SIDE = 3;
 
-// People fill the sides first so the board is flanked before extra seats
-// spill onto the top and bottom rows. The current user is always top-left.
-function seatParticipants(participants: AvatarEntry[], allowSides: boolean): Record<Edge, AvatarEntry[]> {
-    const rotation: Edge[] = allowSides ? ['left', 'right', 'top', 'bottom'] : ['top', 'bottom'];
+// Fewer than 10 people (including the current user) sit only on the left and
+// right of the board. Larger groups also use the top and bottom rows. The
+// current user is always rendered separately in the top-left seat.
+function seatParticipants(
+    participants: AvatarEntry[],
+    allowSides: boolean,
+    totalUsers: number,
+): Record<Edge, AvatarEntry[]> {
+    const sideOnly = allowSides && totalUsers < SIDE_ONLY_MAX_USERS;
+    const rotation: Edge[] = sideOnly
+        ? ['left', 'right']
+        : allowSides
+            ? ['left', 'right', 'top', 'bottom']
+            : ['top', 'bottom'];
     const limits: Record<Edge, number> = {
         top: MAX_TOP,
         bottom: MAX_BOTTOM,
-        right: allowSides ? MAX_SIDE : 0,
-        left: allowSides ? MAX_SIDE : 0,
+        right: allowSides ? (sideOnly ? Number.POSITIVE_INFINITY : MAX_SIDE) : 0,
+        left: allowSides ? (sideOnly ? Number.POSITIVE_INFINITY : MAX_SIDE) : 0,
     };
     const edges: Record<Edge, AvatarEntry[]> = { top: [], bottom: [], right: [], left: [] };
 
@@ -147,8 +158,9 @@ export function ParticipantsTable({
         return () => observer.disconnect();
     }, []);
 
-    const allowSides = availableWidth >= SIDE_STACK_MIN_WIDTH;
-    const edges = seatParticipants(participants, allowSides);
+    const totalUsers = participants.length + 1;
+    const allowSides = availableWidth >= SIDE_STACK_MIN_WIDTH || totalUsers < SIDE_ONLY_MAX_USERS;
+    const edges = seatParticipants(participants, allowSides, totalUsers);
 
     const renderParticipant = (participant: AvatarEntry) => (
         <AvatarPill
