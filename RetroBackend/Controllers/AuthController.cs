@@ -29,7 +29,7 @@ public class AuthController : ControllerBase
 
     private readonly UserManager<AppUser> _userManager;
     private readonly RetroDbContext _context;
-    private readonly IEmailSender _emailSender;
+    private readonly IBackgroundEmailQueue _emailQueue;
     private readonly EmailOptions _emailOptions;
     private readonly ILogger<AuthController> _logger;
     private readonly IAuthTokenService _authTokenService;
@@ -37,7 +37,7 @@ public class AuthController : ControllerBase
     public AuthController(
         UserManager<AppUser> userManager,
         RetroDbContext context,
-        IEmailSender emailSender,
+        IBackgroundEmailQueue emailQueue,
         IOptions<EmailOptions> emailOptions,
         ILogger<AuthController> logger,
         IAuthTokenService authTokenService,
@@ -45,7 +45,7 @@ public class AuthController : ControllerBase
     {
         _userManager = userManager;
         _context = context;
-        _emailSender = emailSender;
+        _emailQueue = emailQueue;
         _emailOptions = emailOptions.Value;
         _logger = logger;
         _authTokenService = authTokenService;
@@ -377,7 +377,7 @@ public class AuthController : ControllerBase
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
             var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
             var resetUrl = PasswordResetEmail.BuildResetUrl(_emailOptions.FrontendBaseUrl, user.Email!, encodedToken);
-            await _emailSender.SendAsync(
+            await _emailQueue.EnqueueAsync(
                 user.Email!,
                 PasswordResetEmail.Subject,
                 PasswordResetEmail.HtmlBody(resetUrl));

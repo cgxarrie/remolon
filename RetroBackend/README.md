@@ -163,5 +163,5 @@ Obtain a token by calling `POST /api/auth/login` with valid credentials. Tokens 
 | `Email__SmtpHost` / `Email__SmtpPort` / `Email__EnableSsl` | SMTP server; Mailpit locally, or cdmon `smtp.yourdomain.com` on 587 with `EnableSsl=true` (STARTTLS) |
 | `Email__SmtpUser` / `Email__SmtpPassword` | Optional SMTP credentials (full mailbox address on cdmon) |
 | `Email__From` | From address; use the cdmon mailbox |
-| `Email__TimeoutSeconds` | Per-send SMTP deadline in seconds, default `15`. A firewalled SMTP port drops packets, so without a deadline the request hangs until the proxy times out |
+| `Email__TimeoutSeconds` | Per-send SMTP deadline in seconds, default `15`. Used by the background email worker; a firewalled SMTP port would otherwise hang the worker until the process is killed |
 | `DataProtection:KeysDirectory` / `DataProtection__KeysDirectory` | Directory for Data Protection keys (reset/invite tokens). Required outside Development. Deleting or rotating keys invalidates outstanding links. |

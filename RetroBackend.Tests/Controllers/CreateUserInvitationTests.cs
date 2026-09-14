@@ -90,7 +90,7 @@ public class CreateUserInvitationTests
         var authController = new AuthController(
             userManager,
             context,
-            emails,
+            new ImmediateBackgroundEmailQueue(emails),
             Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" }),
             NullLogger<AuthController>.Instance,
             new AuthTokenService(userManager, context, TestJwt.Configuration),

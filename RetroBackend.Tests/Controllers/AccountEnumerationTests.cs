@@ -95,7 +95,7 @@ public class AccountEnumerationTests
         new(
             userManager,
             context,
-            new FakeEmailSender(),
+            new NoOpBackgroundEmailQueue(),
             Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" }),
             NullLogger<AuthController>.Instance,
             new UnusedAuthTokenService(),

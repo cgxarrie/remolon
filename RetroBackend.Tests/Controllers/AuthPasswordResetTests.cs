@@ -70,14 +70,38 @@ public class AuthPasswordResetTests
         Assert.Contains("If an account exists", response.Message);
     }
 
+    [Fact]
+    public async Task ForgotPassword_KnownEmail_ReturnsBeforeBackgroundSend()
+    {
+        await using var context = CreateContext();
+        using var userManager = CreateUserManager(context);
+        Assert.True((await userManager.CreateAsync(new AppUser("alice@example.com", "alice"), "Passw0rd!")).Succeeded);
+        var queue = new CapturingBackgroundEmailQueue();
+        var controller = CreateController(userManager, context, queue);
+
+        var result = await controller.ForgotPassword(new ForgotPasswordRequest("alice@example.com"));
+
+        Assert.IsType<OkObjectResult>(result);
+        var item = Assert.Single(queue.Items);
+        Assert.Equal("alice@example.com", item.To);
+        Assert.Equal(PasswordResetEmail.Subject, item.Subject);
+        Assert.Contains("/reset-password#", item.HtmlBody);
+    }
+
     private static AuthController CreateController(
         UserManager<AppUser> userManager,
         RetroDbContext context,
         IEmailSender emailSender) =>
+        CreateController(userManager, context, new ImmediateBackgroundEmailQueue(emailSender));
+
+    private static AuthController CreateController(
+        UserManager<AppUser> userManager,
+        RetroDbContext context,
+        IBackgroundEmailQueue emailQueue) =>
         new(
             userManager,
             context,
-            emailSender,
+            emailQueue,
             Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" }),
             NullLogger<AuthController>.Instance,
             new UnusedAuthTokenService(),

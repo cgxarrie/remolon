@@ -82,7 +82,7 @@ public class ChangePasswordTests
         new(
             userManager,
             context,
-            new FakeEmailSender(),
+            new NoOpBackgroundEmailQueue(),
             Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" }),
             NullLogger<AuthController>.Instance,
             authTokenService ?? new AuthTokenService(userManager, context, TestJwt.Configuration),

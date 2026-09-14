@@ -238,6 +238,8 @@ builder.Services.AddSignalR();
 
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
 builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+builder.Services.AddSingleton<IBackgroundEmailQueue, ChannelBackgroundEmailQueue>();
+builder.Services.AddHostedService<BackgroundEmailWorker>();
 
 builder.Services.AddScoped<IClosedRetrospectiveActionItemMailer, ClosedRetrospectiveActionItemMailer>();
 builder.Services.AddScoped<IAuthTokenService, AuthTokenService>();

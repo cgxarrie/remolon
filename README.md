@@ -81,7 +81,7 @@ On the backend service set `ASPNETCORE_ALLOWEDHOSTS` to the frontend's public ho
 
 Railway does not read `docker-compose.yml`, so the `EMAIL_*` variables below have no effect there. Set the `Email__SmtpHost` / `Email__SmtpPort` / `Email__EnableSsl` / `Email__SmtpUser` / `Email__SmtpPassword` / `Email__From` keys directly on the backend service.
 
-**Outbound SMTP requires the Pro plan.** Railway [blocks ports 25, 465, 587, and 2525](https://docs.railway.com/networking/outbound-networking) on Free, Trial, and Hobby, so a cdmon mailbox cannot deliver from those plans no matter how it is configured. The block drops packets rather than refusing them, so the symptom is a connect timeout — `Email__TimeoutSeconds` (default 15) caps how long that stalls a request. To keep cdmon SMTP, upgrade to Pro and redeploy the backend; otherwise send through a provider with an HTTPS API.
+**Outbound SMTP requires the Pro plan.** Railway [blocks ports 25, 465, 587, and 2525](https://docs.railway.com/networking/outbound-networking) on Free, Trial, and Hobby, so a cdmon mailbox cannot deliver from those plans no matter how it is configured. The block drops packets rather than refusing them, so the symptom is a connect timeout. Password-reset mail is queued and sent on a background worker so `/api/auth/forgot-password` still returns immediately; `Email__TimeoutSeconds` (default 15) caps how long the worker waits on SMTP. To keep cdmon SMTP, upgrade to Pro and redeploy the backend; otherwise send through a provider with an HTTPS API.
 
 ### cdmon SMTP (Compose / VPS)
 
