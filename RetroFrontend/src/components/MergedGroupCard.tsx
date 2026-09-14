@@ -60,7 +60,7 @@ export function MergedGroupCard({
                         {...attributes}
                         {...listeners}
                         className="mt-0.5 cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 flex-shrink-0 select-none"
-                        title="Drag to reorder"
+                        title="Drag onto another item to link"
                     >
                         ⠿
                     </div>

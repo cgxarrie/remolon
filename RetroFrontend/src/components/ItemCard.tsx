@@ -103,7 +103,7 @@ export function ItemCard({ item, retroId, isClosed, canEdit, canDelete, isMergeT
                             {...attributes}
                             {...listeners}
                             className="mt-0.5 cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 flex-shrink-0 select-none"
-                            title="Drag to reorder or merge"
+                            title="Drag onto another item to link"
                         >
                             ⠿
                         </div>

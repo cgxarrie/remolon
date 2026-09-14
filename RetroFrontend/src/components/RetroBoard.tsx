@@ -118,14 +118,8 @@ export function RetroBoard({ retro, assigneeOptions }: Props) {
         const { active, over } = event;
         if (!over || active.data.current?.type === 'column') { setOverItemId(null); return; }
         const overType = over.data.current?.type;
-        if (overType === 'item') {
-            const activeColId = findColumnId(String(active.id));
-            const overColId = findColumnId(String(over.id));
-            if (activeColId && overColId && activeColId !== overColId && canMergeItems) {
-                setOverItemId(String(over.id));
-            } else {
-                setOverItemId(null);
-            }
+        if (overType === 'item' && canMergeItems && String(active.id) !== String(over.id)) {
+            setOverItemId(String(over.id));
         } else {
             setOverItemId(null);
         }
@@ -158,12 +152,16 @@ export function RetroBoard({ retro, assigneeOptions }: Props) {
             return;
         }
 
-        // Item drag
+        // Item drag: drop onto another item links them when merge is allowed.
+        // Before reveal (or for non-managers) a same-column drop still reorders.
         const activeColId = findColumnId(activeId);
         if (overType === 'item') {
             const overColId = findColumnId(overId);
+            if (canMergeItems) {
+                mergeItemMutation.mutate({ sourceId: activeId, targetId: overId });
+                return;
+            }
             if (activeColId && overColId && activeColId === overColId) {
-                // Same column → reorder
                 const column = retro.columns.find((c) => c.id === activeColId);
                 if (!column) return;
                 const sorted = [...column.items].sort((a, b) => a.position - b.position);
@@ -176,9 +174,6 @@ export function RetroBoard({ retro, assigneeOptions }: Props) {
                         reorderItemMutation.mutate({ id: item.id, position: idx });
                     }
                 });
-            } else if (canMergeItems) {
-                // Cross-column → merge
-                mergeItemMutation.mutate({ sourceId: activeId, targetId: overId });
             }
         }
     }
