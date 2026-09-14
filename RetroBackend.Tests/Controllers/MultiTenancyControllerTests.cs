@@ -229,19 +229,13 @@ public class MultiTenancyControllerTests
         RetroDbContext context,
         string role,
         Guid? organizationId) =>
-        new(userManager, context, new FakeEmailSender(), EmailOptions(), NullLogger<UsersController>.Instance, TokenService(userManager, context), new TestHostEnvironment())
+        new(userManager, context, new NoOpBackgroundEmailQueue(), EmailOptions(), NullLogger<UsersController>.Instance, TokenService(userManager, context), new TestHostEnvironment())
         {
             ControllerContext = ControllerContext(role, organizationId),
         };
 
     private static IOptions<EmailOptions> EmailOptions() =>
         Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" });
-
-    private sealed class FakeEmailSender : IEmailSender
-    {
-        public Task SendAsync(string to, string subject, string htmlBody, CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
-    }
 
     private static RetroDbContext CreateContext() =>
         new(new DbContextOptionsBuilder<RetroDbContext>()

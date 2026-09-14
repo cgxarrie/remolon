@@ -84,7 +84,7 @@ export function UsersPage() {
             setEmail('');
             setError('');
             setSuccess(created.invitationEmailSent
-                ? `User created. A one-time set-password link was sent to ${created.email}.`
+                ? `User created. A one-time set-password link is on its way to ${created.email}.`
                 : `User created, but the invitation email could not be sent. Ask them to wait, or delete the user and try again.`);
         },
         onError: (value: unknown) => {

@@ -106,7 +106,7 @@ public class UserProfileTests
         new(
             userManager,
             context,
-            new FakeEmailSender(),
+            new NoOpBackgroundEmailQueue(),
             Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" }),
             NullLogger<UsersController>.Instance,
             new AuthTokenService(userManager, context, TestJwtConfiguration()),
@@ -154,11 +154,5 @@ public class UserProfileTests
                 User = new ClaimsPrincipal(new ClaimsIdentity(claims, "test")),
             },
         };
-    }
-
-    private sealed class FakeEmailSender : IEmailSender
-    {
-        public Task SendAsync(string to, string subject, string htmlBody, CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
     }
 }

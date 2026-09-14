@@ -137,7 +137,7 @@ public class AccountEnumerationTests
         new(
             userManager,
             context,
-            new FakeEmailSender(),
+            new NoOpBackgroundEmailQueue(),
             Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" }),
             NullLogger<UsersController>.Instance,
             new UnusedAuthTokenService(),
@@ -204,12 +204,6 @@ public class AccountEnumerationTests
 
     private static string Serialize(object? value) =>
         System.Text.Json.JsonSerializer.Serialize(value);
-
-    private sealed class FakeEmailSender : IEmailSender
-    {
-        public Task SendAsync(string to, string subject, string htmlBody, CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
-    }
 
     private sealed class UnusedAuthTokenService : IAuthTokenService
     {

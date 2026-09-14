@@ -24,7 +24,7 @@ public class UsersController : ControllerBase
 {
     private readonly UserManager<AppUser> _userManager;
     private readonly RetroDbContext _context;
-    private readonly IEmailSender _emailSender;
+    private readonly IBackgroundEmailQueue _emailQueue;
     private readonly EmailOptions _emailOptions;
     private readonly ILogger<UsersController> _logger;
     private readonly IAuthTokenService _authTokenService;
@@ -32,7 +32,7 @@ public class UsersController : ControllerBase
     public UsersController(
         UserManager<AppUser> userManager,
         RetroDbContext context,
-        IEmailSender emailSender,
+        IBackgroundEmailQueue emailQueue,
         IOptions<EmailOptions> emailOptions,
         ILogger<UsersController> logger,
         IAuthTokenService authTokenService,
@@ -40,7 +40,7 @@ public class UsersController : ControllerBase
     {
         _userManager = userManager;
         _context = context;
-        _emailSender = emailSender;
+        _emailQueue = emailQueue;
         _emailOptions = emailOptions.Value;
         _logger = logger;
         _authTokenService = authTokenService;
@@ -97,7 +97,7 @@ public class UsersController : ControllerBase
         return Ok(tokens);
     }
 
-    /// <summary>Creates a user and emails a one-time set-password link. Manager.</summary>
+    /// <summary>Creates a user and queues a one-time set-password link for background delivery. Manager.</summary>
     [HttpPost]
     [Authorize(Roles = Roles.Manager)]
     [ProducesResponseType(typeof(CreateUserResponse), StatusCodes.Status201Created)]
@@ -143,7 +143,7 @@ public class UsersController : ControllerBase
 
         await _userManager.AddClaimAsync(user, new Claim(AuthClaims.MustChangePassword, "true"));
 
-        var invitationEmailSent = await TrySendInvitationAsync(user);
+        var invitationEmailSent = await TryQueueInvitationAsync(user);
 
         return StatusCode(StatusCodes.Status201Created,
             new CreateUserResponse(
@@ -269,7 +269,7 @@ public class UsersController : ControllerBase
         return candidate;
     }
 
-    private async Task<bool> TrySendInvitationAsync(AppUser user)
+    private async Task<bool> TryQueueInvitationAsync(AppUser user)
     {
         try
         {
@@ -283,7 +283,7 @@ public class UsersController : ControllerBase
                 user.Email!,
                 encodedToken,
                 invite: true);
-            await _emailSender.SendAsync(
+            await _emailQueue.EnqueueAsync(
                 user.Email!,
                 UserInvitationEmail.Subject,
                 UserInvitationEmail.HtmlBody(user.Email!, setPasswordUrl));
@@ -291,7 +291,7 @@ public class UsersController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send invitation email to {Email}", user.Email);
+            _logger.LogError(ex, "Failed to queue invitation email to {Email}", user.Email);
             return false;
         }
     }

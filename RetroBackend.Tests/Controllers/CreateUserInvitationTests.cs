@@ -76,6 +76,27 @@ public class CreateUserInvitationTests
     }
 
     [Fact]
+    public async Task CreateUser_ReturnsBeforeBackgroundSend()
+    {
+        await using var context = CreateContext();
+        var organization = await SeedOrganizationWithStandardRoleAsync(context);
+        using var userManager = CreateUserManager(context);
+        var queue = new CapturingBackgroundEmailQueue();
+        var controller = CreateUsersController(userManager, context, organization.Id, queue);
+
+        var result = await controller.Create(new CreateUserRequest(
+            "new@acme.test", "newbie", Roles.StandardUser, organization.Id));
+
+        var created = Assert.IsType<CreateUserResponse>(Assert.IsType<ObjectResult>(result).Value);
+        Assert.True(created.InvitationEmailSent);
+        var item = Assert.Single(queue.Items);
+        Assert.Equal("new@acme.test", item.To);
+        Assert.Equal(UserInvitationEmail.Subject, item.Subject);
+        Assert.Contains("/reset-password#", item.HtmlBody);
+        Assert.Contains("purpose=invite", item.HtmlBody);
+    }
+
+    [Fact]
     public async Task InviteLink_SetsPasswordAndClearsMustChange()
     {
         await using var context = CreateContext();
@@ -155,10 +176,17 @@ public class CreateUserInvitationTests
         RetroDbContext context,
         Guid organizationId,
         IEmailSender emailSender) =>
+        CreateUsersController(userManager, context, organizationId, new ImmediateBackgroundEmailQueue(emailSender));
+
+    private static UsersController CreateUsersController(
+        UserManager<AppUser> userManager,
+        RetroDbContext context,
+        Guid organizationId,
+        IBackgroundEmailQueue emailQueue) =>
         new(
             userManager,
             context,
-            emailSender,
+            emailQueue,
             Options.Create(new EmailOptions { FrontendBaseUrl = "http://localhost:3000" }),
             NullLogger<UsersController>.Instance,
             new UnusedAuthTokenService(),
