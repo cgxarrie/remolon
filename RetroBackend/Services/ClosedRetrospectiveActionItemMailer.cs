@@ -11,16 +11,16 @@ public class ClosedRetrospectiveActionItemMailer : IClosedRetrospectiveActionIte
     private const string ActionKind = "Action item";
 
     private readonly RetroDbContext _context;
-    private readonly IEmailSender _emailSender;
+    private readonly IBackgroundEmailQueue _emailQueue;
     private readonly ILogger<ClosedRetrospectiveActionItemMailer> _logger;
 
     public ClosedRetrospectiveActionItemMailer(
         RetroDbContext context,
-        IEmailSender emailSender,
+        IBackgroundEmailQueue emailQueue,
         ILogger<ClosedRetrospectiveActionItemMailer> logger)
     {
         _context = context;
-        _emailSender = emailSender;
+        _emailQueue = emailQueue;
         _logger = logger;
     }
 
@@ -98,7 +98,7 @@ public class ClosedRetrospectiveActionItemMailer : IClosedRetrospectiveActionIte
         {
             try
             {
-                await _emailSender.SendAsync(email, subject, html, cancellationToken);
+                await _emailQueue.EnqueueAsync(email, subject, html, cancellationToken);
             }
             catch (Exception ex)
             {

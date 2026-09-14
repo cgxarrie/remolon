@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using RetroBackend.Data;
 using RetroBackend.Models;
 using RetroBackend.Services;
+using RetroBackend.Tests.Fakes;
 using Xunit;
 
 namespace RetroBackend.Tests.Services;
@@ -93,8 +94,29 @@ public class ClosedRetrospectiveActionItemMailerTests
         await mailer.NotifyAsync(await ReloadAsync(setup));
     }
 
+    [Fact]
+    public async Task NotifyAsync_EnqueuesWithoutSending()
+    {
+        var setup = await SeedAsync();
+        var queue = new CapturingBackgroundEmailQueue();
+        var mailer = new ClosedRetrospectiveActionItemMailer(
+            setup.Context,
+            queue,
+            NullLogger<ClosedRetrospectiveActionItemMailer>.Instance);
+
+        var actionId = setup.Retro.Columns.OfType<ActionColumn>().Single(c => c.Title == "Action Items").Id;
+        setup.Context.Items.Add(new ActionItem("owner", "Mgr", ["Alice"], actionId, "Ship feature", 0));
+        await setup.Context.SaveChangesAsync();
+
+        await mailer.NotifyAsync(await ReloadAsync(setup));
+
+        var item = Assert.Single(queue.Items);
+        Assert.Equal("alice@acme.test", item.To);
+        Assert.Contains("Ship feature", item.HtmlBody);
+    }
+
     private static ClosedRetrospectiveActionItemMailer CreateMailer(RetroDbContext context, IEmailSender emailSender) =>
-        new(context, emailSender, NullLogger<ClosedRetrospectiveActionItemMailer>.Instance);
+        new(context, new ImmediateBackgroundEmailQueue(emailSender), NullLogger<ClosedRetrospectiveActionItemMailer>.Instance);
 
     private static Task<Retrospective> ReloadAsync(Setup setup) =>
         setup.Context.Retrospectives
