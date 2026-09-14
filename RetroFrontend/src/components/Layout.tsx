@@ -20,6 +20,14 @@ const iconProps = {
     'aria-hidden': true,
 } as const;
 
+const boardsIcon = (
+    <svg {...iconProps}>
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <path d="M9 4v16" />
+        <path d="M15 4v16" />
+    </svg>
+);
+
 const usersIcon = (
     <svg {...iconProps}>
         <path d="M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1" />
@@ -117,6 +125,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     }
 
     const menuItems = [
+        { to: '/retrospectives', label: 'Boards', visible: true, icon: boardsIcon },
         { to: '/users', label: 'Users', visible: role === 'Manager', icon: usersIcon },
         {
             to: '/organizations',
