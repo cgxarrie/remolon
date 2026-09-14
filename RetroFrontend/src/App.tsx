@@ -9,6 +9,7 @@ import { RetrospectiveDetailPage } from './pages/RetrospectiveDetailPage';
 import { UsersPage } from './pages/UsersPage';
 import { OrganizationsPage } from './pages/OrganizationsPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { UserGuidePage } from './pages/UserGuidePage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { OrganizationThemeProvider } from './theme';
 
@@ -61,6 +62,14 @@ export default function App() {
                         element={
                             <ProtectedRoute>
                                 <ProfilePage />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/help"
+                        element={
+                            <ProtectedRoute>
+                                <UserGuidePage />
                             </ProtectedRoute>
                         }
                     />

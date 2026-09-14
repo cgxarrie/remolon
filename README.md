@@ -2,29 +2,30 @@
 
 > A full-stack retrospective board application for agile teams.
 
-ReMolon lets teams create and run structured retrospectives. Participants can add items to columns, drag-and-drop to reorder, merge, or move items across columns, and close the session when done. Role-based access control keeps things tidy — Managers own retrospectives, and Standard Users contribute their feedback.
+ReMolon lets teams run structured retrospectives: private notes until a Manager reveals the board, merge and drag-and-drop, action items that carry into the next iteration, organization theming, and live updates over SignalR. Managers own boards and people; Standard Users contribute on the sessions they are assigned to.
 
 ---
 
 ## Architecture
 
 ```
-┌──────────────────────┐        REST / JSON        ┌──────────────────────┐
-│   RetroFrontend      │ ◄────────────────────────► │   RetroBackend       │
-│  React 19 + Vite     │        JWT Bearer          │  .NET 10 Web API     │
-└──────────────────────┘                            └──────────┬───────────┘
-                                                               │ EF Core
-                                                    ┌──────────▼───────────┐
-                                                    │     PostgreSQL 16     │
-                                                    └──────────────────────┘
+┌──────────────────────┐   REST + SignalR (/api, /hubs)  ┌──────────────────────┐
+│   RetroFrontend      │ ◄─────────────────────────────► │   RetroBackend       │
+│  React 19 + Vite     │     HttpOnly JWT cookies        │  .NET 10 Web API     │
+└──────────────────────┘                                 └──────────┬───────────┘
+                                                                    │ EF Core
+                                                         ┌──────────▼───────────┐
+                                                         │     PostgreSQL 16     │
+                                                         └──────────────────────┘
 ```
 
 | Layer     | Technology                                     |
 |-----------|------------------------------------------------|
 | Frontend  | React 19, TypeScript, Vite, Tailwind CSS       |
 | Backend   | .NET 10, ASP.NET Core, Entity Framework Core   |
+| Real-time | SignalR (`/hubs/retrospective`)                |
 | Database  | PostgreSQL 16                                  |
-| Auth      | ASP.NET Core Identity + JWT Bearer             |
+| Auth      | ASP.NET Core Identity + JWT in HttpOnly cookies |
 
 ---
 
@@ -149,14 +150,15 @@ ReMolon/
 
 ## User Roles
 
-| Role         | Capabilities                                                  |
-|--------------|---------------------------------------------------------------|
-| Manager      | Create, edit, and close retrospectives; manage users and items |
-| StandardUser | Participate in assigned retrospectives; manage own items only |
+| Role         | Capabilities |
+|--------------|--------------|
+| Manager      | Create boards; assign participants; reveal and close sessions; start the next iteration; invite and manage users; set organization name and theme |
+| StandardUser | Join assigned sessions; add and edit own items; work on action items after reveal |
+
+Product workflows are documented in the in-app **User guide** (`/help` after sign-in).
 
 ---
 
 ## License
 
 [MIT](LICENSE)
-Retrospevtive application for teams

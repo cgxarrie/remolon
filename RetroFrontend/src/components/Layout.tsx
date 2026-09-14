@@ -48,6 +48,13 @@ const organizationsIcon = (
     </svg>
 );
 
+const helpIcon = (
+    <svg {...iconProps}>
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    </svg>
+);
+
 export function Layout({ children }: { children: React.ReactNode }) {
     const {
         email,
@@ -133,6 +140,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             visible: role === 'Manager',
             icon: organizationsIcon,
         },
+        { to: '/help', label: 'User guide', visible: true, icon: helpIcon },
     ].filter((item) => item.visible);
 
     const homePath = '/retrospectives';
