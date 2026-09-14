@@ -547,10 +547,11 @@ export function RetrospectiveDetailPage() {
                                         {canManage && !retro.isClosed && (
                                             <button
                                                 onClick={() => { setTitleValue(retro.title); setEditingTitle(true); }}
-                                                className="text-slate-400 hover:text-indigo-600 transition-colors text-base"
+                                                className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-indigo-600 transition-colors"
                                                 title="Rename retrospective"
                                             >
-                                                ✏️
+                                                <span aria-hidden="true">✏️</span>
+                                                Rename
                                             </button>
                                         )}
                                     </>
@@ -570,7 +571,7 @@ export function RetrospectiveDetailPage() {
                                     <button
                                         type="button"
                                         onClick={() => setShowAssign(true)}
-                                        className="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+                                        className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
                                         title="Manage participants"
                                         aria-label="Manage participants"
                                     >
@@ -590,12 +591,13 @@ export function RetrospectiveDetailPage() {
                                             <path d="M19 8v6" />
                                             <path d="M22 11h-6" />
                                         </svg>
+                                        Participants
                                     </button>
                                     {!retro.isRevealed && (
                                         <button
                                             onClick={() => revealMutation.mutate()}
                                             disabled={revealMutation.isPending}
-                                            className="p-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+                                            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg transition-colors"
                                             title={revealMutation.isPending ? 'Revealing…' : 'Reveal retrospective'}
                                             aria-label={revealMutation.isPending ? 'Revealing retrospective' : 'Reveal retrospective'}
                                         >
@@ -613,6 +615,7 @@ export function RetrospectiveDetailPage() {
                                                 <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
                                                 <circle cx="12" cy="12" r="3" />
                                             </svg>
+                                            {revealMutation.isPending ? 'Revealing…' : 'Reveal'}
                                         </button>
                                     )}
                                     {retro.isRevealed && !retro.isClosed && (
@@ -623,7 +626,7 @@ export function RetrospectiveDetailPage() {
                                                 }
                                             }}
                                             disabled={closeMutation.isPending}
-                                            className="p-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+                                            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-lg transition-colors"
                                             title={closeMutation.isPending ? 'Closing…' : 'Close retrospective'}
                                             aria-label={closeMutation.isPending ? 'Closing retrospective' : 'Close retrospective'}
                                         >
@@ -641,6 +644,7 @@ export function RetrospectiveDetailPage() {
                                                 <rect x="5" y="11" width="14" height="10" rx="2" />
                                                 <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                                             </svg>
+                                            {closeMutation.isPending ? 'Closing…' : 'Close'}
                                         </button>
                                     )}
                                     <button
@@ -650,7 +654,7 @@ export function RetrospectiveDetailPage() {
                                             }
                                         }}
                                         disabled={deleteMutation.isPending}
-                                        className="p-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+                                        className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg transition-colors"
                                         title={deleteMutation.isPending ? 'Deleting…' : 'Delete retrospective'}
                                         aria-label={deleteMutation.isPending ? 'Deleting retrospective' : 'Delete retrospective'}
                                     >
@@ -671,6 +675,7 @@ export function RetrospectiveDetailPage() {
                                             <path d="M10 11v6" />
                                             <path d="M14 11v6" />
                                         </svg>
+                                        {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
                                     </button>
                                 </div>
                             )}

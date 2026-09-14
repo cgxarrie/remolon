@@ -28,10 +28,10 @@ const MAX_TOP = 4;
 const MAX_BOTTOM = 6;
 const MAX_SIDE = 3;
 
-// People are dealt around the board one edge at a time so a small group still
-// wraps the tickets instead of piling up on a single row.
+// People fill the sides first so the board is flanked before extra seats
+// spill onto the top and bottom rows. The current user is always top-left.
 function seatParticipants(participants: AvatarEntry[], allowSides: boolean): Record<Edge, AvatarEntry[]> {
-    const rotation: Edge[] = allowSides ? ['top', 'bottom', 'right', 'left'] : ['top', 'bottom'];
+    const rotation: Edge[] = allowSides ? ['left', 'right', 'top', 'bottom'] : ['top', 'bottom'];
     const limits: Record<Edge, number> = {
         top: MAX_TOP,
         bottom: MAX_BOTTOM,
@@ -149,11 +149,6 @@ export function ParticipantsTable({
 
     const allowSides = availableWidth >= SIDE_STACK_MIN_WIDTH;
     const edges = seatParticipants(participants, allowSides);
-    // The current user owns the middle of the top row, so their neighbours split
-    // to either side of them.
-    const topSplit = Math.ceil(edges.top.length / 2);
-    const topLeft = edges.top.slice(0, topSplit);
-    const topRight = edges.top.slice(topSplit);
 
     const renderParticipant = (participant: AvatarEntry) => (
         <AvatarPill
@@ -167,19 +162,14 @@ export function ParticipantsTable({
 
     return (
         <div ref={containerRef} className="w-full space-y-4">
-            <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-x-4">
-                <div className="flex flex-wrap items-start justify-end gap-x-4 gap-y-3">
-                    {topLeft.map(renderParticipant)}
-                </div>
+            <div className="flex flex-wrap items-start justify-start gap-x-4 gap-y-3">
                 <AvatarPill
                     user={currentUser}
                     isCurrent
                     avatarRef={currentUserRef}
                     action={currentUserAction}
                 />
-                <div className="flex flex-wrap items-start justify-start gap-x-4 gap-y-3">
-                    {topRight.map(renderParticipant)}
-                </div>
+                {edges.top.map(renderParticipant)}
             </div>
 
             <div className="flex items-stretch gap-4">
