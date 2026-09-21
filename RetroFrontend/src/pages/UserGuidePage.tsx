@@ -47,7 +47,10 @@ export function UserGuidePage() {
 
                 <nav aria-label="Guide contents" className="bg-white rounded-xl shadow border border-slate-200 p-4">
                     <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-2">Contents</h2>
-                    <ol className="grid sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                    <ol
+                        className="grid grid-cols-1 sm:grid-cols-2 sm:grid-flow-col gap-x-6 gap-y-1 text-sm"
+                        style={{ gridTemplateRows: `repeat(${Math.ceil(sections.length / 2)}, auto)` }}
+                    >
                         {sections.map((section, index) => (
                             <li key={section.id}>
                                 <a href={`#${section.id}`} className="theme-link">
