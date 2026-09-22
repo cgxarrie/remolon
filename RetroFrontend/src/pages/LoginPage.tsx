@@ -71,7 +71,11 @@ export function LoginPage() {
     return (
         <AuthShell>
             <div className="bg-white dark:bg-slate-900 rounded-xl shadow-lg p-8 w-full max-w-sm">
-                <h1 className="text-2xl font-bold text-indigo-700 dark:text-indigo-300 mb-6 text-center">ReMolon</h1>
+                <h1 className="text-2xl font-bold text-indigo-700 dark:text-indigo-300 mb-6 text-center">
+                    <Link to="/" className="hover:underline">
+                        ReMolon
+                    </Link>
+                </h1>
                 <h2 className="text-lg font-semibold mb-4 text-center text-slate-700 dark:text-slate-200">
                     {needsPasswordChange ? 'Change Temporary Password' : 'Sign In'}
                 </h2>

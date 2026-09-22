@@ -10,6 +10,7 @@ import { UsersPage } from './pages/UsersPage';
 import { OrganizationsPage } from './pages/OrganizationsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { UserGuidePage } from './pages/UserGuidePage';
+import { LandingPage } from './pages/LandingPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { OrganizationThemeProvider } from './theme';
 import { ColorModeSync } from './components/ColorModeToggle';
@@ -35,14 +36,11 @@ export default function App() {
             <OrganizationThemeProvider>
                 <BrowserRouter>
                     <Routes>
+                    <Route path="/" element={<LandingPage />} />
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/register" element={<RegisterPage />} />
                     <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                     <Route path="/reset-password" element={<ResetPasswordPage />} />
-                    <Route
-                        path="/"
-                        element={<Navigate to="/retrospectives" replace />}
-                    />
                     <Route
                         path="/retrospectives"
                         element={
