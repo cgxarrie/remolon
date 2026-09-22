@@ -12,8 +12,11 @@ export default defineConfig({
             'X-Content-Type-Options': 'nosniff',
             'Referrer-Policy': 'strict-origin-when-cross-origin',
             'X-Frame-Options': 'DENY',
+            // Dev only: Vite injects the react-refresh preamble as an inline module,
+            // so 'unsafe-inline' is required here. nginx.conf serves the built bundle,
+            // which has no inline scripts, under a strict script-src 'self'.
             'Content-Security-Policy':
-                "default-src 'self'; img-src 'self' data: blob:; connect-src 'self' ws: wss:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+                "default-src 'self'; img-src 'self' data: blob:; connect-src 'self' ws: wss:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
         },
         proxy: {
             '/api': {
