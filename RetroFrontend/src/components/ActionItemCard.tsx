@@ -58,10 +58,10 @@ export function ActionItemCard({ item, retroId, assigneeOptions, isClosed, canEd
     return (
         <div
             className={[
-                'bg-white border rounded-lg p-3 shadow-sm group',
+                'bg-white dark:bg-slate-900 border rounded-lg p-3 shadow-sm group',
                 item.isCompleted
-                    ? 'border-green-300 bg-green-50'
-                    : 'border-slate-200',
+                    ? 'border-green-300 bg-green-50 dark:bg-green-950/40'
+                    : 'border-slate-200 dark:border-slate-700',
             ].join(' ')}
         >
             {editing ? (
@@ -72,7 +72,7 @@ export function ActionItemCard({ item, retroId, assigneeOptions, isClosed, canEd
                         onChange={(e) => setDescription(e.target.value)}
                         rows={2}
                         maxLength={ITEM_DESCRIPTION_MAX_LENGTH}
-                        className="w-full text-sm border border-slate-300 rounded px-2 py-1 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded px-2 py-1 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                     <AssigneePicker
                         options={participantAssignees}
@@ -89,7 +89,7 @@ export function ActionItemCard({ item, retroId, assigneeOptions, isClosed, canEd
                         </button>
                         <button
                             onClick={() => { setEditing(false); setDescription(item.description); setAssignees(item.assignees ?? []); }}
-                            className="px-3 py-1 text-xs text-slate-600 hover:text-slate-800"
+                            className="px-3 py-1 text-xs text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100"
                         >
                             Cancel
                         </button>
@@ -98,10 +98,10 @@ export function ActionItemCard({ item, retroId, assigneeOptions, isClosed, canEd
             ) : (
                 <div className="flex items-start gap-2">
                     <div className="flex-1">
-                        <p className={`text-sm whitespace-pre-wrap break-words ${item.isCompleted ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                        <p className={`text-sm whitespace-pre-wrap break-words ${item.isCompleted ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>
                             {item.description}
                         </p>
-                        <p className="text-xs text-slate-500 mt-1">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                             Assignee: <span className="font-medium">{assigneeLabel}</span>
                             {item.iterations > 1 && (
                                 <span className="ml-2 text-amber-600">↻ {item.iterations} sprints</span>
@@ -119,7 +119,7 @@ export function ActionItemCard({ item, retroId, assigneeOptions, isClosed, canEd
                                 <button
                                     onClick={() => closeMutation.mutate()}
                                     disabled={closeMutation.isPending}
-                                    className="text-xs text-slate-400 hover:text-green-600 px-1"
+                                    className="text-xs text-slate-400 dark:text-slate-500 hover:text-green-600 px-1"
                                     title="Mark complete"
                                 >
                                     ✓
@@ -132,7 +132,7 @@ export function ActionItemCard({ item, retroId, assigneeOptions, isClosed, canEd
                                         setAssignees(item.assignees ?? []);
                                         setEditing(true);
                                     }}
-                                    className="text-xs text-slate-400 hover:text-indigo-600 px-1"
+                                    className="text-xs text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 px-1"
                                     title="Edit"
                                 >
                                     ✏️
@@ -142,7 +142,7 @@ export function ActionItemCard({ item, retroId, assigneeOptions, isClosed, canEd
                                 <button
                                     onClick={() => deleteMutation.mutate()}
                                     disabled={deleteMutation.isPending}
-                                    className="text-xs text-slate-400 hover:text-red-600 px-1"
+                                    className="text-xs text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 px-1"
                                     title="Delete"
                                 >
                                     🗑️

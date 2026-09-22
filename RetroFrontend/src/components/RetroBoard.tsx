@@ -242,7 +242,7 @@ export function RetroBoard({ retro, assigneeOptions }: Props) {
                     {canManage && (
                         <div className="w-64 flex-shrink-0">
                             {addingColumn ? (
-                                <div className="bg-white border-2 border-dashed border-indigo-300 rounded-lg p-3 space-y-2">
+                                <div className="bg-white dark:bg-slate-900 border-2 border-dashed border-indigo-300 dark:border-indigo-500 rounded-lg p-3 space-y-2">
                                     <input
                                         autoFocus
                                         value={newColumnTitle}
@@ -252,7 +252,7 @@ export function RetroBoard({ retro, assigneeOptions }: Props) {
                                             if (e.key === 'Escape') { setAddingColumn(false); setNewColumnTitle(''); }
                                         }}
                                         placeholder="Column title…"
-                                        className="w-full text-sm border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     />
                                     <div className="flex gap-2">
                                         <button
@@ -264,7 +264,7 @@ export function RetroBoard({ retro, assigneeOptions }: Props) {
                                         </button>
                                         <button
                                             onClick={() => { setAddingColumn(false); setNewColumnTitle(''); }}
-                                            className="px-3 py-1 text-xs text-slate-600 hover:text-slate-800"
+                                            className="px-3 py-1 text-xs text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100"
                                         >
                                             Cancel
                                         </button>
@@ -273,7 +273,7 @@ export function RetroBoard({ retro, assigneeOptions }: Props) {
                             ) : (
                                 <button
                                     onClick={() => setAddingColumn(true)}
-                                    className="w-full h-12 text-sm text-slate-400 hover:text-indigo-600 border-2 border-dashed border-slate-300 hover:border-indigo-400 rounded-lg transition-colors"
+                                    className="w-full h-12 text-sm text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-indigo-400 dark:hover:border-indigo-500 rounded-lg transition-colors"
                                 >
                                     + Add Column
                                 </button>
@@ -297,8 +297,8 @@ export function RetroBoard({ retro, assigneeOptions }: Props) {
 
             <DragOverlay>
                 {activeItem && (
-                    <div className="bg-white border border-indigo-400 rounded-lg p-3 shadow-xl w-72 opacity-90">
-                        <p className="text-sm text-slate-800">{activeItem.description}</p>
+                    <div className="bg-white dark:bg-slate-900 border border-indigo-400 dark:border-indigo-500 rounded-lg p-3 shadow-xl w-72 opacity-90">
+                        <p className="text-sm text-slate-800 dark:text-slate-100">{activeItem.description}</p>
                     </div>
                 )}
                 {activeColumn && (

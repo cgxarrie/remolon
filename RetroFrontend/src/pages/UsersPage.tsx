@@ -24,12 +24,12 @@ function OrganizationUsers({ organization }: { organization: SelectedOrganizatio
     });
 
     return (
-        <section className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
-            <div className="px-4 py-3 bg-slate-50 border-b flex justify-between">
+        <section className="bg-white dark:bg-slate-900 rounded-xl shadow border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border-b flex justify-between">
                 <h2 className="font-semibold">Users</h2>
-                <span className="text-sm text-slate-500">{data?.totalCount ?? 0} users</span>
+                <span className="text-sm text-slate-500 dark:text-slate-400">{data?.totalCount ?? 0} users</span>
             </div>
-            {isLoading ? <p className="p-4 text-slate-500">Loading…</p> : (
+            {isLoading ? <p className="p-4 text-slate-500 dark:text-slate-400">Loading…</p> : (
                 <table className="w-full text-sm">
                     <thead><tr className="text-left border-b"><th className="p-3">Nickname</th><th>Email</th><th>Role</th><th /></tr></thead>
                     <tbody>{data?.items.map((user) => (
@@ -42,7 +42,7 @@ function OrganizationUsers({ organization }: { organization: SelectedOrganizatio
                                     : user.role}
                             </td>
                             <td className="text-right p-3">
-                                {user.id !== currentUserId && <button className="text-red-600" onClick={() => {
+                                {user.id !== currentUserId && <button className="text-red-600 dark:text-red-400" onClick={() => {
                                     if (confirm(`Delete ${user.email}?`)) remove.mutate(user.id);
                                 }}>Delete</button>}
                             </td>
@@ -98,10 +98,10 @@ export function UsersPage() {
 
     return <Layout><div className="max-w-5xl mx-auto space-y-6">
         <h1 className="text-2xl font-bold">User Management</h1>
-        <div className="bg-white rounded-xl shadow p-4 space-y-3">
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow p-4 space-y-3">
             <h2 className="font-semibold">Create User</h2>
-            {error && <p className="text-red-600">{error}</p>}
-            {success && <p className="text-emerald-700">{success}</p>}
+            {error && <p className="text-red-600 dark:text-red-400">{error}</p>}
+            {success && <p className="text-emerald-700 dark:text-emerald-400">{success}</p>}
             <div className="grid md:grid-cols-4 gap-3">
                 <input className="border rounded p-2" placeholder="Email" value={email} onChange={(e) => { setEmail(e.target.value); setSuccess(''); }} />
             </div>

@@ -38,10 +38,10 @@ export function MergedGroupCard({
     };
 
     const borderClass = isMergeSource
-        ? 'border border-blue-400 ring-2 ring-blue-300 bg-blue-50 border-l-4 border-l-blue-400'
+        ? 'border border-blue-400 ring-2 ring-blue-300 bg-blue-50 dark:bg-blue-950/40 border-l-4 border-l-blue-400'
         : isMergeTarget
-            ? 'border border-indigo-400 ring-2 ring-indigo-300 border-l-4 border-l-amber-400'
-            : 'border border-slate-200 border-l-4 border-l-amber-400';
+            ? 'border border-indigo-400 dark:border-indigo-500 ring-2 ring-indigo-300 border-l-4 border-l-amber-400'
+            : 'border border-slate-200 dark:border-slate-700 border-l-4 border-l-amber-400';
 
     return (
         <div
@@ -49,9 +49,9 @@ export function MergedGroupCard({
             style={style}
             onClick={onMergeInto}
             className={[
-                'bg-white rounded-lg p-3 shadow-sm group',
+                'bg-white dark:bg-slate-900 rounded-lg p-3 shadow-sm group',
                 borderClass,
-                onMergeInto ? 'cursor-pointer hover:bg-indigo-50' : '',
+                onMergeInto ? 'cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-950/40' : '',
             ].join(' ')}
         >
             <div className="flex items-start gap-2">
@@ -59,7 +59,7 @@ export function MergedGroupCard({
                     <div
                         {...attributes}
                         {...listeners}
-                        className="mt-0.5 cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 flex-shrink-0 select-none"
+                        className="mt-0.5 cursor-grab active:cursor-grabbing text-slate-300 dark:text-slate-500 hover:text-slate-500 dark:hover:text-slate-300 flex-shrink-0 select-none"
                         title="Drag onto another item to link"
                     >
                         ⠿
@@ -72,11 +72,11 @@ export function MergedGroupCard({
                             className={['group/item flex items-start gap-1', i > 0 ? 'border-t border-amber-100 pt-2 mt-2' : ''].join(' ')}
                         >
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm text-slate-800 whitespace-pre-wrap break-words">
+                                <p className="text-sm text-slate-800 dark:text-slate-100 whitespace-pre-wrap break-words">
                                     {item.description}
                                 </p>
                                 {item.createdByNickname && (
-                                    <p className="text-xs text-slate-400 mt-0.5">
+                                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                                         {item.createdByNickname}
                                     </p>
                                 )}
@@ -84,7 +84,7 @@ export function MergedGroupCard({
                             {!isClosed && canLink && onUnlink && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onUnlink(item.id); }}
-                                    className="opacity-0 group-hover/item:opacity-100 transition-opacity text-xs text-slate-300 hover:text-red-500 flex-shrink-0 mt-0.5"
+                                    className="opacity-0 group-hover/item:opacity-100 transition-opacity text-xs text-slate-300 dark:text-slate-500 hover:text-red-500 flex-shrink-0 mt-0.5"
                                     title="Remove from group"
                                 >
                                     ✂️
@@ -97,7 +97,7 @@ export function MergedGroupCard({
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                         <button
                             onClick={(e) => { e.stopPropagation(); onMergeStart(); }}
-                            className="text-xs text-slate-400 hover:text-indigo-600 px-1"
+                            className="text-xs text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 px-1"
                             title="Merge with another item"
                         >
                             🔗

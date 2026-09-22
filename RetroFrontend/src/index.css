@@ -10,8 +10,20 @@
     --theme-focus: #6366f1;
 }
 
+html.dark {
+    color-scheme: dark;
+}
+
 body {
-    @apply bg-slate-50 text-slate-900;
+    @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+}
+
+@layer base {
+    input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='file']):not([type='range']),
+    textarea,
+    select {
+        @apply bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100;
+    }
 }
 
 @layer components {

@@ -5,6 +5,7 @@ import { authApi } from '../api/auth';
 import { organizationsApi } from '../api/organizations';
 import { usersApi } from '../api/users';
 import { UserAvatar } from './UserAvatar';
+import { ColorModeToggle } from './ColorModeToggle';
 import { clearOrganizationQueries } from '../query/organizationQueries';
 import { useAuthStore } from '../store/authStore';
 
@@ -225,6 +226,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                             </div>
                             <UserAvatar userId={userId} avatarUrl={avatarUrl} name={displayName ?? ''} />
                         </Link>
+                        <ColorModeToggle variant="header" />
                         <button
                             onClick={handleLogout}
                             aria-label="Logout"

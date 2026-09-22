@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../api/auth';
 import { PasswordField, PasswordMatchStatus, getPasswordMatchState } from '../components/PasswordField';
+import { AuthShell } from '../components/AuthShell';
 import { useAuthStore } from '../store/authStore';
 import { PASSWORD_MIN_LENGTH, type PasswordChangeRequiredResponse } from '../types';
 
@@ -68,30 +69,30 @@ export function LoginPage() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-100">
-            <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-sm">
-                <h1 className="text-2xl font-bold text-indigo-700 mb-6 text-center">ReMolon</h1>
-                <h2 className="text-lg font-semibold mb-4 text-center text-slate-700">
+        <AuthShell>
+            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-lg p-8 w-full max-w-sm">
+                <h1 className="text-2xl font-bold text-indigo-700 dark:text-indigo-300 mb-6 text-center">ReMolon</h1>
+                <h2 className="text-lg font-semibold mb-4 text-center text-slate-700 dark:text-slate-200">
                     {needsPasswordChange ? 'Change Temporary Password' : 'Sign In'}
                 </h2>
                 {error && (
-                    <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">
+                    <p className="mb-4 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-md p-3">
                         {error}
                     </p>
                 )}
                 {needsPasswordChange ? (
                     <form onSubmit={handleInitialPasswordChange} className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Email</label>
                             <input
                                 type="email"
                                 value={email}
                                 disabled
-                                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm bg-slate-100"
+                                className="w-full border border-slate-300 dark:border-slate-600 rounded-md px-3 py-2 text-sm bg-slate-100 dark:bg-slate-800"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">New Password</label>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">New Password</label>
                             <PasswordField
                                 value={newPassword}
                                 onChange={setNewPassword}
@@ -101,7 +102,7 @@ export function LoginPage() {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Confirm New Password</label>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Confirm New Password</label>
                             <PasswordField
                                 value={confirmPassword}
                                 onChange={setConfirmPassword}
@@ -125,17 +126,17 @@ export function LoginPage() {
                 ) : (
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Email</label>
                             <input
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
-                                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full border border-slate-300 dark:border-slate-600 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Password</label>
                             <PasswordField
                                 value={password}
                                 onChange={setPassword}
@@ -154,20 +155,20 @@ export function LoginPage() {
                             <Link
                                 to="/forgot-password"
                                 state={{ email: email.trim() }}
-                                className="text-indigo-600 hover:underline"
+                                className="text-indigo-600 dark:text-indigo-400 hover:underline"
                             >
                                 Forgot password?
                             </Link>
                         </p>
                     </form>
                 )}
-                <p className="mt-4 text-center text-sm text-slate-500">
+                <p className="mt-4 text-center text-sm text-slate-500 dark:text-slate-400">
                     Don't have an account?{' '}
-                    <Link to="/register" className="text-indigo-600 hover:underline">
+                    <Link to="/register" className="text-indigo-600 dark:text-indigo-400 hover:underline">
                         Register
                     </Link>
                 </p>
             </div>
-        </div>
+        </AuthShell>
     );
 }

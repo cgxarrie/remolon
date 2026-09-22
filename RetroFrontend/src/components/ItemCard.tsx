@@ -63,11 +63,11 @@ export function ItemCard({ item, retroId, isClosed, canEdit, canDelete, isMergeT
             style={style}
             onClick={onMergeInto}
             className={[
-                'bg-white border rounded-lg p-3 shadow-sm group',
-                isMergeSource ? 'border-blue-400 ring-2 ring-blue-300 bg-blue-50' : '',
-                !isMergeSource && isMergeTarget ? 'border-indigo-400 ring-2 ring-indigo-300' : '',
-                !isMergeSource && !isMergeTarget ? 'border-slate-200' : '',
-                onMergeInto ? 'cursor-pointer hover:bg-indigo-50' : '',
+                'bg-white dark:bg-slate-900 border rounded-lg p-3 shadow-sm group',
+                isMergeSource ? 'border-blue-400 ring-2 ring-blue-300 bg-blue-50 dark:bg-blue-950/40' : '',
+                !isMergeSource && isMergeTarget ? 'border-indigo-400 dark:border-indigo-500 ring-2 ring-indigo-300' : '',
+                !isMergeSource && !isMergeTarget ? 'border-slate-200 dark:border-slate-700' : '',
+                onMergeInto ? 'cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-950/40' : '',
             ].join(' ')}
         >
             {editing ? (
@@ -78,7 +78,7 @@ export function ItemCard({ item, retroId, isClosed, canEdit, canDelete, isMergeT
                         onChange={(e) => setDescription(e.target.value)}
                         rows={3}
                         maxLength={ITEM_DESCRIPTION_MAX_LENGTH}
-                        className="w-full text-sm border border-slate-300 rounded px-2 py-1 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded px-2 py-1 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                     <div className="flex gap-2">
                         <button
@@ -90,7 +90,7 @@ export function ItemCard({ item, retroId, isClosed, canEdit, canDelete, isMergeT
                         </button>
                         <button
                             onClick={() => { setEditing(false); setDescription(item.description); }}
-                            className="px-3 py-1 text-xs text-slate-600 hover:text-slate-800"
+                            className="px-3 py-1 text-xs text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100"
                         >
                             Cancel
                         </button>
@@ -102,18 +102,18 @@ export function ItemCard({ item, retroId, isClosed, canEdit, canDelete, isMergeT
                         <div
                             {...attributes}
                             {...listeners}
-                            className="mt-0.5 cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 flex-shrink-0 select-none"
+                            className="mt-0.5 cursor-grab active:cursor-grabbing text-slate-300 dark:text-slate-500 hover:text-slate-500 dark:hover:text-slate-300 flex-shrink-0 select-none"
                             title="Drag onto another item to link"
                         >
                             ⠿
                         </div>
                     )}
                     <div className="flex-1 min-w-0">
-                        <p className="text-sm text-slate-800 whitespace-pre-wrap break-words">
+                        <p className="text-sm text-slate-800 dark:text-slate-100 whitespace-pre-wrap break-words">
                             {item.description}
                         </p>
                         {item.createdByNickname && (
-                            <p className="text-xs text-slate-400 mt-1">
+                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
                                 {item.createdByNickname}
                             </p>
                         )}
@@ -123,7 +123,7 @@ export function ItemCard({ item, retroId, isClosed, canEdit, canDelete, isMergeT
                             {canEdit && (
                                 <button
                                     onClick={() => setEditing(true)}
-                                    className="text-xs text-slate-400 hover:text-indigo-600 px-1"
+                                    className="text-xs text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 px-1"
                                     title="Edit"
                                 >
                                     ✏️
@@ -132,7 +132,7 @@ export function ItemCard({ item, retroId, isClosed, canEdit, canDelete, isMergeT
                             {onMergeStart && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onMergeStart(); }}
-                                    className="text-xs text-slate-400 hover:text-indigo-600 px-1"
+                                    className="text-xs text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 px-1"
                                     title="Merge with another item"
                                 >
                                     🔗
@@ -142,7 +142,7 @@ export function ItemCard({ item, retroId, isClosed, canEdit, canDelete, isMergeT
                                 <button
                                     onClick={() => deleteMutation.mutate()}
                                     disabled={deleteMutation.isPending}
-                                    className="text-xs text-slate-400 hover:text-red-600 px-1"
+                                    className="text-xs text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 px-1"
                                     title="Delete"
                                 >
                                     🗑️

@@ -25,9 +25,9 @@ function GuideSection({
     children: React.ReactNode;
 }) {
     return (
-        <section id={id} className="scroll-mt-6 bg-white rounded-xl shadow border border-slate-200 p-5 space-y-3">
+        <section id={id} className="scroll-mt-6 bg-white dark:bg-slate-900 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-5 space-y-3">
             <h2 className="text-lg font-semibold">{title}</h2>
-            <div className="space-y-3 text-sm text-slate-700 leading-relaxed">{children}</div>
+            <div className="space-y-3 text-sm text-slate-700 dark:text-slate-200 leading-relaxed">{children}</div>
         </section>
     );
 }
@@ -38,15 +38,15 @@ export function UserGuidePage() {
             <div className="max-w-3xl mx-auto space-y-6">
                 <header className="space-y-2">
                     <h1 className="text-2xl font-bold">User guide</h1>
-                    <p className="text-slate-600">
+                    <p className="text-slate-600 dark:text-slate-300">
                         ReMolon is a retrospective board for teams. Use it to collect feedback in private,
                         reveal it together, turn it into action items, and carry unfinished work into the next
                         session.
                     </p>
                 </header>
 
-                <nav aria-label="Guide contents" className="bg-white rounded-xl shadow border border-slate-200 p-4">
-                    <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-2">Contents</h2>
+                <nav aria-label="Guide contents" className="bg-white dark:bg-slate-900 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-4">
+                    <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">Contents</h2>
                     <ol
                         className="grid grid-cols-1 sm:grid-cols-2 sm:grid-flow-col gap-x-6 gap-y-1 text-sm"
                         style={{ gridTemplateRows: `repeat(${Math.ceil(sections.length / 2)}, auto)` }}
@@ -127,8 +127,9 @@ export function UserGuidePage() {
                         Organization.
                     </p>
                     <p>
-                        Click your nickname and avatar on the right to open Profile. The logout button signs you
-                        out of this browser.
+                        Click your nickname and avatar on the right to open Profile. Use the sun/moon button
+                        beside it to switch light, dark, or system appearance. Your choice is remembered in this
+                        browser. The logout button signs you out of this browser.
                     </p>
                 </GuideSection>
 
@@ -237,6 +238,7 @@ export function UserGuidePage() {
                     <p>Open Profile from your name and avatar in the header.</p>
                     <ul className="list-disc pl-5 space-y-1">
                         <li>Nickname is what others see on the board.</li>
+                        <li>Choose light, dark, or system appearance. It is saved in this browser.</li>
                         <li>Change your password when you are already signed in.</li>
                         <li>Upload or remove an avatar. It appears on boards and in the header.</li>
                     </ul>

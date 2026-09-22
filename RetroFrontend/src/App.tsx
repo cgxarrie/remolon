@@ -12,6 +12,7 @@ import { ProfilePage } from './pages/ProfilePage';
 import { UserGuidePage } from './pages/UserGuidePage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { OrganizationThemeProvider } from './theme';
+import { ColorModeSync } from './components/ColorModeToggle';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -30,6 +31,7 @@ const queryClient = new QueryClient({
 export default function App() {
     return (
         <QueryClientProvider client={queryClient}>
+            <ColorModeSync />
             <OrganizationThemeProvider>
                 <BrowserRouter>
                     <Routes>

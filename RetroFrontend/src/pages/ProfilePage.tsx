@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Layout } from '../components/Layout';
+import { AppearanceOptions } from '../components/ColorModeToggle';
 import { ProfileAvatarForm } from '../components/ProfileAvatarForm';
 import { ProfilePasswordForm } from '../components/ProfilePasswordForm';
 import { usersApi } from '../api/users';
@@ -63,12 +64,20 @@ export function ProfilePage() {
         <Layout>
             <div className="max-w-xl mx-auto space-y-6">
                 <h1 className="text-2xl font-bold">Profile</h1>
-                {email && <p className="text-sm text-slate-500">{email}</p>}
+                {email && <p className="text-sm text-slate-500 dark:text-slate-400">{email}</p>}
 
-                <section className="bg-white rounded-xl shadow p-4 space-y-3">
+                <section className="bg-white dark:bg-slate-900 rounded-xl shadow p-4 space-y-3">
+                    <h2 className="font-semibold">Appearance</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                        Light, dark, or match this device. Saved in this browser.
+                    </p>
+                    <AppearanceOptions />
+                </section>
+
+                <section className="bg-white dark:bg-slate-900 rounded-xl shadow p-4 space-y-3">
                     <h2 className="font-semibold">Nickname</h2>
-                    {error && <p className="text-sm text-red-600">{error}</p>}
-                    {success && <p className="text-sm text-emerald-700">{success}</p>}
+                    {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+                    {success && <p className="text-sm text-emerald-700 dark:text-emerald-400">{success}</p>}
                     <form onSubmit={handleNickname} className="space-y-3">
                         <input
                             className="w-full border rounded-md px-3 py-2 text-sm"
@@ -87,12 +96,12 @@ export function ProfilePage() {
                     </form>
                 </section>
 
-                <section className="bg-white rounded-xl shadow p-4 space-y-3">
+                <section className="bg-white dark:bg-slate-900 rounded-xl shadow p-4 space-y-3">
                     <h2 className="font-semibold">Password</h2>
                     <ProfilePasswordForm />
                 </section>
 
-                <section className="bg-white rounded-xl shadow p-4 space-y-3">
+                <section className="bg-white dark:bg-slate-900 rounded-xl shadow p-4 space-y-3">
                     <h2 className="font-semibold">Avatar</h2>
                     <ProfileAvatarForm />
                 </section>

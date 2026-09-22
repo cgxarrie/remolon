@@ -56,17 +56,17 @@ export function ProfileAvatarForm() {
 
     return (
         <div className="space-y-3">
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            {success && <p className="text-sm text-emerald-700">{success}</p>}
+            {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {success && <p className="text-sm text-emerald-700 dark:text-emerald-400">{success}</p>}
             <div className="flex items-center gap-3">
                 <UserAvatar
                     userId={userId}
                     avatarUrl={avatarUrl}
                     name={displayName}
-                    className="w-16 h-16 text-lg border border-slate-200"
+                    className="w-16 h-16 text-lg border border-slate-200 dark:border-slate-700"
                 />
             </div>
-            <label className="block text-sm text-slate-700">
+            <label className="block text-sm text-slate-700 dark:text-slate-200">
                 Image (JPEG, PNG, or WebP, max 2 MB)
                 <input
                     type="file"
@@ -81,7 +81,7 @@ export function ProfileAvatarForm() {
                     type="button"
                     onClick={handleRemove}
                     disabled={loading}
-                    className="text-sm text-slate-600 underline disabled:opacity-50"
+                    className="text-sm text-slate-600 dark:text-slate-300 underline disabled:opacity-50"
                 >
                     Remove avatar
                 </button>

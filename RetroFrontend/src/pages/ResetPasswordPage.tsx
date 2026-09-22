@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { authApi } from '../api/auth';
 import { PasswordField, PasswordMatchStatus, getPasswordMatchState } from '../components/PasswordField';
+import { AuthShell } from '../components/AuthShell';
 import { useAuthStore } from '../store/authStore';
 import { PASSWORD_MIN_LENGTH } from '../types';
 
@@ -86,34 +87,34 @@ export function ResetPasswordPage() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
-            <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
-                <h1 className="text-2xl font-bold text-indigo-700 mb-6 text-center">
+        <AuthShell>
+            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-lg p-8 w-full max-w-md">
+                <h1 className="text-2xl font-bold text-indigo-700 dark:text-indigo-300 mb-6 text-center">
                     {isInvite ? 'Set Password' : 'Reset Password'}
                 </h1>
 
                 {error && (
-                    <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">
+                    <p className="mb-4 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-md p-3">
                         {error}
                     </p>
                 )}
 
                 {!linkValid ? (
-                    <p className="text-sm text-slate-600">
+                    <p className="text-sm text-slate-600 dark:text-slate-300">
                         This reset link is missing required information. Request a new email from{' '}
-                        <Link to="/forgot-password" className="text-indigo-600 hover:underline">
+                        <Link to="/forgot-password" className="text-indigo-600 dark:text-indigo-400 hover:underline">
                             Forgot Password
                         </Link>
                         .
                     </p>
                 ) : (
                     <form onSubmit={handleResetPassword} className="space-y-4">
-                        <p className="text-sm text-slate-600">
+                        <p className="text-sm text-slate-600 dark:text-slate-300">
                             Choose a new password for <span className="font-medium">{email}</span>. This link expires{' '}
                             {isInvite ? '30 days' : '30 minutes'} after it was sent.
                         </p>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">New Password</label>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">New Password</label>
                             <PasswordField
                                 value={newPassword}
                                 onChange={setNewPassword}
@@ -123,7 +124,7 @@ export function ResetPasswordPage() {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Confirm New Password</label>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Confirm New Password</label>
                             <PasswordField
                                 value={confirmPassword}
                                 onChange={setConfirmPassword}
@@ -146,13 +147,13 @@ export function ResetPasswordPage() {
                     </form>
                 )}
 
-                <p className="mt-4 text-center text-sm text-slate-500">
+                <p className="mt-4 text-center text-sm text-slate-500 dark:text-slate-400">
                     Back to{' '}
-                    <Link to="/login" className="text-indigo-600 hover:underline">
+                    <Link to="/login" className="text-indigo-600 dark:text-indigo-400 hover:underline">
                         Sign In
                     </Link>
                 </p>
             </div>
-        </div>
+        </AuthShell>
     );
 }

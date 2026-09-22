@@ -51,9 +51,9 @@ export function ProfilePasswordForm() {
 
     return (
         <form onSubmit={handleSubmit} className="space-y-3">
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            {success && <p className="text-sm text-emerald-700">{success}</p>}
-            <label className="block text-sm text-slate-700">
+            {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {success && <p className="text-sm text-emerald-700 dark:text-emerald-400">{success}</p>}
+            <label className="block text-sm text-slate-700 dark:text-slate-200">
                 Current password
                 <PasswordField
                     value={currentPassword}
@@ -62,7 +62,7 @@ export function ProfilePasswordForm() {
                     autoComplete="current-password"
                 />
             </label>
-            <label className="block text-sm text-slate-700">
+            <label className="block text-sm text-slate-700 dark:text-slate-200">
                 New password
                 <PasswordField
                     value={newPassword}
@@ -73,7 +73,7 @@ export function ProfilePasswordForm() {
                     matchState={passwordsMismatch ? 'mismatch' : passwordsMatch ? 'match' : 'none'}
                 />
             </label>
-            <label className="block text-sm text-slate-700">
+            <label className="block text-sm text-slate-700 dark:text-slate-200">
                 Confirm new password
                 <PasswordField
                     value={confirmPassword}

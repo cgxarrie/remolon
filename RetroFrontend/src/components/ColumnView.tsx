@@ -228,13 +228,13 @@ export function ColumnView({
             <div
                 ref={setDropRef}
                 className={[
-                    'flex-1 bg-slate-100 rounded-b-lg p-2 space-y-2 min-h-[120px] transition-colors',
-                    isOver ? 'bg-indigo-50 ring-2 ring-indigo-300' : '',
+                    'flex-1 bg-slate-100 dark:bg-slate-800 rounded-b-lg p-2 space-y-2 min-h-[120px] transition-colors',
+                    isOver ? 'bg-indigo-50 dark:bg-indigo-950/40 ring-2 ring-indigo-300' : '',
                 ].join(' ')}
             >
                 {mergingFromId && (
-                    <div className="flex items-center justify-between bg-indigo-50 border border-indigo-200 rounded-md px-2 py-1.5 text-xs">
-                        <span className="text-indigo-700 font-medium">Click an item to merge into it</span>
+                    <div className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-md px-2 py-1.5 text-xs">
+                        <span className="text-indigo-700 dark:text-indigo-300 font-medium">Click an item to merge into it</span>
                         <button
                             onClick={() => setMergingFromId(null)}
                             className="text-indigo-400 hover:text-indigo-700 ml-2"
@@ -306,8 +306,8 @@ export function ColumnView({
                 </SortableContext>
 
                 {hiddenItemCount > 0 && (
-                    <div className="bg-white/70 border border-dashed border-slate-300 rounded-lg px-3 py-2">
-                        <p className="text-xs text-slate-400">
+                    <div className="bg-white/70 dark:bg-slate-800/70 border border-dashed border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2">
+                        <p className="text-xs text-slate-400 dark:text-slate-500">
                             {hiddenItemCount} item(s) hidden until reveal
                         </p>
                     </div>
@@ -328,7 +328,7 @@ export function ColumnView({
                                     rows={3}
                                     maxLength={ITEM_DESCRIPTION_MAX_LENGTH}
                                     placeholder="What's on your mind?"
-                                    className="w-full text-sm border border-slate-300 rounded-md px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                                    className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-md px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-900"
                                 />
                                 <div className="flex gap-2">
                                     <button
@@ -340,7 +340,7 @@ export function ColumnView({
                                     </button>
                                     <button
                                         onClick={() => { setAddingItem(false); setNewItemText(''); }}
-                                        className="px-3 py-1 text-xs text-slate-600 hover:text-slate-800"
+                                        className="px-3 py-1 text-xs text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100"
                                     >
                                         Cancel
                                     </button>
@@ -349,7 +349,7 @@ export function ColumnView({
                         ) : (
                             <button
                                 onClick={() => setAddingItem(true)}
-                                className="w-full text-left text-xs text-slate-400 hover:text-indigo-600 hover:bg-white rounded-md px-2 py-1.5 border border-dashed border-slate-300 hover:border-indigo-300 transition-colors"
+                                className="w-full text-left text-xs text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-slate-800 rounded-md px-2 py-1.5 border border-dashed border-slate-300 dark:border-slate-600 hover:border-indigo-300 dark:hover:border-indigo-500 transition-colors"
                             >
                                 + Add item
                             </button>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { AuthShell } from '../components/AuthShell';
 import { authApi } from '../api/auth';
 
 function emailFromNavigation(state: unknown): string {
@@ -33,30 +34,30 @@ export function ForgotPasswordPage() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
-            <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
-                <h1 className="text-2xl font-bold text-indigo-700 mb-6 text-center">Forgot Password</h1>
+        <AuthShell>
+            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-lg p-8 w-full max-w-md">
+                <h1 className="text-2xl font-bold text-indigo-700 dark:text-indigo-300 mb-6 text-center">Forgot Password</h1>
 
                 {message && (
-                    <p className="mb-4 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md p-3">
+                    <p className="mb-4 text-sm text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800 rounded-md p-3">
                         {message}
                     </p>
                 )}
                 {error && (
-                    <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">
+                    <p className="mb-4 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-md p-3">
                         {error}
                     </p>
                 )}
 
                 <form onSubmit={handleRequestReset} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Email</label>
                         <input
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             required
-                            className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full border border-slate-300 dark:border-slate-600 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                     </div>
                     <button
@@ -68,13 +69,13 @@ export function ForgotPasswordPage() {
                     </button>
                 </form>
 
-                <p className="mt-4 text-center text-sm text-slate-500">
+                <p className="mt-4 text-center text-sm text-slate-500 dark:text-slate-400">
                     Back to{' '}
-                    <Link to="/login" className="text-indigo-600 hover:underline">
+                    <Link to="/login" className="text-indigo-600 dark:text-indigo-400 hover:underline">
                         Sign In
                     </Link>
                 </p>
             </div>
-        </div>
+        </AuthShell>
     );
 }

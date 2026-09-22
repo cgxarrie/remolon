@@ -52,7 +52,7 @@ function ThemePicker({
 
     return (
         <div className="space-y-3">
-            <span className="text-sm font-medium text-slate-700">Theme</span>
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Theme</span>
             <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                 {themeOptions.map((key) => {
                     const palette = key === 'custom' ? customPalette : themePresets[key];
@@ -63,7 +63,7 @@ function ThemePicker({
                             aria-pressed={draft.themeKey === key}
                             onClick={() => onChange({ ...draft, themeKey: key })}
                             className={`rounded-lg border p-2 text-left transition ${
-                                draft.themeKey === key ? 'ring-2 border-transparent' : 'border-slate-200'
+                                draft.themeKey === key ? 'ring-2 border-transparent' : 'border-slate-200 dark:border-slate-700'
                             }`}
                             style={draft.themeKey === key ? { boxShadow: `0 0 0 2px ${palette.focus}` } : undefined}
                         >
@@ -78,7 +78,7 @@ function ThemePicker({
                 })}
             </div>
             {draft.themeKey === 'custom' && (
-                <div className="grid sm:grid-cols-5 gap-3 rounded-lg bg-slate-50 p-3">
+                <div className="grid sm:grid-cols-5 gap-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 p-3">
                     {([
                         ['Header', 'headerColor'],
                         ['Header hover', 'headerHoverColor'],
@@ -86,11 +86,11 @@ function ThemePicker({
                         ['Accent hover', 'accentHoverColor'],
                         ['Focus', 'focusColor'],
                     ] as const).map(([label, field]) => (
-                        <label key={field} className="text-xs text-slate-600">
+                        <label key={field} className="text-xs text-slate-600 dark:text-slate-300">
                             {label}
                             <input
                                 type="color"
-                                className="mt-1 block h-9 w-full cursor-pointer rounded border border-slate-300"
+                                className="mt-1 block h-9 w-full cursor-pointer rounded border border-slate-300 dark:border-slate-600"
                                 value={draft[field] ?? defaultCustomPalette[field.replace('Color', '') as keyof typeof defaultCustomPalette]}
                                 onChange={(event) => onChange({ ...draft, [field]: event.target.value })}
                             />
@@ -146,7 +146,7 @@ export function OrganizationsPage() {
 
     return <Layout><div className="max-w-4xl mx-auto space-y-5">
         <h1 className="text-2xl font-bold">Organization</h1>
-        <div className="bg-white rounded-xl shadow p-4 space-y-4">
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow p-4 space-y-4">
             <input
                 className="border rounded p-2 w-full theme-focus"
                 placeholder="Organization name"
@@ -164,6 +164,6 @@ export function OrganizationsPage() {
                 </button>
             </div>
         </div>
-        {error && <p className="text-red-600">{error}</p>}
+        {error && <p className="text-red-600 dark:text-red-400">{error}</p>}
     </div></Layout>;
 }

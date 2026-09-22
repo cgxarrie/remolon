@@ -41,7 +41,7 @@ export function ProtectedRoute({ children }: Props) {
 
     if (meQuery.isLoading || !meQuery.data || role !== meQuery.data.role || userId !== meQuery.data.id) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-100 text-sm text-slate-500">
+            <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-sm text-slate-500 dark:text-slate-400">
                 Loading…
             </div>
         );

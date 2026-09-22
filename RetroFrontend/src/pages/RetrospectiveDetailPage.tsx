@@ -416,7 +416,7 @@ export function RetrospectiveDetailPage() {
     if (isLoading) {
         return (
             <Layout>
-                <p className="text-slate-500">Loading retrospective…</p>
+                <p className="text-slate-500 dark:text-slate-400">Loading retrospective…</p>
             </Layout>
         );
     }
@@ -424,7 +424,7 @@ export function RetrospectiveDetailPage() {
     if (isError || !retro) {
         return (
             <Layout>
-                <p className="text-red-600">Retrospective not found.</p>
+                <p className="text-red-600 dark:text-red-400">Retrospective not found.</p>
             </Layout>
         );
     }
@@ -469,7 +469,7 @@ export function RetrospectiveDetailPage() {
 
                 {throwableMenu.open && (
                     <div
-                        className="fixed z-50 bg-white border border-slate-200 rounded-lg shadow-lg p-1"
+                        className="fixed z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-1"
                         style={{ left: throwableMenu.x, top: throwableMenu.y, transform: 'translateX(-50%)' }}
                         onClick={(event) => event.stopPropagation()}
                     >
@@ -484,8 +484,8 @@ export function RetrospectiveDetailPage() {
                                     className={[
                                         'h-9 w-9 rounded-md text-xl flex items-center justify-center',
                                         selectedThrowable.id === item.id
-                                            ? 'bg-indigo-50 text-indigo-700'
-                                            : 'text-slate-700 hover:bg-slate-50',
+                                            ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300'
+                                            : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800',
                                     ].join(' ')}
                                     aria-label={item.label}
                                     title={item.label}
@@ -508,7 +508,7 @@ export function RetrospectiveDetailPage() {
                 <div className="mb-6">
                     <button
                         onClick={() => navigate('/retrospectives')}
-                        className="text-sm text-indigo-600 hover:underline mb-1 inline-block"
+                        className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline mb-1 inline-block"
                     >
                         ← Retrospectives
                     </button>
@@ -525,7 +525,7 @@ export function RetrospectiveDetailPage() {
                                                 if (e.key === 'Enter') renameMutation.mutate(titleValue.trim());
                                                 if (e.key === 'Escape') setEditingTitle(false);
                                             }}
-                                            className="text-2xl font-bold text-slate-800 border-b-2 border-indigo-500 bg-transparent focus:outline-none w-72"
+                                            className="text-2xl font-bold text-slate-800 dark:text-slate-100 border-b-2 border-indigo-500 bg-transparent focus:outline-none w-72"
                                         />
                                         <button
                                             onClick={() => renameMutation.mutate(titleValue.trim())}
@@ -536,18 +536,18 @@ export function RetrospectiveDetailPage() {
                                         </button>
                                         <button
                                             onClick={() => setEditingTitle(false)}
-                                            className="text-slate-400 hover:text-slate-600 text-lg"
+                                            className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 text-lg"
                                         >
                                             ✕
                                         </button>
                                     </>
                                 ) : (
                                     <>
-                                        <h1 className="text-2xl font-bold text-slate-800">{retro.title}</h1>
+                                        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{retro.title}</h1>
                                         {canManage && !retro.isClosed && (
                                             <button
                                                 onClick={() => { setTitleValue(retro.title); setEditingTitle(true); }}
-                                                className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-indigo-600 transition-colors"
+                                                className="inline-flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
                                                 title="Rename retrospective"
                                             >
                                                 <span aria-hidden="true">✏️</span>
@@ -557,11 +557,11 @@ export function RetrospectiveDetailPage() {
                                     </>
                                 )}
                                 {retro.isClosed ? (
-                                    <span className="px-2.5 py-0.5 text-xs font-semibold bg-slate-200 text-slate-600 rounded-full">
+                                    <span className="px-2.5 py-0.5 text-xs font-semibold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-full">
                                         Closed
                                     </span>
                                 ) : (
-                                    <span className="px-2.5 py-0.5 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
+                                    <span className="px-2.5 py-0.5 text-xs font-semibold bg-green-100 text-green-700 dark:text-green-400 rounded-full">
                                         Open
                                     </span>
                                 )}
@@ -679,13 +679,13 @@ export function RetrospectiveDetailPage() {
                                     </button>
                                 </div>
                             )}
-                            <p className="text-sm text-slate-400 mt-2">
+                            <p className="text-sm text-slate-400 dark:text-slate-500 mt-2">
                                 Created {new Date(retro.createdAt).toLocaleDateString('en-US', {
                                     year: 'numeric', month: 'long', day: 'numeric',
                                 })}
                             </p>
                             {retro.retrospectiveDate && (
-                                <p className="text-sm text-indigo-600 font-medium mt-0.5">
+                                <p className="text-sm text-indigo-600 dark:text-indigo-400 font-medium mt-0.5">
                                     📅 {new Date(retro.retrospectiveDate).toLocaleDateString('en-US', {
                                         year: 'numeric', month: 'long', day: 'numeric',
                                     })}
@@ -696,7 +696,7 @@ export function RetrospectiveDetailPage() {
                 </div>
 
                 {retro.isClosed && (
-                    <div className="mb-4 p-3 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-600 flex items-center justify-between gap-3">
+                    <div className="mb-4 p-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-600 dark:text-slate-300 flex items-center justify-between gap-3">
                         <span>This retrospective is <strong>closed</strong>. Items are read-only.</span>
                         {canManage && retro.canStartNextIteration && (
                             <button
@@ -725,7 +725,7 @@ export function RetrospectiveDetailPage() {
                     currentUserAction={(
                         <button
                             onClick={handleCurrentThrowableIconClick}
-                            className="text-lg leading-none rounded hover:bg-slate-100 p-1"
+                            className="text-lg leading-none rounded hover:bg-slate-100 dark:hover:bg-slate-800 p-1"
                             aria-label={`Selected throwable ${selectedThrowable.label}`}
                             title={selectedThrowable.label}
                         >

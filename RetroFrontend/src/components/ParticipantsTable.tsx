@@ -117,13 +117,13 @@ function AvatarPill({
                 />
             </div>
             <div className="flex max-w-full items-center gap-1">
-                <p className="text-[11px] leading-tight text-slate-500 truncate" title={user.name}>
+                <p className="text-[11px] leading-tight text-slate-500 dark:text-slate-400 truncate" title={user.name}>
                     {user.name}
                 </p>
                 {action}
             </div>
             {user.subtitle && (
-                <p className="text-[10px] leading-tight text-slate-400 max-w-full truncate" title={user.subtitle}>
+                <p className="text-[10px] leading-tight text-slate-400 dark:text-slate-500 max-w-full truncate" title={user.subtitle}>
                     {user.subtitle}
                 </p>
             )}
@@ -205,7 +205,7 @@ export function ParticipantsTable({
             )}
 
             {participants.length === 0 && (
-                <p className="text-xs text-slate-400 text-center">No other people yet</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 text-center">No other people yet</p>
             )}
         </div>
     );

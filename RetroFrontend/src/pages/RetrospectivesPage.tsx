@@ -30,7 +30,7 @@ function BoardSessions({ organizationId, title }: { organizationId: string; titl
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['retrospectives'] }),
     });
 
-    if (isLoading && !data) return <p className="border-t p-3 text-sm text-slate-500">Loading sessions…</p>;
+    if (isLoading && !data) return <p className="border-t p-3 text-sm text-slate-500 dark:text-slate-400">Loading sessions…</p>;
 
     return (
         <>
@@ -45,11 +45,11 @@ function BoardSessions({ organizationId, title }: { organizationId: string; titl
                             {new Date(retro.createdAt).toLocaleDateString()}
                         </span>
                         {retro.isClosed ? (
-                            <span className="px-2.5 py-0.5 text-xs font-semibold bg-slate-200 text-slate-600 rounded-full">
+                            <span className="px-2.5 py-0.5 text-xs font-semibold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-full">
                                 Closed
                             </span>
                         ) : (
-                            <span className="px-2.5 py-0.5 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
+                            <span className="px-2.5 py-0.5 text-xs font-semibold bg-green-100 text-green-700 dark:text-green-400 rounded-full">
                                 Open
                             </span>
                         )}
@@ -57,7 +57,7 @@ function BoardSessions({ organizationId, title }: { organizationId: string; titl
                     {role === 'Manager' && (
                         <button
                             type="button"
-                            className="p-1.5 text-slate-400 hover:text-red-600 rounded-md transition-colors"
+                            className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 rounded-md transition-colors"
                             title="Delete retrospective"
                             aria-label="Delete retrospective"
                             onClick={() => {
@@ -125,7 +125,7 @@ function BoardRow({
     });
 
     return (
-        <div className="bg-white rounded-xl shadow border overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow border overflow-hidden">
             <div
                 role="button"
                 tabIndex={0}
@@ -155,7 +155,7 @@ function BoardRow({
                         <span className="font-semibold truncate">{board.title}</span>
                     )}
                 </span>
-                <span className="flex-shrink-0 text-slate-500">
+                <span className="flex-shrink-0 text-slate-500 dark:text-slate-400">
                     {board.sessionCount} session{board.sessionCount === 1 ? '' : 's'}
                 </span>
             </div>

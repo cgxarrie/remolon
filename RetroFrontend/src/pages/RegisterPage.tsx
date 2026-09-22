@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../api/auth';
 import { PasswordField, PasswordMatchStatus, getPasswordMatchState } from '../components/PasswordField';
 import { PASSWORD_MIN_LENGTH } from '../types';
+import { AuthShell } from '../components/AuthShell';
 import { useAuthStore } from '../store/authStore';
 
         // The API reports failures as { message } or ASP.NET validation problem details.
@@ -62,28 +63,28 @@ export function RegisterPage() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-100">
-            <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-sm">
-                <h1 className="text-2xl font-bold text-indigo-700 mb-6 text-center">ReMolon</h1>
-                <h2 className="text-lg font-semibold mb-4 text-center text-slate-700">Create Account</h2>
+        <AuthShell>
+            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-lg p-8 w-full max-w-sm">
+                <h1 className="text-2xl font-bold text-indigo-700 dark:text-indigo-300 mb-6 text-center">ReMolon</h1>
+                <h2 className="text-lg font-semibold mb-4 text-center text-slate-700 dark:text-slate-200">Create Account</h2>
                 {error && (
-                    <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">
+                    <p className="mb-4 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-md p-3">
                         {error}
                     </p>
                 )}
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Email</label>
                         <input
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             required
-                            className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full border border-slate-300 dark:border-slate-600 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Organization name</label>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Organization name</label>
                         <input
                             type="text"
                             value={organizationName}
@@ -91,13 +92,13 @@ export function RegisterPage() {
                             required
                             maxLength={200}
                             placeholder="Your company or team name"
-                            className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full border border-slate-300 dark:border-slate-600 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
                             Nickname{' '}
-                            <span className="text-slate-400 font-normal">(optional)</span>
+                            <span className="text-slate-400 dark:text-slate-500 font-normal">(optional)</span>
                         </label>
                         <input
                             type="text"
@@ -105,13 +106,13 @@ export function RegisterPage() {
                             onChange={(e) => setNickname(e.target.value)}
                             maxLength={50}
                             placeholder="How you'll appear on tickets"
-                            className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full border border-slate-300 dark:border-slate-600 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
                             Password{' '}
-                            <span className="text-slate-400 font-normal">(min {PASSWORD_MIN_LENGTH} chars, upper, lower, number, symbol)</span>
+                            <span className="text-slate-400 dark:text-slate-500 font-normal">(min {PASSWORD_MIN_LENGTH} chars, upper, lower, number, symbol)</span>
                         </label>
                         <PasswordField
                             value={password}
@@ -122,7 +123,7 @@ export function RegisterPage() {
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Confirm Password</label>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Confirm Password</label>
                         <PasswordField
                             value={confirmPassword}
                             onChange={setConfirmPassword}
@@ -143,13 +144,13 @@ export function RegisterPage() {
                         {loading ? 'Creating account…' : 'Register'}
                     </button>
                 </form>
-                <p className="mt-4 text-center text-sm text-slate-500">
+                <p className="mt-4 text-center text-sm text-slate-500 dark:text-slate-400">
                     Already have an account?{' '}
-                    <Link to="/login" className="text-indigo-600 hover:underline">
+                    <Link to="/login" className="text-indigo-600 dark:text-indigo-400 hover:underline">
                         Sign In
                     </Link>
                 </p>
             </div>
-        </div>
+        </AuthShell>
     );
 }

@@ -14,11 +14,11 @@ function initialsFrom(name: string): string {
 
 function colorClassFrom(id: string): string {
     const classes = [
-        'bg-rose-100 text-rose-700',
-        'bg-amber-100 text-amber-700',
-        'bg-emerald-100 text-emerald-700',
-        'bg-cyan-100 text-cyan-700',
-        'bg-indigo-100 text-indigo-700',
+        'bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-200',
+        'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-200',
+        'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400',
+        'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-700 dark:text-cyan-200',
+        'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300',
     ];
 
     let sum = 0;

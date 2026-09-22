@@ -77,7 +77,7 @@ export function ActionColumnView({
                 <h3 className="font-semibold text-sm truncate">{column.title}</h3>
                 <p className="text-xs opacity-80">{column.items.length} item(s)</p>
             </div>
-            <div className="bg-slate-100 rounded-b-lg p-2 grid gap-2 min-h-[120px] items-start grid-cols-[repeat(auto-fill,minmax(16rem,1fr))]">
+            <div className="bg-slate-100 dark:bg-slate-800 rounded-b-lg p-2 grid gap-2 min-h-[120px] items-start grid-cols-[repeat(auto-fill,minmax(16rem,1fr))]">
                 {sortedItems.map((item) => (
                     <ActionItemCard
                         key={item.id}
@@ -102,7 +102,7 @@ export function ActionColumnView({
                                     rows={2}
                                     maxLength={ITEM_DESCRIPTION_MAX_LENGTH}
                                     placeholder="Action item description…"
-                                    className="w-full text-sm border border-slate-300 rounded-md px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                                    className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-md px-2 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-900"
                                 />
                                 <AssigneePicker
                                     options={participantAssignees}
@@ -119,17 +119,17 @@ export function ActionColumnView({
                                     </button>
                                     <button
                                         onClick={() => { setAddingItem(false); setDescription(''); setAssignees([]); setError(''); }}
-                                        className="px-3 py-1 text-xs text-slate-600 hover:text-slate-800"
+                                        className="px-3 py-1 text-xs text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100"
                                     >
                                         Cancel
                                     </button>
                                 </div>
-                                {error && <p className="text-xs text-red-600">{error}</p>}
+                                {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
                             </div>
                         ) : (
                             <button
                                 onClick={() => setAddingItem(true)}
-                                className="w-full text-left text-xs text-slate-400 hover:text-indigo-600 hover:bg-white rounded-md px-2 py-1.5 border border-dashed border-slate-300 hover:border-indigo-300 transition-colors"
+                                className="w-full text-left text-xs text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white dark:hover:bg-slate-800 rounded-md px-2 py-1.5 border border-dashed border-slate-300 dark:border-slate-600 hover:border-indigo-300 dark:hover:border-indigo-500 transition-colors"
                             >
                                 + Add action item
                             </button>

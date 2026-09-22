@@ -20,7 +20,7 @@ function PasswordVisibilityToggle({
             type="button"
             onClick={onToggle}
             aria-label={label}
-            className="absolute inset-y-0 right-0 px-2.5 text-slate-500 hover:text-slate-700"
+            className="absolute inset-y-0 right-0 px-2.5 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
         >
             {visible ? (
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4" aria-hidden="true">
@@ -59,7 +59,7 @@ export function PasswordField({
             ? 'border-red-400 focus:ring-red-500'
             : matchState === 'match'
               ? 'border-emerald-400 focus:ring-emerald-500'
-              : 'border-slate-300 focus:ring-indigo-500';
+              : 'border-slate-300 dark:border-slate-600 focus:ring-indigo-500';
 
     return (
         <div className="relative">
@@ -95,7 +95,7 @@ export function PasswordMatchStatus({
         <p
             id={id}
             role="status"
-            className={`mt-1 text-xs ${passwordsMatch ? 'text-emerald-600' : 'text-red-600'}`}
+            className={`mt-1 text-xs ${passwordsMatch ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}
         >
             {passwordsMatch ? 'Passwords match.' : 'Passwords do not match.'}
         </p>
