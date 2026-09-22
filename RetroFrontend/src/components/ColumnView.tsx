@@ -243,13 +243,6 @@ export function ColumnView({
                         </button>
                     </div>
                 )}
-                {!isRevealed && hiddenItemCount > 0 && (
-                    <div className="bg-white/70 dark:bg-slate-900/70 border border-dashed border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2">
-                        <p className="text-xs text-slate-400 dark:text-slate-500">
-                            {hiddenItemCount} {hiddenItemCount === 1 ? 'item' : 'items'} hidden until reveal
-                        </p>
-                    </div>
-                )}
                 <SortableContext
                     items={displayEntries.map((e) => e.sortId)}
                     strategy={verticalListSortingStrategy}

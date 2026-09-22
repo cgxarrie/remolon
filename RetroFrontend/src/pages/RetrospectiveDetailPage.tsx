@@ -433,6 +433,11 @@ export function RetrospectiveDetailPage() {
         return <Navigate to="/retrospectives" replace />;
     }
 
+    const hiddenUntilRevealCount = retro.columns.reduce(
+        (sum, column) => sum + (column.hiddenItemCount ?? 0),
+        0,
+    );
+
     return (
         <Layout>
             <div ref={arenaRef} className="relative">
@@ -692,6 +697,11 @@ export function RetrospectiveDetailPage() {
                                 </p>
                             )}
                         </div>
+                        {!retro.isRevealed && hiddenUntilRevealCount > 0 && (
+                            <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                                {hiddenUntilRevealCount} {hiddenUntilRevealCount === 1 ? 'item' : 'items'} hidden until reveal
+                            </span>
+                        )}
                     </div>
                 </div>
 
