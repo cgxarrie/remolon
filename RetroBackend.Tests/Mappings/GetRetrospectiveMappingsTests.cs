@@ -7,7 +7,7 @@ namespace RetroBackend.Tests.Mappings;
 public class GetRetrospectiveMappingsTests
 {
     [Fact]
-    public void ToGetDto_WhenUnrevealed_ReturnsOwnItemsAndOtherAuthorCounts()
+    public void ToGetDto_WhenUnrevealed_ReturnsOwnItemsAndAnonymousHiddenCount()
     {
         var retro = BuildRetroWithItems();
 
@@ -18,10 +18,7 @@ public class GetRetrospectiveMappingsTests
         Assert.Equal(2, column.Items.Count);
         Assert.All(column.Items, item => Assert.Equal("alice", item.CreatedBy));
         Assert.Equal(["Alice item 1", "Alice item 2"], column.Items.Select(i => i.Description));
-        var hiddenAuthor = Assert.Single(column.HiddenAuthorCounts);
-        Assert.Equal("bob", hiddenAuthor.CreatedBy);
-        Assert.Equal("Bob", hiddenAuthor.CreatedByNickname);
-        Assert.Equal(2, hiddenAuthor.Count);
+        Assert.Empty(column.HiddenAuthorCounts);
         Assert.Equal(2, column.HiddenItemCount);
     }
 
@@ -67,21 +64,5 @@ public class GetRetrospectiveMappingsTests
         column.Items.Add(new Item("alice", "Alice", column.Id, "Alice item 2", 2));
         column.Items.Add(new Item("bob", "Bob", column.Id, "Bob item 2", 3));
         return retro;
-    }
-
-    [Fact]
-    public void ToGetDto_WhenUnrevealed_GroupsHiddenCountsByAuthor()
-    {
-        var retro = BuildRetroWithItems();
-        var column = retro.Columns.Single(c => c.Title == "Went Well");
-        column.Items.Add(new Item("carol", "Carol", column.Id, "Carol item 1", 4));
-
-        var dto = retro.ToGetDto("alice");
-        var counts = dto.Columns.Single(c => c.Title == "Went Well").HiddenAuthorCounts;
-
-        Assert.Equal(2, counts.Count);
-        Assert.Equal(["Bob", "Carol"], counts.Select(a => a.CreatedByNickname));
-        Assert.Equal([2, 1], counts.Select(a => a.Count));
-        Assert.DoesNotContain(counts, author => author.CreatedBy == "alice");
     }
 }

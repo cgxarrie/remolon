@@ -7,9 +7,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { itemsApi } from '../api/items';
 import { ItemCard } from './ItemCard';
 import { MergedGroupCard } from './MergedGroupCard';
-import { ITEM_DESCRIPTION_MAX_LENGTH, type ColumnAuthorCountDto, type GetColumnDto, type GetItemDto } from '../types';
+import { ITEM_DESCRIPTION_MAX_LENGTH, type GetColumnDto, type GetItemDto } from '../types';
 import { invalidateRetrospective } from '../query/retrospectiveQueries';
-import { UserAvatar } from './UserAvatar';
 
 interface Props {
     column: GetColumnDto;
@@ -114,7 +113,6 @@ export function ColumnView({
     }
 
     const hiddenItemCount = column.hiddenItemCount ?? 0;
-    const hiddenAuthorCounts = column.hiddenAuthorCounts ?? [];
     const totalItemCount = column.items.length + hiddenItemCount;
 
     const sortedItems = [...column.items].sort((a, b) => a.position - b.position);
@@ -245,8 +243,12 @@ export function ColumnView({
                         </button>
                     </div>
                 )}
-                {!isRevealed && (
-                    <HiddenAuthorSummary authors={hiddenAuthorCounts} hiddenItemCount={hiddenItemCount} />
+                {!isRevealed && hiddenItemCount > 0 && (
+                    <div className="bg-white/70 dark:bg-slate-900/70 border border-dashed border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2">
+                        <p className="text-xs text-slate-400 dark:text-slate-500">
+                            {hiddenItemCount} {hiddenItemCount === 1 ? 'item' : 'items'} hidden until reveal
+                        </p>
+                    </div>
                 )}
                 <SortableContext
                     items={displayEntries.map((e) => e.sortId)}
@@ -354,46 +356,6 @@ export function ColumnView({
                     </>
                 )}
             </div>
-        </div>
-    );
-}
-
-function HiddenAuthorSummary({
-    authors,
-    hiddenItemCount,
-}: {
-    authors: ColumnAuthorCountDto[];
-    hiddenItemCount: number;
-}) {
-    if (authors.length === 0 && hiddenItemCount <= 0) return null;
-
-    return (
-        <div className="bg-white/70 dark:bg-slate-900/70 border border-dashed border-slate-300 dark:border-slate-600 rounded-lg px-2 py-2 space-y-1.5">
-            <p className="text-[11px] uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                Hidden until reveal
-            </p>
-            {authors.length > 0 ? (
-                authors.map((author) => (
-                    <div key={author.createdBy} className="flex items-center gap-2">
-                        <UserAvatar
-                            userId={author.createdBy}
-                            avatarUrl={null}
-                            name={author.createdByNickname}
-                            className="w-6 h-6 text-[10px] border-0"
-                        />
-                        <span className="min-w-0 flex-1 truncate text-xs text-slate-700 dark:text-slate-200">
-                            {author.createdByNickname}
-                        </span>
-                        <span className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
-                            {author.count} {author.count === 1 ? 'item' : 'items'}
-                        </span>
-                    </div>
-                ))
-            ) : (
-                <p className="text-xs text-slate-400 dark:text-slate-500">
-                    {hiddenItemCount} {hiddenItemCount === 1 ? 'item' : 'items'}
-                </p>
-            )}
         </div>
     );
 }

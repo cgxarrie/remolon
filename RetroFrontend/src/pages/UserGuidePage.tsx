@@ -178,8 +178,8 @@ export function UserGuidePage() {
                         <li>You can edit or delete your own items while the session is open.</li>
                         <li>Drag a card to reorder it in the column or move it to another column.</li>
                         <li>
-                            Before reveal, you see your cards. A summary at the top of each column shows how many
-                            items other people have added, without showing their notes.
+                            Before reveal, you see your cards. The top of each column shows how many other items
+                            are hidden until reveal, without showing those notes.
                         </li>
                         <li>Managers can add extra columns on an open board and change a column’s title or color.</li>
                     </ul>
