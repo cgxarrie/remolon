@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { authApi } from '../api/auth';
 import { organizationsApi } from '../api/organizations';
+import { retrospectivesApi } from '../api/retrospectives';
 import { usersApi } from '../api/users';
+import { mostUsedBoardsKey } from '../query/retrospectiveQueries';
 import { UserAvatar } from './UserAvatar';
 import { clearOrganizationQueries } from '../query/organizationQueries';
 import { useAuthStore } from '../store/authStore';
@@ -93,6 +95,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
             organizationId: me.organizationId,
         });
     }, [me, setProfile]);
+
+    const { data: mostUsedBoards = [] } = useQuery({
+        queryKey: [...mostUsedBoardsKey, organizationId],
+        queryFn: () => retrospectivesApi.getMostUsed(),
+        enabled: !!organizationId,
+    });
 
     const { data: ownOrganizations } = useQuery({
         queryKey: ['organizations', 'current', organizationId],
@@ -200,19 +208,41 @@ export function Layout({ children }: { children: React.ReactNode }) {
                                 {menuOpen && (
                                     <div
                                         role="menu"
-                                        className="absolute left-0 top-full mt-2 min-w-[12rem] z-20 theme-header border border-white/25 rounded-md shadow-lg py-1 text-sm"
+                                        className="absolute left-0 top-full mt-2 w-60 z-20 theme-header border border-white/25 rounded-md shadow-lg py-1 text-sm"
                                     >
                                         {menuItems.map((item) => (
-                                            <Link
-                                                key={item.to}
-                                                to={item.to}
-                                                role="menuitem"
-                                                onClick={() => setMenuOpen(false)}
-                                                className="flex items-center gap-2 px-3 py-2 hover:bg-white/10 transition-colors"
-                                            >
-                                                {item.icon}
-                                                <span>{item.label}</span>
-                                            </Link>
+                                            <Fragment key={item.to}>
+                                                <Link
+                                                    to={item.to}
+                                                    role="menuitem"
+                                                    onClick={() => setMenuOpen(false)}
+                                                    className="flex items-center gap-2 px-3 py-2 hover:bg-white/10 transition-colors"
+                                                >
+                                                    {item.icon}
+                                                    <span>{item.label}</span>
+                                                </Link>
+                                                {item.to === '/retrospectives' && mostUsedBoards.length > 0 && (
+                                                    <div className="ml-5 border-l border-white/25">
+                                                        {mostUsedBoards.map((board) => {
+                                                            const sessionId =
+                                                                board.openSessionId ?? board.latestClosedSessionId;
+                                                            if (!sessionId) return null;
+                                                            return (
+                                                                <Link
+                                                                    key={board.title}
+                                                                    to={`/retrospectives/${sessionId}`}
+                                                                    role="menuitem"
+                                                                    title={board.title}
+                                                                    onClick={() => setMenuOpen(false)}
+                                                                    className="block truncate py-1.5 pl-3 pr-3 text-white/90 hover:bg-white/10 transition-colors"
+                                                                >
+                                                                    {board.title}
+                                                                </Link>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </Fragment>
                                         ))}
                                     </div>
                                 )}

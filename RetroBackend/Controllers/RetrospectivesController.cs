@@ -37,6 +37,101 @@ public class RetrospectivesController : ControllerBase
         _actionItemMailer = actionItemMailer;
     }
 
+    private const int MostUsedBoardLimit = 3;
+
+    /// <summary>The boards the current user opens most often.</summary>
+    [HttpGet("most-used")]
+    [ProducesResponseType(typeof(IReadOnlyList<GetRetrospectiveBoardDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMostUsed()
+    {
+        var scoped = TryVisibleQuery(null, out var query);
+        if (scoped is not null) return scoped;
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        if (!Guid.TryParse(User.FindFirstValue(AuthClaims.OrganizationId), out var organizationId))
+            return Forbid();
+
+        var usages = await _context.BoardUsages
+            .Where(usage => usage.UserId == userId && usage.OrganizationId == organizationId)
+            .OrderByDescending(usage => usage.UseCount)
+            .ThenByDescending(usage => usage.LastUsedAt)
+            .ThenBy(usage => usage.Title)
+            .ToListAsync();
+
+        if (usages.Count == 0)
+            return Ok(Array.Empty<GetRetrospectiveBoardDto>());
+
+        var rows = await query
+            .Select(r => new { r.Id, r.Title, r.IsClosed, r.CreatedAt })
+            .ToListAsync();
+
+        var boards = rows
+            .GroupBy(r => r.Title)
+            .ToDictionary(group => group.Key, group =>
+            {
+                var open = group.Where(r => !r.IsClosed).OrderByDescending(r => r.CreatedAt).FirstOrDefault();
+                var closed = group.Where(r => r.IsClosed).OrderByDescending(r => r.CreatedAt).FirstOrDefault();
+                return new GetRetrospectiveBoardDto
+                {
+                    Title = group.Key,
+                    SessionCount = group.Count(),
+                    OpenSessionId = open?.Id,
+                    LatestClosedSessionId = closed?.Id,
+                };
+            });
+
+        var items = usages
+            .Where(usage => boards.ContainsKey(usage.Title))
+            .Take(MostUsedBoardLimit)
+            .Select(usage => boards[usage.Title])
+            .ToList();
+
+        return Ok(items);
+    }
+
+    /// <summary>Records that the current user opened this board.</summary>
+    [HttpPost("{id:guid}/use")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RecordUse(Guid id)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+
+        var retro = await _context.Retrospectives
+            .Where(r => r.Id == id)
+            .Select(r => new { r.OrganizationId, r.Title })
+            .FirstOrDefaultAsync();
+        if (retro is null) return NotFound();
+        if (!IsSameOrganization(retro.OrganizationId)) return Forbid();
+
+        var isOwner = await _authzService.IsRetrospectiveOwnerAsync(userId, id);
+        var isAssigned = await _authzService.IsAssignedToRetrospectiveAsync(userId, id);
+        if (!isOwner && !isAssigned) return Forbid();
+
+        var usage = await _context.BoardUsages.FindAsync(userId, retro.OrganizationId, retro.Title);
+        var now = DateTime.UtcNow;
+        if (usage is null)
+        {
+            _context.BoardUsages.Add(new BoardUsage
+            {
+                UserId = userId,
+                OrganizationId = retro.OrganizationId,
+                Title = retro.Title,
+                UseCount = 1,
+                LastUsedAt = now,
+            });
+        }
+        else
+        {
+            usage.UseCount++;
+            usage.LastUsedAt = now;
+        }
+
+        await _context.SaveChangesAsync();
+        return NoContent();
+    }
+
     /// <summary>Retrieves retrospective boards grouped by title.</summary>
     [HttpGet]
     [ProducesResponseType(typeof(PagedResponse<GetRetrospectiveBoardDto>), StatusCodes.Status200OK)]

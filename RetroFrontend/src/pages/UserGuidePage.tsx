@@ -124,7 +124,8 @@ export function UserGuidePage() {
                     <p>
                         After you sign in, the header shows your organization name. Open the menu (the three
                         lines on the left) for Boards, this User guide, and — if you are a Manager — Users and
-                        Organization.
+                        Organization. Under Boards, the three boards you open most often are listed so you can
+                        jump straight into the current session.
                     </p>
                     <p>
                         Click your nickname and avatar on the right to open Profile. Use the sun/moon button

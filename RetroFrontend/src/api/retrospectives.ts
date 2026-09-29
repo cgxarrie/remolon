@@ -22,6 +22,11 @@ export const retrospectivesApi = {
     getById: (id: string) =>
         client.get<GetRetrospectiveDto>(`/retrospectives/${id}`).then((r) => r.data),
 
+    getMostUsed: () =>
+        client.get<GetRetrospectiveBoardDto[]>('/retrospectives/most-used').then((r) => r.data),
+
+    recordUse: (id: string) => client.post(`/retrospectives/${id}/use`),
+
     create: (data: CreateRetrospectiveRequest) =>
         client.post<string>('/retrospectives', data).then((r) => r.data),
 

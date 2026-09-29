@@ -10,7 +10,7 @@ import { ParticipantsTable } from '../components/ParticipantsTable';
 import type { AvatarEntry } from '../components/ParticipantsTable';
 import { createRetrospectiveHubConnection } from '../api/retrospectiveHub';
 import type { ItemsChangedEvent, ObjectThrownEvent, RetrospectiveAccessRevokedEvent, RetrospectiveClosedEvent, RetrospectiveDeletedEvent, RetrospectiveRevealedEvent } from '../api/retrospectiveHub';
-import { invalidateRetrospective } from '../query/retrospectiveQueries';
+import { invalidateRetrospective, mostUsedBoardsKey } from '../query/retrospectiveQueries';
 import { useAuthStore } from '../store/authStore';
 
 interface AxeFlightState {
@@ -32,6 +32,19 @@ interface ThrowableObject {
 }
 
 const AXE_FLIGHT_DURATION_MS = 2700;
+// React StrictMode runs the open effect twice. A second call for the same session
+// inside this window is the remount, not another visit.
+const BOARD_USE_DEDUPE_MS = 1500;
+const recentBoardUses = new Map<string, number>();
+
+function shouldRecordBoardUse(sessionId: string): boolean {
+    const now = Date.now();
+    const last = recentBoardUses.get(sessionId);
+    if (last !== undefined && now - last < BOARD_USE_DEDUPE_MS) return false;
+    recentBoardUses.set(sessionId, now);
+    return true;
+}
+
 const THROWABLE_OBJECTS: ThrowableObject[] = [
     { id: 'axe', label: 'axe', emoji: '🪓' },
     { id: 'hammer', label: 'hammer', emoji: '🔨' },
@@ -91,6 +104,14 @@ export function RetrospectiveDetailPage() {
         queryFn: () => retrospectivesApi.getById(id!),
         enabled: Boolean(id && activeOrganizationId),
     });
+
+    useEffect(() => {
+        const sessionId = retro?.id;
+        if (!sessionId || !shouldRecordBoardUse(sessionId)) return;
+        void retrospectivesApi.recordUse(sessionId).then(() => {
+            queryClient.invalidateQueries({ queryKey: mostUsedBoardsKey });
+        }).catch(() => undefined);
+    }, [retro?.id, queryClient]);
 
     const { data: assignedParticipants = [] } = useQuery({
         queryKey: ['retrospectiveParticipants', id],
