@@ -5,7 +5,6 @@ import { authApi } from '../api/auth';
 import { organizationsApi } from '../api/organizations';
 import { usersApi } from '../api/users';
 import { UserAvatar } from './UserAvatar';
-import { AppearanceOptions } from './ColorModeToggle';
 import { clearOrganizationQueries } from '../query/organizationQueries';
 import { useAuthStore } from '../store/authStore';
 
@@ -256,32 +255,35 @@ export function Layout({ children }: { children: React.ReactNode }) {
                                     >
                                         Profile
                                     </Link>
-                                    <AppearanceOptions variant="menu" />
+                                    <button
+                                        type="button"
+                                        role="menuitem"
+                                        onClick={() => {
+                                            setUserMenuOpen(false);
+                                            handleLogout();
+                                        }}
+                                        className="flex w-full items-center gap-2 border-t border-white/15 px-3 py-2 text-left hover:bg-white/10 transition-colors"
+                                    >
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth={1.75}
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            className="w-4 h-4"
+                                            aria-hidden="true"
+                                        >
+                                            <path d="M15 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3" />
+                                            <path d="M10 17l-5-5 5-5" />
+                                            <path d="M15 12H5" />
+                                        </svg>
+                                        Logout
+                                    </button>
                                 </div>
                             )}
                         </div>
-                        <button
-                            onClick={handleLogout}
-                            aria-label="Logout"
-                            title="Logout"
-                            className="p-1.5 theme-header-hover rounded-md transition-colors"
-                        >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth={1.75}
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                className="w-5 h-5"
-                                aria-hidden="true"
-                            >
-                                <path d="M15 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3" />
-                                <path d="M10 17l-5-5 5-5" />
-                                <path d="M15 12H5" />
-                            </svg>
-                        </button>
                     </div>
                 </div>
             </header>

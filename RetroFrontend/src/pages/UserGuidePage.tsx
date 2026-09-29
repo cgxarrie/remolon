@@ -239,7 +239,7 @@ export function UserGuidePage() {
                     <p>Open the user menu from your name and avatar in the header, then choose Profile.</p>
                     <ul className="list-disc pl-5 space-y-1">
                         <li>Nickname is what others see on the board.</li>
-                        <li>Choose light, dark, or system appearance from the user menu or on this page. It is saved in this browser.</li>
+                        <li>Choose light, dark, or system appearance. It is saved in this browser.</li>
                         <li>Change your password when you are already signed in.</li>
                         <li>Upload or remove an avatar. It appears on boards and in the header.</li>
                     </ul>

@@ -99,32 +99,9 @@ export function ColorModeToggle() {
     );
 }
 
-export function AppearanceOptions({ variant = 'page' }: { variant?: 'page' | 'menu' }) {
+export function AppearanceOptions() {
     const mode = useColorModeStore((state) => state.mode);
     const setMode = useColorModeStore((state) => state.setMode);
-
-    if (variant === 'menu') {
-        return (
-            <div role="group" aria-label="Appearance" className="border-t border-white/15 py-1">
-                <p className="px-3 pt-1 pb-0.5 text-xs font-medium opacity-75">Appearance</p>
-                {modes.map((option) => (
-                    <button
-                        key={option}
-                        type="button"
-                        role="menuitemradio"
-                        aria-checked={mode === option}
-                        onClick={() => setMode(option)}
-                        className={`flex w-full items-center gap-2 px-3 py-2 text-left transition-colors ${
-                            mode === option ? 'bg-white/15' : 'hover:bg-white/10'
-                        }`}
-                    >
-                        <ModeIcon mode={option} />
-                        <span>{modeLabel(option)}</span>
-                    </button>
-                ))}
-            </div>
-        );
-    }
 
     return (
         <div className="flex flex-wrap gap-2">
