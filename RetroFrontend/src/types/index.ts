@@ -59,6 +59,11 @@ export interface CurrentUserDto {
     organizationId: string | null;
 }
 
+export interface ReceivedThrowDto {
+    objectId: string;
+    count: number;
+}
+
 export interface UpdateMeRequest {
     nickname: string;
 }

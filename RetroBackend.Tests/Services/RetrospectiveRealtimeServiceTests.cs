@@ -79,6 +79,35 @@ public class RetrospectiveRealtimeServiceTests
     }
 
     [Fact]
+    public async Task TryCreateThrow_TalliesThrowsReceivedByTheTargetPerObject()
+    {
+        var setup = await SeedAsync();
+        var service = CreateService(setup.Context);
+        var user = Principal(setup.AssignedUserId, Roles.StandardUser, setup.OrganizationId);
+
+        await service.TryCreateThrowAsync(user, setup.RetrospectiveId, setup.TargetUserId, "tomato");
+        await service.TryCreateThrowAsync(user, setup.RetrospectiveId, setup.TargetUserId, "Tomato");
+        await service.TryCreateThrowAsync(user, setup.RetrospectiveId, setup.TargetUserId, "axe");
+
+        var tallies = setup.Context.ReceivedThrows
+            .Where(t => t.UserId == setup.TargetUserId)
+            .ToDictionary(t => t.ObjectId, t => t.Count);
+        Assert.Equal(new Dictionary<string, int> { ["tomato"] = 2, ["axe"] = 1 }, tallies);
+    }
+
+    [Fact]
+    public async Task TryCreateThrow_RejectedThrowIsNotTallied()
+    {
+        var setup = await SeedAsync();
+        var service = CreateService(setup.Context);
+        var user = Principal(setup.AssignedUserId, Roles.StandardUser, setup.OrganizationId);
+
+        await service.TryCreateThrowAsync(user, setup.RetrospectiveId, setup.TargetUserId, "nuke");
+
+        Assert.Empty(setup.Context.ReceivedThrows);
+    }
+
+    [Fact]
     public async Task CanAccess_ManagerFromAnotherOrganizationCannotJoin()
     {
         var setup = await SeedAsync();
@@ -92,7 +121,7 @@ public class RetrospectiveRealtimeServiceTests
     {
         var retrospectiveService = new RetrospectiveService(new EfRetrospectiveRepository(context));
         var authz = new RetroAuthorizationService(context);
-        return new RetrospectiveRealtimeService(retrospectiveService, authz);
+        return new RetrospectiveRealtimeService(retrospectiveService, authz, context);
     }
 
     private static ClaimsPrincipal Principal(string userId, string role, Guid organizationId)

@@ -97,6 +97,49 @@ public class UserProfileTests
         Assert.IsType<BadRequestObjectResult>(result);
     }
 
+    [Fact]
+    public async Task GetReceivedThrows_ReturnsOnlyTheCurrentUsersTally()
+    {
+        await using var context = CreateContext();
+        using var userManager = CreateUserManager(context);
+        var alice = new AppUser("alice@acme.test", "alice");
+        var bob = new AppUser("bob@acme.test", "bob");
+        Assert.True((await userManager.CreateAsync(alice, "Passw0rd!")).Succeeded);
+        Assert.True((await userManager.CreateAsync(bob, "Passw0rd!")).Succeeded);
+        context.ReceivedThrows.AddRange(
+            new ReceivedThrow { UserId = alice.Id, ObjectId = "axe", Count = 1 },
+            new ReceivedThrow { UserId = alice.Id, ObjectId = "tomato", Count = 3 },
+            new ReceivedThrow { UserId = bob.Id, ObjectId = "brick", Count = 5 });
+        await context.SaveChangesAsync();
+        var controller = CreateUsersController(userManager, context, alice.Id, Roles.StandardUser, null);
+
+        var result = await controller.GetReceivedThrows();
+
+        var throws = Assert.IsAssignableFrom<IReadOnlyList<ReceivedThrowDto>>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Equal([new ReceivedThrowDto("tomato", 3), new ReceivedThrowDto("axe", 1)], throws);
+    }
+
+    [Fact]
+    public async Task ClearReceivedThrows_ResetsOnlyTheCurrentUsersTally()
+    {
+        await using var context = CreateContext();
+        using var userManager = CreateUserManager(context);
+        var alice = new AppUser("alice@acme.test", "alice");
+        var bob = new AppUser("bob@acme.test", "bob");
+        Assert.True((await userManager.CreateAsync(alice, "Passw0rd!")).Succeeded);
+        Assert.True((await userManager.CreateAsync(bob, "Passw0rd!")).Succeeded);
+        context.ReceivedThrows.AddRange(
+            new ReceivedThrow { UserId = alice.Id, ObjectId = "axe", Count = 2 },
+            new ReceivedThrow { UserId = bob.Id, ObjectId = "brick", Count = 5 });
+        await context.SaveChangesAsync();
+        var controller = CreateUsersController(userManager, context, alice.Id, Roles.StandardUser, null);
+
+        Assert.IsType<NoContentResult>(await controller.ClearReceivedThrows());
+
+        var remaining = Assert.Single(context.ReceivedThrows);
+        Assert.Equal(bob.Id, remaining.UserId);
+    }
+
     private static UsersController CreateUsersController(
         UserManager<AppUser> userManager,
         RetroDbContext context,

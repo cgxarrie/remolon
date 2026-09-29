@@ -256,6 +256,10 @@ export function UserGuidePage() {
                         object their way. Everyone on that board sees it. Use the throw menu to pick which object
                         you send.
                     </p>
+                    <p>
+                        A red badge next to your own avatar counts what has been thrown at you, per object, even
+                        while you were away. Click the badge to clear it.
+                    </p>
                 </GuideSection>
             </div>
         </Layout>

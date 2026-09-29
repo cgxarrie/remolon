@@ -3,6 +3,8 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { retrospectivesApi } from '../api/retrospectives';
 import { assignmentsApi } from '../api/assignments';
+import { usersApi } from '../api/users';
+import type { ReceivedThrowDto } from '../types';
 import { Layout } from '../components/Layout';
 import { RetroBoard } from '../components/RetroBoard';
 import { AssignUserModal } from '../components/AssignUserModal';
@@ -62,6 +64,13 @@ function isThrowableId(id: string): id is ThrowableObject['id'] {
     return THROWABLE_OBJECTS.some((obj) => obj.id === id);
 }
 
+function addReceivedThrow(throws: ReceivedThrowDto[] = [], objectId: string): ReceivedThrowDto[] {
+    const next = throws.some((t) => t.objectId === objectId)
+        ? throws.map((t) => (t.objectId === objectId ? { ...t, count: t.count + 1 } : t))
+        : [...throws, { objectId, count: 1 }];
+    return next.sort((a, b) => b.count - a.count || a.objectId.localeCompare(b.objectId));
+}
+
 export function RetrospectiveDetailPage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
@@ -75,6 +84,7 @@ export function RetrospectiveDetailPage() {
     const canManage = role === 'Manager';
     const activeOrganizationId = organizationId;
     const throwablePreferenceKey = `retro-throwable:${userId ?? email ?? 'anonymous'}`;
+    const receivedThrowsKey = ['receivedThrows', userId] as const;
 
     const [editingTitle, setEditingTitle] = useState(false);
     const [titleValue, setTitleValue] = useState('');
@@ -117,6 +127,22 @@ export function RetrospectiveDetailPage() {
         queryKey: ['retrospectiveParticipants', id],
         queryFn: () => assignmentsApi.getRetrospectiveParticipants(id!),
         enabled: !!id,
+    });
+
+    const { data: receivedThrows = [] } = useQuery({
+        queryKey: receivedThrowsKey,
+        queryFn: usersApi.getReceivedThrows,
+        enabled: Boolean(userId),
+    });
+
+    const clearReceivedThrowsMutation = useMutation({
+        mutationFn: usersApi.clearReceivedThrows,
+        onMutate: () => {
+            queryClient.setQueryData<ReceivedThrowDto[]>(receivedThrowsKey, []);
+        },
+        onError: () => {
+            void queryClient.invalidateQueries({ queryKey: receivedThrowsKey });
+        },
     });
 
     const closeMutation = useMutation({
@@ -371,6 +397,12 @@ export function RetrospectiveDetailPage() {
         const handleThrown = (event: ObjectThrownEvent) => {
             if (!isThrowableId(event.objectId)) return;
             playFlightRef.current(event.fromUserId, event.targetUserId, event.objectId);
+            if (event.targetUserId.toLowerCase() === userId.toLowerCase()) {
+                queryClient.setQueryData<ReceivedThrowDto[]>(
+                    ['receivedThrows', userId],
+                    (current) => addReceivedThrow(current, event.objectId),
+                );
+            }
         };
 
         const refreshBoard = (event: ItemsChangedEvent | RetrospectiveRevealedEvent) => {
@@ -410,6 +442,7 @@ export function RetrospectiveDetailPage() {
 
         connection.onreconnected(() => {
             void join();
+            void queryClient.invalidateQueries({ queryKey: ['receivedThrows', userId] });
         });
 
         void connection.start().then(join).catch(() => undefined);
@@ -753,6 +786,24 @@ export function RetrospectiveDetailPage() {
                     participantRef={(participantId, element) => {
                         targetAvatarRefs.current[participantId] = element;
                     }}
+                    currentUserBadge={receivedThrows.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => clearReceivedThrowsMutation.mutate()}
+                            className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-semibold text-white shadow ring-2 ring-white hover:bg-red-700 dark:ring-slate-900"
+                            title={`Thrown at you since you last checked: ${receivedThrows
+                                .map((t) => `${t.count} × ${getThrowableObject(t.objectId).label}`)
+                                .join(', ')}. Click to clear.`}
+                            aria-label="Clear objects thrown at you"
+                        >
+                            {receivedThrows.map((t) => (
+                                <span key={t.objectId} className="flex items-center gap-0.5">
+                                    <span aria-hidden="true">{getThrowableObject(t.objectId).emoji}</span>
+                                    {t.count}
+                                </span>
+                            ))}
+                        </button>
+                    )}
                     currentUserAction={(
                         <button
                             onClick={handleCurrentThrowableIconClick}

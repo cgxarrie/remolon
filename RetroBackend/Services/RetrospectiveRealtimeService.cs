@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using RetroBackend.Auth;
+using RetroBackend.Data;
 using RetroBackend.Dtos;
+using RetroBackend.Models;
 
 namespace RetroBackend.Services;
 
@@ -8,13 +10,16 @@ public class RetrospectiveRealtimeService : IRetrospectiveRealtimeService
 {
     private readonly IRetrospectiveService _retrospectiveService;
     private readonly IRetroAuthorizationService _authzService;
+    private readonly RetroDbContext _context;
 
     public RetrospectiveRealtimeService(
         IRetrospectiveService retrospectiveService,
-        IRetroAuthorizationService authzService)
+        IRetroAuthorizationService authzService,
+        RetroDbContext context)
     {
         _retrospectiveService = retrospectiveService;
         _authzService = authzService;
+        _context = context;
     }
 
     public async Task<bool> CanAccessAsync(ClaimsPrincipal user, Guid retrospectiveId)
@@ -56,6 +61,32 @@ public class RetrospectiveRealtimeService : IRetrospectiveRealtimeService
             || await _authzService.IsAssignedToRetrospectiveAsync(targetUserId, retrospectiveId);
         if (!targetOnBoard) return null;
 
-        return new ObjectThrownDto(userId, targetUserId, objectId.ToLowerInvariant());
+        var normalizedObjectId = objectId.ToLowerInvariant();
+        await RecordReceivedThrowAsync(targetUserId, normalizedObjectId);
+
+        return new ObjectThrownDto(userId, targetUserId, normalizedObjectId);
+    }
+
+    private async Task RecordReceivedThrowAsync(string targetUserId, string objectId)
+    {
+        var tally = await _context.ReceivedThrows.FindAsync(targetUserId, objectId);
+        var now = DateTime.UtcNow;
+        if (tally is null)
+        {
+            _context.ReceivedThrows.Add(new ReceivedThrow
+            {
+                UserId = targetUserId,
+                ObjectId = objectId,
+                Count = 1,
+                LastThrownAt = now,
+            });
+        }
+        else
+        {
+            tally.Count++;
+            tally.LastThrownAt = now;
+        }
+
+        await _context.SaveChangesAsync();
     }
 }

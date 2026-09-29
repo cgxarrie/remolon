@@ -97,6 +97,39 @@ public class UsersController : ControllerBase
         return Ok(tokens);
     }
 
+    /// <summary>Returns how many of each throwable object have hit the current user since they last cleared the tally.</summary>
+    [HttpGet("me/received-throws")]
+    [ProducesResponseType(typeof(IReadOnlyList<ReceivedThrowDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetReceivedThrows()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+        var throws = await _context.ReceivedThrows
+            .Where(t => t.UserId == userId && t.Count > 0)
+            .OrderByDescending(t => t.Count)
+            .ThenBy(t => t.ObjectId)
+            .Select(t => new ReceivedThrowDto(t.ObjectId, t.Count))
+            .ToListAsync();
+        return Ok(throws);
+    }
+
+    /// <summary>Resets the current user's received-throw tally.</summary>
+    [HttpDelete("me/received-throws")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ClearReceivedThrows()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+        var throws = await _context.ReceivedThrows.Where(t => t.UserId == userId).ToListAsync();
+        _context.ReceivedThrows.RemoveRange(throws);
+        await _context.SaveChangesAsync();
+        return NoContent();
+    }
+
     /// <summary>Creates a user and queues a one-time set-password link for background delivery. Manager.</summary>
     [HttpPost]
     [Authorize(Roles = Roles.Manager)]

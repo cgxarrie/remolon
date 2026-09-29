@@ -5,6 +5,7 @@ import type {
     CreateUserResponse,
     CurrentUserDto,
     PagedResponse,
+    ReceivedThrowDto,
     UpdateMeRequest,
     UserSummaryDto,
 } from '../types';
@@ -15,6 +16,12 @@ export const usersApi = {
 
     updateMe: (data: UpdateMeRequest) =>
         client.patch<AuthTokenResponse>('/users/me', data).then((r) => r.data),
+
+    getReceivedThrows: () =>
+        client.get<ReceivedThrowDto[]>('/users/me/received-throws').then((r) => r.data),
+
+    clearReceivedThrows: () =>
+        client.delete('/users/me/received-throws'),
 
     getAll: (organizationId: string, page = 1, pageSize = 20) =>
         client.get<PagedResponse<UserSummaryDto>>('/users', {

@@ -14,6 +14,7 @@ interface Props {
     participants: AvatarEntry[];
     targetedIds?: string[];
     currentUserAction?: React.ReactNode;
+    currentUserBadge?: React.ReactNode;
     onParticipantClick?: (participantId: string) => void;
     currentUserRef?: (element: HTMLDivElement | null) => void;
     participantRef?: (participantId: string, element: HTMLDivElement | null) => void;
@@ -77,6 +78,7 @@ function AvatarPill({
     isTargeted = false,
     avatarRef,
     action,
+    badge,
 }: {
     user: AvatarEntry;
     isCurrent?: boolean;
@@ -84,39 +86,43 @@ function AvatarPill({
     isTargeted?: boolean;
     avatarRef?: (element: HTMLDivElement | null) => void;
     action?: React.ReactNode;
+    badge?: React.ReactNode;
 }) {
     const clickable = Boolean(onClick);
 
     return (
         <div className={['flex flex-col items-center gap-1', isCurrent ? 'w-32' : 'w-24'].join(' ')}>
-            <div
-                ref={avatarRef}
-                onClick={onClick}
-                className={[
-                    'h-12 w-12 flex-shrink-0 rounded-full overflow-hidden border transition-all',
-                    isCurrent ? 'border-indigo-700 ring-4 ring-indigo-200' : 'border-white',
-                    clickable ? 'cursor-pointer hover:scale-105 hover:shadow-md' : '',
-                    isTargeted ? 'ring-4 ring-amber-300 scale-105' : '',
-                ].join(' ')}
-                title={user.name}
-                aria-label={user.name}
-                role={clickable ? 'button' : undefined}
-                tabIndex={clickable ? 0 : -1}
-                onKeyDown={(event) => {
-                    if (!clickable) return;
-                    if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        onClick?.();
-                    }
-                }}
-            >
-                <UserAvatar
-                    userId={user.id}
-                    avatarUrl={user.avatarUrl ?? null}
-                    name={user.name}
-                    className="h-12 w-12 text-sm border-0"
-                    fallbackClassName={isCurrent ? 'bg-indigo-600 text-white' : undefined}
-                />
+            <div className="relative">
+                <div
+                    ref={avatarRef}
+                    onClick={onClick}
+                    className={[
+                        'h-12 w-12 flex-shrink-0 rounded-full overflow-hidden border transition-all',
+                        isCurrent ? 'border-indigo-700 ring-4 ring-indigo-200' : 'border-white',
+                        clickable ? 'cursor-pointer hover:scale-105 hover:shadow-md' : '',
+                        isTargeted ? 'ring-4 ring-amber-300 scale-105' : '',
+                    ].join(' ')}
+                    title={user.name}
+                    aria-label={user.name}
+                    role={clickable ? 'button' : undefined}
+                    tabIndex={clickable ? 0 : -1}
+                    onKeyDown={(event) => {
+                        if (!clickable) return;
+                        if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            onClick?.();
+                        }
+                    }}
+                >
+                    <UserAvatar
+                        userId={user.id}
+                        avatarUrl={user.avatarUrl ?? null}
+                        name={user.name}
+                        className="h-12 w-12 text-sm border-0"
+                        fallbackClassName={isCurrent ? 'bg-indigo-600 text-white' : undefined}
+                    />
+                </div>
+                {badge && <div className="absolute -top-2 left-9 z-10">{badge}</div>}
             </div>
             <div className="flex max-w-full items-center gap-1">
                 <p className="text-[11px] leading-tight text-slate-500 dark:text-slate-400 truncate" title={user.name}>
@@ -138,6 +144,7 @@ export function ParticipantsTable({
     participants,
     targetedIds = [],
     currentUserAction,
+    currentUserBadge,
     onParticipantClick,
     currentUserRef,
     participantRef,
@@ -185,6 +192,7 @@ export function ParticipantsTable({
                     isCurrent
                     avatarRef={currentUserRef}
                     action={currentUserAction}
+                    badge={currentUserBadge}
                 />
                 {topParticipants.map(renderParticipant)}
             </div>

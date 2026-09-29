@@ -15,6 +15,7 @@ public class RetroDbContext : IdentityDbContext<AppUser>
       public DbSet<Column> Columns => Set<Column>();
       public DbSet<UserRetrospective> UserRetrospectives => Set<UserRetrospective>();
       public DbSet<BoardUsage> BoardUsages => Set<BoardUsage>();
+      public DbSet<ReceivedThrow> ReceivedThrows => Set<ReceivedThrow>();
       public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
       protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -153,6 +154,16 @@ public class RetroDbContext : IdentityDbContext<AppUser>
                   entity.HasOne(u => u.User)
                     .WithMany()
                     .HasForeignKey(u => u.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<ReceivedThrow>(entity =>
+            {
+                  entity.HasKey(t => new { t.UserId, t.ObjectId });
+                  entity.Property(t => t.ObjectId).HasMaxLength(20);
+                  entity.HasOne(t => t.User)
+                    .WithMany()
+                    .HasForeignKey(t => t.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
