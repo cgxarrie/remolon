@@ -64,6 +64,35 @@ function isThrowableId(id: string): id is ThrowableObject['id'] {
     return THROWABLE_OBJECTS.some((obj) => obj.id === id);
 }
 
+// h-9/w-9 buttons, gap-1, p-1 and a 1px border. Used to keep the menu inside the viewport.
+const THROWABLE_BUTTON_SIZE = 36;
+const THROWABLE_MENU_GAP = 4;
+const THROWABLE_MENU_CHROME = 10;
+const MENU_VIEWPORT_MARGIN = 8;
+
+function throwableMenuSize(count: number) {
+    return {
+        width: count * THROWABLE_BUTTON_SIZE
+            + Math.max(0, count - 1) * THROWABLE_MENU_GAP
+            + THROWABLE_MENU_CHROME,
+        height: THROWABLE_BUTTON_SIZE + THROWABLE_MENU_CHROME,
+    };
+}
+
+function placeThrowableMenu(anchor: DOMRect): { x: number; y: number } {
+    const { width, height } = throwableMenuSize(THROWABLE_OBJECTS.length);
+    const centered = anchor.left + anchor.width / 2 - width / 2;
+    const maxLeft = window.innerWidth - MENU_VIEWPORT_MARGIN - width;
+    const x = Math.max(MENU_VIEWPORT_MARGIN, Math.min(centered, maxLeft));
+
+    const below = anchor.bottom + 8;
+    const above = anchor.top - 8 - height;
+    const fitsBelow = below + height <= window.innerHeight - MENU_VIEWPORT_MARGIN;
+    const y = fitsBelow ? below : Math.max(MENU_VIEWPORT_MARGIN, above);
+
+    return { x, y };
+}
+
 function addReceivedThrow(throws: ReceivedThrowDto[] = [], objectId: string): ReceivedThrowDto[] {
     const next = throws.some((t) => t.objectId === objectId)
         ? throws.map((t) => (t.objectId === objectId ? { ...t, count: t.count + 1 } : t))
@@ -323,8 +352,7 @@ export function RetrospectiveDetailPage() {
         }
 
         setThrowableMenu({
-            x: iconRect.left + iconRect.width / 2,
-            y: iconRect.bottom + 8,
+            ...placeThrowableMenu(iconRect),
             open: true,
         });
     }
@@ -528,11 +556,11 @@ export function RetrospectiveDetailPage() {
 
                 {throwableMenu.open && (
                     <div
-                        className="fixed z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-1"
-                        style={{ left: throwableMenu.x, top: throwableMenu.y, transform: 'translateX(-50%)' }}
+                        className="fixed z-50 max-w-[calc(100vw-1rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-1"
+                        style={{ left: throwableMenu.x, top: throwableMenu.y }}
                         onClick={(event) => event.stopPropagation()}
                     >
-                        <div className="flex items-center gap-1">
+                        <div className="flex flex-wrap items-center gap-1">
                             {THROWABLE_OBJECTS.map((item) => (
                                 <button
                                     key={item.id}
