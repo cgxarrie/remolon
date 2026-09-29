@@ -30,6 +30,7 @@ export function ActionColumnView({
     const [description, setDescription] = useState('');
     const [assignees, setAssignees] = useState<string[]>([]);
     const [error, setError] = useState('');
+    const [collapsed, setCollapsed] = useState(false);
 
     const participantAssignees = useMemo(() => {
         const unique = new Set(assigneeOptions.map((name) => name.trim()).filter(Boolean));
@@ -73,10 +74,23 @@ export function ActionColumnView({
 
     return (
         <div className="flex flex-col w-full">
-            <div className={`${headerColor} text-white rounded-t-lg px-3 py-2`}>
-                <h3 className="font-semibold text-sm truncate">{column.title}</h3>
-                <p className="text-xs opacity-80">{column.items.length} item(s)</p>
+            <div className={`${headerColor} text-white px-3 py-2 flex items-center gap-2 ${collapsed ? 'rounded-lg' : 'rounded-t-lg'}`}>
+                <button
+                    type="button"
+                    onClick={() => setCollapsed((open) => !open)}
+                    className="text-white/80 hover:text-white flex-shrink-0 px-1 text-sm leading-none"
+                    aria-expanded={!collapsed}
+                    aria-label={collapsed ? `Expand ${column.title}` : `Collapse ${column.title}`}
+                    title={collapsed ? 'Expand column' : 'Collapse column'}
+                >
+                    <span aria-hidden="true">{collapsed ? '▶' : '▼'}</span>
+                </button>
+                <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold text-sm truncate">{column.title}</h3>
+                    <p className="text-xs opacity-80">{column.items.length} item(s)</p>
+                </div>
             </div>
+            {!collapsed && (
             <div className="bg-slate-100 dark:bg-slate-800 rounded-b-lg p-2 grid gap-2 min-h-[120px] items-start grid-cols-[repeat(auto-fill,minmax(16rem,1fr))]">
                 {sortedItems.map((item) => (
                     <ActionItemCard
@@ -137,6 +151,7 @@ export function ActionColumnView({
                     </>
                 )}
             </div>
+            )}
         </div>
     );
 }

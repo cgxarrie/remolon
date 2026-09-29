@@ -49,6 +49,7 @@ export function ColumnView({
     const [editingTitle, setEditingTitle] = useState(false);
     const [titleValue, setTitleValue] = useState(column.title);
     const [mergingFromId, setMergingFromId] = useState<string | null>(null);
+    const [collapsed, setCollapsed] = useState(false);
     const [localHeaderColor, setLocalHeaderColor] = useState(column.headerColor ?? '#4f46e5');
 
     useEffect(() => {
@@ -155,9 +156,22 @@ export function ColumnView({
         <div ref={setColRef} style={colStyle} className="flex flex-col w-full flex-shrink-0 md:w-72">
             {/* Column header */}
             <div
-                className="text-white rounded-t-lg px-2 py-2 flex items-center gap-1"
+                className={[
+                    'text-white px-2 py-2 flex items-center gap-1',
+                    collapsed ? 'rounded-lg' : 'rounded-t-lg',
+                ].join(' ')}
                 style={{ backgroundColor: localHeaderColor }}
             >
+                <button
+                    type="button"
+                    onClick={() => setCollapsed((open) => !open)}
+                    className="text-white/80 hover:text-white flex-shrink-0 px-1 text-sm leading-none"
+                    aria-expanded={!collapsed}
+                    aria-label={collapsed ? `Expand ${column.title}` : `Collapse ${column.title}`}
+                    title={collapsed ? 'Expand column' : 'Collapse column'}
+                >
+                    <span aria-hidden="true">{collapsed ? '▶' : '▼'}</span>
+                </button>
                 {canManage && (
                     <div
                         {...colAttributes}
@@ -225,6 +239,7 @@ export function ColumnView({
             </div>
 
             {/* Items area */}
+            {!collapsed && (
             <div
                 ref={setDropRef}
                 className={[
@@ -349,6 +364,7 @@ export function ColumnView({
                     </>
                 )}
             </div>
+            )}
         </div>
     );
 }
