@@ -152,7 +152,7 @@ export function ColumnView({
     }, [column.items]);
 
     return (
-        <div ref={setColRef} style={colStyle} className="flex flex-col w-72 flex-shrink-0">
+        <div ref={setColRef} style={colStyle} className="flex flex-col w-full flex-shrink-0 md:w-72">
             {/* Column header */}
             <div
                 className="text-white rounded-t-lg px-2 py-2 flex items-center gap-1"

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNarrowScreen } from '../useNarrowScreen';
 import { UserAvatar } from './UserAvatar';
 
 export interface AvatarEntry {
@@ -29,9 +30,10 @@ const MAX_TOP = 4;
 const MAX_BOTTOM = 6;
 const MAX_SIDE = 3;
 
-// Fewer than 10 people (including the current user) sit only on the left and
-// right of the board. Larger groups also use the top and bottom rows. The
-// current user is always rendered separately in the top-left seat.
+// On a wide screen, fewer than 10 people (including the current user) sit only
+// on the left and right of the board. Larger groups also use the top and bottom
+// rows. The current user is always rendered separately in the top-left seat.
+// Narrow screens skip this seating and keep everyone in the top row.
 function seatParticipants(
     participants: AvatarEntry[],
     allowSides: boolean,
@@ -143,6 +145,7 @@ export function ParticipantsTable({
 }: Props) {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const [availableWidth, setAvailableWidth] = useState(0);
+    const isNarrow = useNarrowScreen();
 
     useEffect(() => {
         const container = containerRef.current;
@@ -172,6 +175,8 @@ export function ParticipantsTable({
         />
     );
 
+    const topParticipants = isNarrow ? participants : edges.top;
+
     return (
         <div ref={containerRef} className="w-full space-y-4">
             <div className="flex flex-wrap items-start justify-start gap-x-4 gap-y-3">
@@ -181,27 +186,33 @@ export function ParticipantsTable({
                     avatarRef={currentUserRef}
                     action={currentUserAction}
                 />
-                {edges.top.map(renderParticipant)}
+                {topParticipants.map(renderParticipant)}
             </div>
 
-            <div className="flex items-stretch gap-4">
-                {edges.left.length > 0 && (
-                    <div className="flex flex-col justify-center gap-4">
-                        {edges.left.map(renderParticipant)}
+            {isNarrow ? (
+                <div className="min-w-0">{children}</div>
+            ) : (
+                <>
+                    <div className="flex items-stretch gap-4">
+                        {edges.left.length > 0 && (
+                            <div className="flex flex-col justify-center gap-4">
+                                {edges.left.map(renderParticipant)}
+                            </div>
+                        )}
+                        <div className="min-w-0 flex-1">{children}</div>
+                        {edges.right.length > 0 && (
+                            <div className="flex flex-col justify-center gap-4">
+                                {edges.right.map(renderParticipant)}
+                            </div>
+                        )}
                     </div>
-                )}
-                <div className="min-w-0 flex-1">{children}</div>
-                {edges.right.length > 0 && (
-                    <div className="flex flex-col justify-center gap-4">
-                        {edges.right.map(renderParticipant)}
-                    </div>
-                )}
-            </div>
 
-            {edges.bottom.length > 0 && (
-                <div className="flex flex-wrap items-start justify-center gap-x-4 gap-y-3">
-                    {edges.bottom.map(renderParticipant)}
-                </div>
+                    {edges.bottom.length > 0 && (
+                        <div className="flex flex-wrap items-start justify-center gap-x-4 gap-y-3">
+                            {edges.bottom.map(renderParticipant)}
+                        </div>
+                    )}
+                </>
             )}
 
             {participants.length === 0 && (

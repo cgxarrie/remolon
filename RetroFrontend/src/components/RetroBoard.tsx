@@ -10,7 +10,7 @@ import {
     closestCenter,
     DragOverlay,
 } from '@dnd-kit/core';
-import { SortableContext, arrayMove, horizontalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, arrayMove, horizontalListSortingStrategy, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { itemsApi } from '../api/items';
 import { retrospectivesApi } from '../api/retrospectives';
@@ -19,6 +19,7 @@ import { ActionColumnView } from './ActionColumnView';
 import type { GetColumnDto, GetItemDto, GetRetrospectiveDto } from '../types';
 import { invalidateRetrospective } from '../query/retrospectiveQueries';
 import { useAuthStore } from '../store/authStore';
+import { useNarrowScreen } from '../useNarrowScreen';
 
 interface Props {
     retro: GetRetrospectiveDto;
@@ -38,6 +39,7 @@ export function RetroBoard({ retro, assigneeOptions }: Props) {
     const [overItemId, setOverItemId] = useState<string | null>(null);
     const [addingColumn, setAddingColumn] = useState(false);
     const [newColumnTitle, setNewColumnTitle] = useState('');
+    const isNarrow = useNarrowScreen();
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -213,10 +215,10 @@ export function RetroBoard({ retro, assigneeOptions }: Props) {
                     />
                 )}
 
-                <div className="flex gap-4 overflow-x-auto pb-4 items-start">
+                <div className="flex flex-col gap-4 pb-4 md:flex-row md:items-start md:overflow-x-auto">
                     <SortableContext
                         items={sortedColumns.map((c) => c.id)}
-                        strategy={horizontalListSortingStrategy}
+                        strategy={isNarrow ? verticalListSortingStrategy : horizontalListSortingStrategy}
                     >
                         {sortedColumns.map((col) => (
                             <ColumnView
@@ -240,7 +242,7 @@ export function RetroBoard({ retro, assigneeOptions }: Props) {
                     </SortableContext>
 
                     {canManage && (
-                        <div className="w-64 flex-shrink-0">
+                        <div className="w-full flex-shrink-0 md:w-64">
                             {addingColumn ? (
                                 <div className="bg-white dark:bg-slate-900 border-2 border-dashed border-indigo-300 dark:border-indigo-500 rounded-lg p-3 space-y-2">
                                     <input
