@@ -5,7 +5,7 @@ import { authApi } from '../api/auth';
 import { organizationsApi } from '../api/organizations';
 import { usersApi } from '../api/users';
 import { UserAvatar } from './UserAvatar';
-import { ColorModeToggle } from './ColorModeToggle';
+import { AppearanceOptions } from './ColorModeToggle';
 import { clearOrganizationQueries } from '../query/organizationQueries';
 import { useAuthStore } from '../store/authStore';
 
@@ -72,7 +72,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [menuOpen, setMenuOpen] = useState(false);
+    const [userMenuOpen, setUserMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement | null>(null);
+    const userMenuRef = useRef<HTMLDivElement | null>(null);
 
     // Sessions persisted before the organization name was part of the auth response
     // still need a one-time fetch of the current organization.
@@ -106,14 +108,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
     }, [ownOrganizations, organizationName, setOrganizationName]);
 
     useEffect(() => {
-        if (!menuOpen) return;
+        if (!menuOpen && !userMenuOpen) return;
 
         function handlePointerDown(event: MouseEvent) {
-            if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
+            const target = event.target as Node;
+            if (!menuRef.current?.contains(target)) setMenuOpen(false);
+            if (!userMenuRef.current?.contains(target)) setUserMenuOpen(false);
         }
 
         function handleEscape(event: KeyboardEvent) {
-            if (event.key === 'Escape') setMenuOpen(false);
+            if (event.key === 'Escape') {
+                setMenuOpen(false);
+                setUserMenuOpen(false);
+            }
         }
 
         window.addEventListener('mousedown', handlePointerDown);
@@ -123,7 +130,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             window.removeEventListener('mousedown', handlePointerDown);
             window.removeEventListener('keydown', handleEscape);
         };
-    }, [menuOpen]);
+    }, [menuOpen, userMenuOpen]);
 
     function handleLogout() {
         void authApi.logout().catch(() => undefined);
@@ -165,7 +172,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         {menuItems.length > 0 && (
                             <div ref={menuRef} className="relative">
                                 <button
-                                    onClick={() => setMenuOpen((open) => !open)}
+                                    onClick={() => {
+                                        setMenuOpen((open) => !open);
+                                        setUserMenuOpen(false);
+                                    }}
                                     aria-label="Menu"
                                     aria-expanded={menuOpen}
                                     aria-haspopup="menu"
@@ -214,19 +224,42 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         </Link>
                     </div>
                     <div className="flex items-center gap-4 text-sm">
-                        <Link
-                            to="/profile"
-                            className="flex items-center gap-3 theme-header-hover rounded-md px-2 py-1 transition-colors"
-                            aria-label="Edit profile"
-                            title="Edit profile"
-                        >
-                            <div className="flex flex-col items-end leading-tight pl-4 border-l border-white/25">
-                                <span className="opacity-90">{displayName}</span>
-                                <span className="text-xs font-medium opacity-75">{role}</span>
-                            </div>
-                            <UserAvatar userId={userId} avatarUrl={avatarUrl} name={displayName ?? ''} />
-                        </Link>
-                        <ColorModeToggle variant="header" />
+                        <div ref={userMenuRef} className="relative">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setUserMenuOpen((open) => !open);
+                                    setMenuOpen(false);
+                                }}
+                                aria-label="User options"
+                                aria-expanded={userMenuOpen}
+                                aria-haspopup="menu"
+                                title="User options"
+                                className="flex items-center gap-3 theme-header-hover rounded-md px-2 py-1 transition-colors"
+                            >
+                                <div className="flex flex-col items-end leading-tight pl-4 border-l border-white/25">
+                                    <span className="opacity-90">{displayName}</span>
+                                    <span className="text-xs font-medium opacity-75">{role}</span>
+                                </div>
+                                <UserAvatar userId={userId} avatarUrl={avatarUrl} name={displayName ?? ''} />
+                            </button>
+                            {userMenuOpen && (
+                                <div
+                                    role="menu"
+                                    className="absolute right-0 top-full mt-2 min-w-[12rem] z-20 theme-header border border-white/25 rounded-md shadow-lg py-1 text-sm"
+                                >
+                                    <Link
+                                        to="/profile"
+                                        role="menuitem"
+                                        onClick={() => setUserMenuOpen(false)}
+                                        className="flex items-center gap-2 px-3 py-2 hover:bg-white/10 transition-colors"
+                                    >
+                                        Profile
+                                    </Link>
+                                    <AppearanceOptions variant="menu" />
+                                </div>
+                            )}
+                        </div>
                         <button
                             onClick={handleLogout}
                             aria-label="Logout"

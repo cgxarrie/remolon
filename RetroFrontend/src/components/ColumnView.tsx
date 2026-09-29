@@ -162,16 +162,6 @@ export function ColumnView({
                 ].join(' ')}
                 style={{ backgroundColor: localHeaderColor }}
             >
-                <button
-                    type="button"
-                    onClick={() => setCollapsed((open) => !open)}
-                    className="text-white/80 hover:text-white flex-shrink-0 px-1 text-sm leading-none"
-                    aria-expanded={!collapsed}
-                    aria-label={collapsed ? `Expand ${column.title}` : `Collapse ${column.title}`}
-                    title={collapsed ? 'Expand column' : 'Collapse column'}
-                >
-                    <span aria-hidden="true">{collapsed ? '▶' : '▼'}</span>
-                </button>
                 {canManage && (
                     <div
                         {...colAttributes}
@@ -236,6 +226,16 @@ export function ColumnView({
                         />
                     </label>
                 )}
+                <button
+                    type="button"
+                    onClick={() => setCollapsed((open) => !open)}
+                    className="text-white/80 hover:text-white flex-shrink-0 px-1 text-sm leading-none"
+                    aria-expanded={!collapsed}
+                    aria-label={collapsed ? `Expand ${column.title}` : `Collapse ${column.title}`}
+                    title={collapsed ? 'Expand column' : 'Collapse column'}
+                >
+                    <span aria-hidden="true">{collapsed ? '▶' : '▼'}</span>
+                </button>
             </div>
 
             {/* Items area */}

@@ -80,7 +80,7 @@ export function ColorModeSync() {
     return null;
 }
 
-export function ColorModeToggle({ variant = 'page' }: { variant?: 'header' | 'page' }) {
+export function ColorModeToggle() {
     const mode = useColorModeStore((state) => state.mode);
     const setMode = useColorModeStore((state) => state.setMode);
     const next = nextMode(mode);
@@ -92,20 +92,39 @@ export function ColorModeToggle({ variant = 'page' }: { variant?: 'header' | 'pa
             onClick={() => setMode(next)}
             aria-label={`Color mode: ${modeLabel(mode)}. Switch to ${modeLabel(next)}`}
             title={`Appearance: ${modeLabel(mode)}${mode === 'system' ? ` (${resolved})` : ''}. Click for ${modeLabel(next).toLowerCase()}.`}
-            className={
-                variant === 'header'
-                    ? 'p-1.5 theme-header-hover rounded-md transition-colors'
-                    : 'p-1.5 rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-200 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800 transition-colors'
-            }
+            className="p-1.5 rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-200 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800 transition-colors"
         >
             <ModeIcon mode={mode} />
         </button>
     );
 }
 
-export function AppearanceOptions() {
+export function AppearanceOptions({ variant = 'page' }: { variant?: 'page' | 'menu' }) {
     const mode = useColorModeStore((state) => state.mode);
     const setMode = useColorModeStore((state) => state.setMode);
+
+    if (variant === 'menu') {
+        return (
+            <div role="group" aria-label="Appearance" className="border-t border-white/15 py-1">
+                <p className="px-3 pt-1 pb-0.5 text-xs font-medium opacity-75">Appearance</p>
+                {modes.map((option) => (
+                    <button
+                        key={option}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={mode === option}
+                        onClick={() => setMode(option)}
+                        className={`flex w-full items-center gap-2 px-3 py-2 text-left transition-colors ${
+                            mode === option ? 'bg-white/15' : 'hover:bg-white/10'
+                        }`}
+                    >
+                        <ModeIcon mode={option} />
+                        <span>{modeLabel(option)}</span>
+                    </button>
+                ))}
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-wrap gap-2">
