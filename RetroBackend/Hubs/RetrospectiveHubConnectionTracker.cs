@@ -38,6 +38,18 @@ public sealed class RetrospectiveHubConnectionTracker
         _byConnection[connectionId] = existing with { RetrospectiveId = null };
     }
 
+    public bool IsViewingRetrospective(string userId, Guid retrospectiveId)
+    {
+        foreach (var state in _byConnection.Values)
+        {
+            if (state.RetrospectiveId == retrospectiveId
+                && string.Equals(state.UserId, userId, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
     public IReadOnlyList<string> GetConnectionIds(string userId) =>
         _byUser.TryGetValue(userId, out var connections)
             ? connections.Keys.ToArray()

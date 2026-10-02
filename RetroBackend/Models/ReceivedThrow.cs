@@ -1,7 +1,7 @@
 namespace RetroBackend.Models;
 
 /// <summary>
-/// How many times a user has been hit by one kind of throwable object since they last cleared the tally.
+/// How many times a user has been hit by one kind of throwable object while none of their browsers were viewing that retrospective.
 /// </summary>
 public class ReceivedThrow
 {

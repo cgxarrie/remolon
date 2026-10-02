@@ -257,8 +257,8 @@ export function UserGuidePage() {
                         you send.
                     </p>
                     <p>
-                        A red badge next to your own avatar counts what has been thrown at you, per object, even
-                        while you were away. Click the badge to clear it.
+                        A red badge next to your own avatar counts what was thrown at you, per object, while none of
+                        your browsers were open on that board. You see it when you come back. Click the badge to clear it.
                     </p>
                 </GuideSection>
             </div>

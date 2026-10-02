@@ -2,6 +2,7 @@ using System.Security.Claims;
 using RetroBackend.Auth;
 using RetroBackend.Data;
 using RetroBackend.Dtos;
+using RetroBackend.Hubs;
 using RetroBackend.Models;
 
 namespace RetroBackend.Services;
@@ -11,15 +12,18 @@ public class RetrospectiveRealtimeService : IRetrospectiveRealtimeService
     private readonly IRetrospectiveService _retrospectiveService;
     private readonly IRetroAuthorizationService _authzService;
     private readonly RetroDbContext _context;
+    private readonly RetrospectiveHubConnectionTracker _connections;
 
     public RetrospectiveRealtimeService(
         IRetrospectiveService retrospectiveService,
         IRetroAuthorizationService authzService,
-        RetroDbContext context)
+        RetroDbContext context,
+        RetrospectiveHubConnectionTracker connections)
     {
         _retrospectiveService = retrospectiveService;
         _authzService = authzService;
         _context = context;
+        _connections = connections;
     }
 
     public async Task<bool> CanAccessAsync(ClaimsPrincipal user, Guid retrospectiveId)
@@ -62,7 +66,8 @@ public class RetrospectiveRealtimeService : IRetrospectiveRealtimeService
         if (!targetOnBoard) return null;
 
         var normalizedObjectId = objectId.ToLowerInvariant();
-        await RecordReceivedThrowAsync(targetUserId, normalizedObjectId);
+        if (!_connections.IsViewingRetrospective(targetUserId, retrospectiveId))
+            await RecordReceivedThrowAsync(targetUserId, normalizedObjectId);
 
         return new ObjectThrownDto(userId, targetUserId, normalizedObjectId);
     }
